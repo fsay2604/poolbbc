@@ -15,6 +15,12 @@
                 <flux:navbar.item icon="layout-grid" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
                     {{ __('Dashboard') }}
                 </flux:navbar.item>
+                <flux:navbar.item icon="calendar" :href="route('weeks.index')" :current="request()->routeIs('weeks.*')" wire:navigate>
+                    {{ __('Weeks') }}
+                </flux:navbar.item>
+                <flux:navbar.item icon="trophy" :href="route('leaderboard')" :current="request()->routeIs('leaderboard')" wire:navigate>
+                    {{ __('Leaderboard') }}
+                </flux:navbar.item>
             </flux:navbar>
 
             <flux:spacer />
@@ -100,6 +106,12 @@
                 <flux:navlist.group :heading="__('Platform')">
                     <flux:navlist.item icon="layout-grid" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
                     {{ __('Dashboard') }}
+                    </flux:navlist.item>
+                    <flux:navlist.item icon="calendar" :href="route('weeks.index')" :current="request()->routeIs('weeks.*')" wire:navigate>
+                    {{ __('Weeks') }}
+                    </flux:navlist.item>
+                    <flux:navlist.item icon="trophy" :href="route('leaderboard')" :current="request()->routeIs('leaderboard')" wire:navigate>
+                    {{ __('Leaderboard') }}
                     </flux:navlist.item>
                 </flux:navlist.group>
             </flux:navlist>

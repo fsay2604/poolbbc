@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Week;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 use Livewire\Volt\Volt;
@@ -29,4 +30,33 @@ Route::middleware(['auth'])->group(function () {
             ),
         )
         ->name('two-factor.show');
+
+    Volt::route('weeks', 'weeks.index')->name('weeks.index');
+    Volt::route('weeks/{week}', 'weeks.show')->name('weeks.show');
+
+    Route::get('current-week', function () {
+        $week = Week::query()
+            ->forActiveSeason()
+            ->orderBy('number')
+            ->whereNull('locked_at')
+            ->where('prediction_deadline_at', '>', now())
+            ->first();
+
+        $week ??= Week::query()->forActiveSeason()->orderByDesc('number')->first();
+
+        abort_if($week === null, 404);
+
+        return redirect()->route('weeks.show', $week);
+    })->name('current-week');
+
+    Volt::route('leaderboard', 'leaderboard')->name('leaderboard');
+
+    Route::middleware(['can:admin'])->prefix('admin')->group(function () {
+        Volt::route('seasons', 'admin.seasons.index')->name('admin.seasons.index');
+        Volt::route('weeks', 'admin.weeks.index')->name('admin.weeks.index');
+        Volt::route('houseguests', 'admin.houseguests.index')->name('admin.houseguests.index');
+        Volt::route('weeks/{week}/outcome', 'admin.weeks.outcome')->name('admin.weeks.outcome');
+        Volt::route('predictions/{prediction}', 'admin.predictions.edit')->name('admin.predictions.edit');
+        Volt::route('recalculate', 'admin.recalculate')->name('admin.recalculate');
+    });
 });

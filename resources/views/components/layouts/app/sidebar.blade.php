@@ -14,8 +14,21 @@
             <flux:navlist variant="outline">
                 <flux:navlist.group :heading="__('Platform')" class="grid">
                     <flux:navlist.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>{{ __('Dashboard') }}</flux:navlist.item>
+                    <flux:navlist.item icon="calendar" :href="route('weeks.index')" :current="request()->routeIs('weeks.*')" wire:navigate>{{ __('Weeks') }}</flux:navlist.item>
+                    <flux:navlist.item icon="trophy" :href="route('leaderboard')" :current="request()->routeIs('leaderboard')" wire:navigate>{{ __('Leaderboard') }}</flux:navlist.item>
                 </flux:navlist.group>
             </flux:navlist>
+
+            @can('admin')
+                <flux:navlist variant="outline">
+                    <flux:navlist.group :heading="__('Admin')" class="grid">
+                        <flux:navlist.item icon="cog" :href="route('admin.seasons.index')" :current="request()->routeIs('admin.seasons.*')" wire:navigate>{{ __('Seasons') }}</flux:navlist.item>
+                        <flux:navlist.item icon="calendar" :href="route('admin.weeks.index')" :current="request()->routeIs('admin.weeks.*')" wire:navigate>{{ __('Weeks') }}</flux:navlist.item>
+                        <flux:navlist.item icon="users" :href="route('admin.houseguests.index')" :current="request()->routeIs('admin.houseguests.*')" wire:navigate>{{ __('Houseguests') }}</flux:navlist.item>
+                        <flux:navlist.item icon="calculator" :href="route('admin.recalculate')" :current="request()->routeIs('admin.recalculate')" wire:navigate>{{ __('Recalculate Scores') }}</flux:navlist.item>
+                    </flux:navlist.group>
+                </flux:navlist>
+            @endcan
 
             <flux:spacer />
 

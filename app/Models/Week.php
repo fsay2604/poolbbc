@@ -60,7 +60,11 @@ class Week extends Model
     {
         $now ??= now();
 
-        return $this->locked_at !== null || $now->greaterThanOrEqualTo($this->prediction_deadline_at);
+        if ($this->locked_at !== null) {
+            return $this->locked_at->lessThanOrEqualTo($now);
+        }
+
+        return $now->greaterThanOrEqualTo($this->prediction_deadline_at);
     }
 
     public function scopeForActiveSeason(Builder $query): Builder

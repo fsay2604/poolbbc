@@ -35,11 +35,15 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('weeks/{week}', 'weeks.show')->name('weeks.show');
 
     Route::get('current-week', function () {
+        $now = now();
+
         $week = Week::query()
             ->forActiveSeason()
             ->orderBy('number')
-            ->whereNull('locked_at')
-            ->where('prediction_deadline_at', '>', now())
+            ->where(function ($query) use ($now) {
+                $query->whereNull('locked_at')->orWhere('locked_at', '>', $now);
+            })
+            ->where('prediction_deadline_at', '>', $now)
             ->first();
 
         $week ??= Week::query()->forActiveSeason()->orderByDesc('number')->first();

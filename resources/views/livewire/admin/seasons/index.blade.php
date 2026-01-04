@@ -4,11 +4,17 @@ use App\Actions\Seasons\CreateDefaultWeeks;
 use App\Models\Season;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\DB;
 use Livewire\Volt\Component;
 
 new class extends Component {
     /** @var \Illuminate\Support\Collection<int, \App\Models\Season> */
     public $seasons;
+
+    public ?int $confirmingSeasonDeletionId = null;
+    public ?string $confirmingSeasonDeletionName = null;
+
+    public bool $showConfirmSeasonDeletionModal = false;
 
     /** @var array{name:string,is_active:bool,starts_on:?string,ends_on:?string} */
     public array $form = [
@@ -86,6 +92,48 @@ new class extends Component {
         $this->dispatch('season-saved');
     }
 
+    public function confirmDelete(int $seasonId): void
+    {
+        Gate::authorize('admin');
+
+        $season = Season::query()->findOrFail($seasonId);
+
+        $this->confirmingSeasonDeletionId = $season->id;
+        $this->confirmingSeasonDeletionName = $season->name;
+
+        $this->showConfirmSeasonDeletionModal = true;
+    }
+
+    public function delete(int $seasonId): void
+    {
+        Gate::authorize('admin');
+
+        DB::transaction(function () use ($seasonId): void {
+            $season = Season::query()->findOrFail($seasonId);
+            $season->delete();
+        });
+
+        if ($this->editingId === $seasonId) {
+            $this->startCreate();
+        }
+
+        $this->refresh();
+
+        $this->dispatch('season-deleted');
+    }
+
+    public function deleteSelectedSeason(): void
+    {
+        abort_if($this->confirmingSeasonDeletionId === null, 422);
+
+        $this->delete($this->confirmingSeasonDeletionId);
+
+        $this->confirmingSeasonDeletionId = null;
+        $this->confirmingSeasonDeletionName = null;
+
+        $this->showConfirmSeasonDeletionModal = false;
+    }
+
     private function refresh(): void
     {
         $this->seasons = Season::query()->orderByDesc('is_active')->orderByDesc('id')->get();
@@ -140,7 +188,13 @@ new class extends Component {
                                         @endif
                                     </td>
                                     <td class="px-4 py-3 text-right">
-                                        <flux:button size="sm" type="button" wire:click="edit({{ $season->id }})">{{ __('Edit') }}</flux:button>
+                                        <div class="flex justify-end gap-2">
+                                            <flux:button size="sm" type="button" wire:click="edit({{ $season->id }})">{{ __('Edit') }}</flux:button>
+
+                                            <flux:button size="sm" variant="danger" type="button" wire:click="confirmDelete({{ $season->id }})">
+                                                {{ __('Delete') }}
+                                            </flux:button>
+                                        </div>
                                     </td>
                                 </tr>
                             @endforeach
@@ -149,5 +203,34 @@ new class extends Component {
                 </div>
             </div>
         </div>
+
+        <x-action-message on="season-deleted" class="text-sm">{{ __('Deleted.') }}</x-action-message>
     </div>
+
+    <flux:modal wire:model.self="showConfirmSeasonDeletionModal" focusable class="max-w-lg">
+        <form wire:submit="deleteSelectedSeason" class="space-y-6">
+            <div>
+                <flux:heading size="lg">{{ __('Delete season?') }}</flux:heading>
+
+                <flux:subheading>
+                    {{ __('This will permanently delete the season and all related data (weeks, houseguests, outcomes, predictions, and scores).') }}
+                    @if ($confirmingSeasonDeletionName)
+                        <div class="mt-2 font-medium text-zinc-900 dark:text-zinc-100">
+                            {{ $confirmingSeasonDeletionName }}
+                        </div>
+                    @endif
+                </flux:subheading>
+            </div>
+
+            <div class="flex justify-end space-x-2 rtl:space-x-reverse">
+                <flux:modal.close>
+                    <flux:button variant="filled" type="button">{{ __('Cancel') }}</flux:button>
+                </flux:modal.close>
+
+                <flux:button variant="danger" type="submit" :disabled="$confirmingSeasonDeletionId === null">
+                    {{ __('Delete season') }}
+                </flux:button>
+            </div>
+        </form>
+    </flux:modal>
 </section>

@@ -1,0 +1,95 @@
+<?php
+
+use App\Models\Houseguest;
+use App\Models\Prediction;
+use App\Models\Season;
+use App\Models\User;
+use App\Models\Week;
+use Illuminate\Support\Carbon;
+use Livewire\Volt\Volt;
+
+test('user cannot confirm a prediction where HOH is also a nominee/veto winner/evicted', function () {
+    Carbon::setTestNow('2026-01-04 12:00:00');
+
+    $user = User::factory()->create();
+    $season = Season::factory()->create(['is_active' => true]);
+    $week = Week::factory()->for($season)->create([
+        'prediction_deadline_at' => Carbon::parse('2026-01-10 19:00:00'),
+        'locked_at' => null,
+    ]);
+
+    $boss = Houseguest::factory()->for($season)->create(['is_active' => true]);
+    $hg2 = Houseguest::factory()->for($season)->create(['is_active' => true]);
+    $hg3 = Houseguest::factory()->for($season)->create(['is_active' => true]);
+    $hg4 = Houseguest::factory()->for($season)->create(['is_active' => true]);
+    $hg5 = Houseguest::factory()->for($season)->create(['is_active' => true]);
+    $hg6 = Houseguest::factory()->for($season)->create(['is_active' => true]);
+
+    $this->actingAs($user);
+
+    $response = Volt::test('weeks.show', ['week' => $week])
+        ->set('form.hoh_houseguest_id', $boss->id)
+        ->set('form.nominee_1_houseguest_id', $boss->id)
+        ->set('form.nominee_2_houseguest_id', $hg2->id)
+        ->set('form.veto_winner_houseguest_id', $hg3->id)
+        ->set('form.veto_used', true)
+        ->set('form.saved_houseguest_id', $hg4->id)
+        ->set('form.replacement_nominee_houseguest_id', $hg5->id)
+        ->set('form.evicted_houseguest_id', $hg6->id)
+        ->call('confirm');
+
+    $response->assertHasErrors(['form.hoh_houseguest_id']);
+});
+
+test('admin cannot save an outcome where HOH is also veto winner or evicted', function () {
+    Carbon::setTestNow('2026-01-04 12:00:00');
+
+    $admin = User::factory()->admin()->create();
+    $season = Season::factory()->create(['is_active' => true]);
+    $week = Week::factory()->for($season)->create([
+        'prediction_deadline_at' => Carbon::parse('2026-01-10 19:00:00'),
+        'locked_at' => null,
+    ]);
+
+    $boss = Houseguest::factory()->for($season)->create(['is_active' => true]);
+    $other = Houseguest::factory()->for($season)->create(['is_active' => true]);
+
+    $this->actingAs($admin);
+
+    $response = Volt::test('admin.weeks.outcome', ['week' => $week])
+        ->set('form.hoh_houseguest_id', $boss->id)
+        ->set('form.veto_winner_houseguest_id', $boss->id)
+        ->set('form.evicted_houseguest_id', $other->id)
+        ->call('save');
+
+    $response->assertHasErrors(['form.hoh_houseguest_id']);
+});
+
+test('admin cannot save a prediction where HOH is also evicted', function () {
+    Carbon::setTestNow('2026-01-04 12:00:00');
+
+    $admin = User::factory()->admin()->create();
+    $user = User::factory()->create();
+    $season = Season::factory()->create(['is_active' => true]);
+    $week = Week::factory()->for($season)->create([
+        'prediction_deadline_at' => Carbon::parse('2026-01-10 19:00:00'),
+        'locked_at' => null,
+    ]);
+
+    $boss = Houseguest::factory()->for($season)->create(['is_active' => true]);
+    $other = Houseguest::factory()->for($season)->create(['is_active' => true]);
+
+    $prediction = Prediction::factory()->for($week)->for($user)->create([
+        'hoh_houseguest_id' => $boss->id,
+        'evicted_houseguest_id' => $other->id,
+    ]);
+
+    $this->actingAs($admin);
+
+    $response = Volt::test('admin.predictions.edit', ['prediction' => $prediction])
+        ->set('form.hoh_houseguest_id', $boss->id)
+        ->set('form.evicted_houseguest_id', $boss->id)
+        ->call('save');
+
+    $response->assertHasErrors(['form.hoh_houseguest_id']);
+});

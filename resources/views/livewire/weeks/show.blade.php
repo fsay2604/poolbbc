@@ -94,14 +94,21 @@ new class extends Component {
         $houseguestIds = $this->houseguests->pluck('id')->all();
 
         $validated = $this->validate([
-            'form.hoh_houseguest_id' => ['nullable', Rule::in($houseguestIds)],
-            'form.nominee_1_houseguest_id' => ['nullable', Rule::in($houseguestIds), 'different:form.nominee_2_houseguest_id'],
-            'form.nominee_2_houseguest_id' => ['nullable', Rule::in($houseguestIds), 'different:form.nominee_1_houseguest_id'],
-            'form.veto_winner_houseguest_id' => ['nullable', Rule::in($houseguestIds)],
+            'form.hoh_houseguest_id' => [
+                'nullable',
+                Rule::in($houseguestIds),
+                'different:form.nominee_1_houseguest_id',
+                'different:form.nominee_2_houseguest_id',
+                'different:form.veto_winner_houseguest_id',
+                'different:form.evicted_houseguest_id',
+            ],
+            'form.nominee_1_houseguest_id' => ['nullable', Rule::in($houseguestIds), 'different:form.nominee_2_houseguest_id', 'different:form.hoh_houseguest_id'],
+            'form.nominee_2_houseguest_id' => ['nullable', Rule::in($houseguestIds), 'different:form.nominee_1_houseguest_id', 'different:form.hoh_houseguest_id'],
+            'form.veto_winner_houseguest_id' => ['nullable', Rule::in($houseguestIds), 'different:form.hoh_houseguest_id'],
             'form.veto_used' => ['nullable', 'boolean'],
             'form.saved_houseguest_id' => ['nullable', Rule::in($houseguestIds)],
             'form.replacement_nominee_houseguest_id' => ['nullable', Rule::in($houseguestIds)],
-            'form.evicted_houseguest_id' => ['nullable', Rule::in($houseguestIds)],
+            'form.evicted_houseguest_id' => ['nullable', Rule::in($houseguestIds), 'different:form.hoh_houseguest_id'],
         ]);
 
         if (($validated['form']['veto_used'] ?? null) !== true) {
@@ -129,14 +136,21 @@ new class extends Component {
         $houseguestIds = $this->houseguests->pluck('id')->all();
 
         $validated = $this->validate([
-            'form.hoh_houseguest_id' => ['required', Rule::in($houseguestIds)],
-            'form.nominee_1_houseguest_id' => ['required', Rule::in($houseguestIds), 'different:form.nominee_2_houseguest_id'],
-            'form.nominee_2_houseguest_id' => ['required', Rule::in($houseguestIds), 'different:form.nominee_1_houseguest_id'],
-            'form.veto_winner_houseguest_id' => ['required', Rule::in($houseguestIds)],
+            'form.hoh_houseguest_id' => [
+                'required',
+                Rule::in($houseguestIds),
+                'different:form.nominee_1_houseguest_id',
+                'different:form.nominee_2_houseguest_id',
+                'different:form.veto_winner_houseguest_id',
+                'different:form.evicted_houseguest_id',
+            ],
+            'form.nominee_1_houseguest_id' => ['required', Rule::in($houseguestIds), 'different:form.nominee_2_houseguest_id', 'different:form.hoh_houseguest_id'],
+            'form.nominee_2_houseguest_id' => ['required', Rule::in($houseguestIds), 'different:form.nominee_1_houseguest_id', 'different:form.hoh_houseguest_id'],
+            'form.veto_winner_houseguest_id' => ['required', Rule::in($houseguestIds), 'different:form.hoh_houseguest_id'],
             'form.veto_used' => ['required', 'boolean'],
             'form.saved_houseguest_id' => ['required_if:form.veto_used,1', Rule::in($houseguestIds)],
             'form.replacement_nominee_houseguest_id' => ['required_if:form.veto_used,1', Rule::in($houseguestIds)],
-            'form.evicted_houseguest_id' => ['required', Rule::in($houseguestIds)],
+            'form.evicted_houseguest_id' => ['required', Rule::in($houseguestIds), 'different:form.hoh_houseguest_id'],
         ]);
 
         if (($validated['form']['veto_used'] ?? null) !== true) {

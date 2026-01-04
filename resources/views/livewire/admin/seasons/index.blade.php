@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Seasons\CreateDefaultWeeks;
 use App\Models\Season;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
@@ -54,6 +55,8 @@ new class extends Component {
     {
         Gate::authorize('admin');
 
+        $isCreating = $this->editingId === null;
+
         $validated = $this->validate([
             'form.name' => ['required', 'string', 'max:255'],
             'form.is_active' => ['required', 'boolean'],
@@ -72,6 +75,10 @@ new class extends Component {
         }
 
         $season->save();
+
+        if ($isCreating) {
+            app(CreateDefaultWeeks::class)->run($season);
+        }
 
         $this->startCreate();
         $this->refresh();

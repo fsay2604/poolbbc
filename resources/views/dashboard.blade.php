@@ -80,7 +80,7 @@
                         </div>
                     </div>
 
-                    <div class="h-2 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+                    <div class="h-2 w-full overflow-hidden rounded-full bg-glow-pink/80 dark:bg-glow-pink">
                         <div
                             class="h-full bg-accent"
                             style="width: {{ $houseguestSexStatistics['male_percent'] ?? 0 }}%"

@@ -33,6 +33,28 @@ test('admin can upload a houseguest avatar', function () {
     Storage::disk('public')->assertExists($houseguest->avatar_url);
 });
 
+test('new houseguest defaults to male when not explicitly set', function () {
+    $season = Season::factory()->create(['is_active' => true]);
+
+    $admin = User::factory()->admin()->create();
+    $this->actingAs($admin);
+
+    Volt::test('admin.houseguests.index')
+        ->set('form.name', 'Player Default Sex')
+        ->set('form.is_active', true)
+        ->set('form.sort_order', 10)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $houseguest = Houseguest::query()
+        ->where('season_id', $season->id)
+        ->where('name', 'Player Default Sex')
+        ->first();
+
+    expect($houseguest)->not->toBeNull();
+    expect($houseguest->sex)->toBe('M');
+});
+
 test('admin can set houseguest sex', function () {
     $season = Season::factory()->create(['is_active' => true]);
 

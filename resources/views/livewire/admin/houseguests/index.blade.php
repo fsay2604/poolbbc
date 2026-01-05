@@ -20,7 +20,7 @@ new class extends Component {
     /** @var array{name:string,sex:?string,occupations:?string,avatar_url:?string,is_active:bool,sort_order:int} */
     public array $form = [
         'name' => '',
-        'sex' => null,
+        'sex' => 'M',
         'occupations' => null,
         'avatar_url' => null,
         'is_active' => true,
@@ -43,7 +43,7 @@ new class extends Component {
         $this->avatar = null;
         $this->form = [
             'name' => '',
-            'sex' => null,
+            'sex' => 'M',
             'occupations' => null,
             'avatar_url' => null,
             'is_active' => true,
@@ -59,7 +59,7 @@ new class extends Component {
         $this->avatar = null;
         $this->form = [
             'name' => $houseguest->name,
-            'sex' => $houseguest->sex,
+            'sex' => $houseguest->sex ?? 'M',
             'occupations' => is_array($houseguest->occupations) ? implode(', ', $houseguest->occupations) : null,
             'avatar_url' => $houseguest->avatar_url,
             'is_active' => $houseguest->is_active,
@@ -74,7 +74,7 @@ new class extends Component {
 
         $validated = $this->validate([
             'form.name' => ['required', 'string', 'max:255'],
-            'form.sex' => ['nullable', 'string', 'in:M,F'],
+            'form.sex' => ['required', 'string', 'in:M,F'],
             'form.occupations' => ['nullable', 'string', 'max:255'],
             'avatar' => ['nullable', 'image', 'max:2048'],
             'form.is_active' => ['required', 'boolean'],

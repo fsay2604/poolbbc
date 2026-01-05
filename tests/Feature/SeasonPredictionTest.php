@@ -161,3 +161,33 @@ test('user cannot confirm when required fields are missing', function () {
             'form.top_6_6_houseguest_id',
         ]);
 });
+
+test('locked season predictions keep inactive selections visible', function () {
+    $user = User::factory()->create();
+    $season = Season::factory()->create(['is_active' => true]);
+
+    $inactiveSelected = Houseguest::factory()->for($season)->create([
+        'is_active' => false,
+        'name' => 'Evicted Player',
+    ]);
+
+    Houseguest::factory()->for($season)->create([
+        'is_active' => true,
+        'name' => 'Active Player',
+    ]);
+
+    $top6 = Houseguest::factory()->for($season)->count(6)->create(['is_active' => true])->pluck('id')->all();
+
+    SeasonPrediction::factory()->for($season)->for($user)->create([
+        'winner_houseguest_id' => $inactiveSelected->id,
+        'first_evicted_houseguest_id' => $top6[0],
+        'top_6_houseguest_ids' => $top6,
+        'confirmed_at' => now(),
+    ]);
+
+    $this->actingAs($user);
+
+    Volt::test('season-prediction')
+        ->assertSee('Evicted Player')
+        ->assertSee('Active Player');
+});

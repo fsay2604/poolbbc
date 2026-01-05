@@ -37,14 +37,24 @@ new class extends Component {
             return;
         }
 
+        $top6 = is_array($this->season->top_6_houseguest_ids) ? array_values($this->season->top_6_houseguest_ids) : [];
+
+        $selectedHouseguestIds = array_values(array_unique(array_filter([
+            $this->season->winner_houseguest_id,
+            $this->season->first_evicted_houseguest_id,
+            ...$top6,
+        ])));
+
         $this->houseguests = Houseguest::query()
             ->where('season_id', $this->season->id)
-            ->where('is_active', true)
+            ->when(
+                $selectedHouseguestIds !== [],
+                fn ($q) => $q->where(fn ($q) => $q->where('is_active', true)->orWhereIn('id', $selectedHouseguestIds)),
+                fn ($q) => $q->where('is_active', true),
+            )
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
-
-        $top6 = is_array($this->season->top_6_houseguest_ids) ? array_values($this->season->top_6_houseguest_ids) : [];
 
         $this->form = [
             'winner_houseguest_id' => $this->season->winner_houseguest_id,

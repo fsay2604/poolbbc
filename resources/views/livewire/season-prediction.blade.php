@@ -31,14 +31,9 @@ new class extends Component {
     {
         $this->season = Season::query()->where('is_active', true)->first();
 
-        $this->houseguests = Houseguest::query()
-            ->when($this->season, fn ($q) => $q->where('season_id', $this->season->id), fn ($q) => $q->whereRaw('1=0'))
-            ->where('is_active', true)
-            ->orderBy('sort_order')
-            ->orderBy('name')
-            ->get();
-
         if (! $this->season) {
+            $this->houseguests = collect();
+
             return;
         }
 
@@ -47,8 +42,19 @@ new class extends Component {
             ->where('user_id', Auth::id())
             ->first();
 
+        $selectedHouseguestIds = [];
+        $isLocked = $this->prediction?->isConfirmed() ?? false;
+
         if ($this->prediction) {
             $top6 = $this->prediction->top_6_houseguest_ids ?? [];
+
+            if ($isLocked) {
+                $selectedHouseguestIds = array_values(array_unique(array_filter([
+                    $this->prediction->winner_houseguest_id,
+                    $this->prediction->first_evicted_houseguest_id,
+                    ...$top6,
+                ])));
+            }
 
             $this->form = [
                 'winner_houseguest_id' => $this->prediction->winner_houseguest_id,
@@ -61,6 +67,17 @@ new class extends Component {
                 'top_6_6_houseguest_id' => $top6[5] ?? null,
             ];
         }
+
+        $this->houseguests = Houseguest::query()
+            ->where('season_id', $this->season->id)
+            ->when(
+                $isLocked && $selectedHouseguestIds !== [],
+                fn ($q) => $q->where(fn ($q) => $q->where('is_active', true)->orWhereIn('id', $selectedHouseguestIds)),
+                fn ($q) => $q->where('is_active', true),
+            )
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
     }
 
     public function getIsLockedProperty(): bool

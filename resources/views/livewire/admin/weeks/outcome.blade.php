@@ -38,12 +38,7 @@ new class extends Component {
         $nomineeCount = $this->nomineeCount();
         $evictedCount = $this->evictedCount();
 
-        $this->houseguests = Houseguest::query()
-            ->where('season_id', $this->week->season_id)
-            ->where('is_active', true)
-            ->orderBy('sort_order')
-            ->orderBy('name')
-            ->get();
+        $selectedHouseguestIds = [];
 
         if ($this->outcome) {
             $bosses = $this->normalizeIdList($this->outcome->boss_houseguest_ids);
@@ -64,6 +59,15 @@ new class extends Component {
                 $evicted = $this->normalizeIdList([$this->outcome->evicted_houseguest_id]);
             }
 
+            $selectedHouseguestIds = array_values(array_unique(array_merge(
+                $bosses,
+                $nominees,
+                $evicted,
+                $this->normalizeIdList([$this->outcome->veto_winner_houseguest_id]),
+                $this->normalizeIdList([$this->outcome->saved_houseguest_id]),
+                $this->normalizeIdList([$this->outcome->replacement_nominee_houseguest_id]),
+            )));
+
             $this->form = [
                 'boss_houseguest_ids' => $this->padToCount($bosses, $bossCount),
                 'nominee_houseguest_ids' => $this->padToCount($nominees, $nomineeCount),
@@ -78,6 +82,17 @@ new class extends Component {
             $this->form['nominee_houseguest_ids'] = $this->padToCount([], $nomineeCount);
             $this->form['evicted_houseguest_ids'] = $this->padToCount([], $evictedCount);
         }
+
+        $this->houseguests = Houseguest::query()
+            ->where('season_id', $this->week->season_id)
+            ->when(
+                $selectedHouseguestIds !== [],
+                fn ($q) => $q->where(fn ($q) => $q->where('is_active', true)->orWhereIn('id', $selectedHouseguestIds)),
+                fn ($q) => $q->where('is_active', true),
+            )
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
     }
 
     private function bossCount(): int

@@ -42,19 +42,10 @@ class ScoreSeasonPredictions
 
     private function isReadyToScore(Season $season): bool
     {
-        $top6 = is_array($season->top_6_houseguest_ids) ? array_values($season->top_6_houseguest_ids) : [];
-        $hasFullOutcome = $season->winner_houseguest_id !== null
-            && $season->first_evicted_houseguest_id !== null
-            && count($top6) === 6;
+        $hasTop6 = is_array($season->top_6_houseguest_ids) && count(array_values($season->top_6_houseguest_ids)) === 6;
 
-        if (! $hasFullOutcome) {
-            return false;
-        }
-
-        // End of the 16 weeks: only score once week 16 has an outcome.
-        return $season->weeks()
-            ->where('number', 16)
-            ->whereHas('outcome')
-            ->exists();
+        return $season->winner_houseguest_id !== null
+            || $season->first_evicted_houseguest_id !== null
+            || $hasTop6;
     }
 }

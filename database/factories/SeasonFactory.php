@@ -23,9 +23,9 @@ class SeasonFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => 'Season '.$this->faker->year(),
+            'name' => 'Season '.now()->year,
             'is_active' => false,
-            'starts_on' => $this->faker->date(),
+            'starts_on' => now()->toDateString(),
             'ends_on' => null,
         ];
     }

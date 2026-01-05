@@ -6,6 +6,8 @@ use App\Models\WeekOutcome;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use App\Actions\Seasons\CalculateSeasonOutcomeFromWeekOutcomes;
+use App\Actions\Predictions\ScoreSeasonPredictions;
 use Livewire\Volt\Component;
 
 new class extends Component {
@@ -257,6 +259,13 @@ new class extends Component {
                 ->where('season_id', $this->week->season_id)
                 ->whereIn('id', $evictedIds)
                 ->update(['is_active' => false]);
+        }
+
+        if ($this->week->season) {
+            (new CalculateSeasonOutcomeFromWeekOutcomes())->execute($this->week->season);
+
+            $admin = Auth::user();
+            app(ScoreSeasonPredictions::class)->run($this->week->season->refresh(), $admin);
         }
 
         $this->outcome = $outcome;

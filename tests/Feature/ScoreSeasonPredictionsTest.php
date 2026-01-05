@@ -73,7 +73,7 @@ it('does not create scores if a season has no outcomes set', function () {
 it('does not create scores until week 16 has an outcome', function () {
     $season = Season::factory()->create(['is_active' => true]);
 
-    // Week 16 exists but no outcome yet.
+    // Weeks exist but there is no need to wait for the last week.
     Week::factory()->for($season)->create(['number' => 16]);
 
     $admin = User::factory()->admin()->create();
@@ -97,5 +97,33 @@ it('does not create scores until week 16 has an outcome', function () {
 
     app(ScoreSeasonPredictions::class)->run($season, $admin);
 
-    expect(SeasonPredictionScore::query()->where('season_prediction_id', $prediction->id)->exists())->toBeFalse();
+    expect(SeasonPredictionScore::query()->where('season_prediction_id', $prediction->id)->exists())->toBeTrue();
+});
+
+it('creates scores when only first evicted is known (before top 6 / winner)', function () {
+    $season = Season::factory()->create(['is_active' => true]);
+
+    $admin = User::factory()->admin()->create();
+    $user = User::factory()->create();
+
+    $houseguests = Houseguest::factory()->for($season)->count(8)->create();
+
+    $season->forceFill([
+        'first_evicted_houseguest_id' => $houseguests[1]->id,
+        'winner_houseguest_id' => null,
+        'top_6_houseguest_ids' => null,
+    ])->save();
+
+    $prediction = SeasonPrediction::factory()->create([
+        'season_id' => $season->id,
+        'user_id' => $user->id,
+        'first_evicted_houseguest_id' => $houseguests[1]->id,
+    ]);
+
+    app(ScoreSeasonPredictions::class)->run($season, $admin);
+
+    $score = SeasonPredictionScore::query()->where('season_prediction_id', $prediction->id)->first();
+
+    expect($score)->not->toBeNull();
+    expect($score->points)->toBe(16);
 });

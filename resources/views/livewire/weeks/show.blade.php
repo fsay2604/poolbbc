@@ -65,7 +65,7 @@ new class extends Component {
                 'hoh_houseguest_id' => $this->prediction->hoh_houseguest_id,
                 'nominee_houseguest_ids' => $this->padToCount($nominees, $nomineeCount),
                 'veto_winner_houseguest_id' => $this->prediction->veto_winner_houseguest_id,
-                'veto_used' => $this->prediction->veto_used,
+                'veto_used' => $this->normalizeVetoUsedSelectValue($this->prediction->veto_used),
                 'saved_houseguest_id' => $this->prediction->saved_houseguest_id,
                 'replacement_nominee_houseguest_id' => $this->prediction->replacement_nominee_houseguest_id,
                 'evicted_houseguest_ids' => $this->padToCount($evicted, $evictedCount),
@@ -131,19 +131,19 @@ new class extends Component {
 
     public function updatedFormVetoUsed(mixed $value): void
     {
-        $this->form['veto_used'] = $this->normalizeNullableBoolean($value);
+        $this->form['veto_used'] = $this->normalizeVetoUsedSelectValue($value);
 
-        if ($this->form['veto_used'] !== true) {
+        if ($this->form['veto_used'] !== '1') {
             $this->form['saved_houseguest_id'] = null;
             $this->form['replacement_nominee_houseguest_id'] = null;
         }
     }
 
-    private function normalizeNullableBoolean(mixed $value): ?bool
+    private function normalizeVetoUsedSelectValue(mixed $value): ?string
     {
         return match (true) {
-            $value === true, $value === 1, $value === '1' => true,
-            $value === false, $value === 0, $value === '0' => false,
+            $value === true, $value === 1, $value === '1' => '1',
+            $value === false, $value === 0, $value === '0' => '0',
             default => null,
         };
     }
@@ -197,7 +197,7 @@ new class extends Component {
             }
         }
 
-        if (($validated['form']['veto_used'] ?? null) !== true) {
+        if (! ($validated['form']['veto_used'] ?? false)) {
             $validated['form']['saved_houseguest_id'] = null;
             $validated['form']['replacement_nominee_houseguest_id'] = null;
         }
@@ -269,7 +269,7 @@ new class extends Component {
             return;
         }
 
-        if (($validated['form']['veto_used'] ?? null) !== true) {
+        if (! ($validated['form']['veto_used'] ?? false)) {
             $validated['form']['saved_houseguest_id'] = null;
             $validated['form']['replacement_nominee_houseguest_id'] = null;
         }
@@ -370,7 +370,8 @@ new class extends Component {
                         @endforeach
                     </flux:select>
 
-                    <flux:select wire:model="form.veto_used" :label="__('Will the veto be used?')" :disabled="$this->isLocked" placeholder="—">
+                    <flux:select wire:model.live="form.veto_used" :label="__('Will the veto be used?')" :disabled="$this->isLocked" placeholder="—">
+                        <option value="">—</option>
                         <option value="1">{{ __('Yes') }}</option>
                         <option value="0">{{ __('No') }}</option>
                     </flux:select>
@@ -378,7 +379,7 @@ new class extends Component {
                     <flux:select
                         wire:model="form.saved_houseguest_id"
                         :label="__('If used: Who will be saved?')"
-                        :disabled="$this->isLocked || $form['veto_used'] !== true"
+                        :disabled="$this->isLocked || ! $form['veto_used']"
                         placeholder="—"
                     >
                         @foreach ($houseguests as $hg)
@@ -389,7 +390,7 @@ new class extends Component {
                     <flux:select
                         wire:model="form.replacement_nominee_houseguest_id"
                         :label="__('If used: Replacement nominee')"
-                        :disabled="$this->isLocked || $form['veto_used'] !== true"
+                        :disabled="$this->isLocked || ! $form['veto_used']"
                         placeholder="—"
                     >
                         @foreach ($houseguests as $hg)

@@ -201,24 +201,28 @@ new class extends Component {
 
         <div class="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-zinc-900">
             <form wire:submit="save" class="grid gap-6">
-                <div class="grid gap-4 md:grid-cols-2">
-                    <flux:select wire:model="form.winner_houseguest_id" :label="__('Who will win?')" :disabled="! $season || $this->isLocked" placeholder="—">
-                        @foreach ($houseguests as $hg)
-                            <option value="{{ $hg->id }}">{{ $hg->name }}</option>
-                        @endforeach
-                    </flux:select>
+                <div class="grid gap-4">
+                    <flux:heading size="lg" level="2">{{ __('Predictions') }}</flux:heading>
 
-                    <flux:select wire:model="form.first_evicted_houseguest_id" :label="__('Who will be the first evicted?')" :disabled="! $season || $this->isLocked" placeholder="—">
-                        @foreach ($houseguests as $hg)
-                            <option value="{{ $hg->id }}">{{ $hg->name }}</option>
-                        @endforeach
-                    </flux:select>
+                    <div class="grid gap-4 md:grid-cols-2">
+                        <flux:select wire:model="form.winner_houseguest_id" :label="__('Who will win?')" :disabled="! $season || $this->isLocked" placeholder="—">
+                            @foreach ($houseguests as $hg)
+                                <option value="{{ $hg->id }}">{{ $hg->name }}</option>
+                            @endforeach
+                        </flux:select>
+
+                        <flux:select wire:model="form.first_evicted_houseguest_id" :label="__('Who will be the first evicted?')" :disabled="! $season || $this->isLocked" placeholder="—">
+                            @foreach ($houseguests as $hg)
+                                <option value="{{ $hg->id }}">{{ $hg->name }}</option>
+                            @endforeach
+                        </flux:select>
+                    </div>
                 </div>
 
                 <div class="grid gap-4">
                     <flux:heading size="lg" level="2">{{ __('Top 6') }}</flux:heading>
 
-                    <div class="grid gap-4 md:grid-cols-2">
+                    <div class="grid gap-4 md:grid-cols-3">
                         <flux:select wire:model="form.top_6_1_houseguest_id" :label="__('Top 6 #1')" :disabled="! $season || $this->isLocked" placeholder="—">
                             @foreach ($houseguests as $hg)
                                 <option value="{{ $hg->id }}">{{ $hg->name }}</option>

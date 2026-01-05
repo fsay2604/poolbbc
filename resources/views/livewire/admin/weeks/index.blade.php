@@ -126,7 +126,7 @@ new class extends Component {
                 <form wire:submit="save" class="grid gap-4">
                     <flux:input wire:model="form.number" :label="__('Week #')" type="number" min="1" required />
 
-                    <div class="grid gap-4 md:grid-cols-2">
+                    <div class="grid gap-4 md:grid-cols-3">
                         <flux:input wire:model="form.boss_count" :label="__('Bosses')" type="number" min="1" max="20" required />
                         <flux:input wire:model="form.nominee_count" :label="__('Nominees')" type="number" min="1" max="20" required />
                         <flux:input wire:model="form.evicted_count" :label="__('Evicted')" type="number" min="1" max="20" required />

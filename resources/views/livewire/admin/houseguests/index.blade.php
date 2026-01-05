@@ -3,17 +3,24 @@
 use App\Models\Houseguest;
 use App\Models\Season;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Storage;
+use Livewire\WithFileUploads;
 use Livewire\Volt\Component;
 
 new class extends Component {
+    use WithFileUploads;
+
     public ?Season $season = null;
 
     /** @var \Illuminate\Support\Collection<int, \App\Models\Houseguest> */
     public $houseguests;
 
-    /** @var array{name:string,is_active:bool,sort_order:int} */
+    public mixed $avatar = null;
+
+    /** @var array{name:string,avatar_url:?string,is_active:bool,sort_order:int} */
     public array $form = [
         'name' => '',
+        'avatar_url' => null,
         'is_active' => true,
         'sort_order' => 0,
     ];
@@ -31,8 +38,10 @@ new class extends Component {
     public function startCreate(): void
     {
         $this->editingId = null;
+        $this->avatar = null;
         $this->form = [
             'name' => '',
+            'avatar_url' => null,
             'is_active' => true,
             'sort_order' => 0,
         ];
@@ -43,8 +52,10 @@ new class extends Component {
         $houseguest = Houseguest::query()->findOrFail($houseguestId);
 
         $this->editingId = $houseguest->id;
+        $this->avatar = null;
         $this->form = [
             'name' => $houseguest->name,
+            'avatar_url' => $houseguest->avatar_url,
             'is_active' => $houseguest->is_active,
             'sort_order' => $houseguest->sort_order,
         ];
@@ -57,6 +68,7 @@ new class extends Component {
 
         $validated = $this->validate([
             'form.name' => ['required', 'string', 'max:255'],
+            'avatar' => ['nullable', 'image', 'max:2048'],
             'form.is_active' => ['required', 'boolean'],
             'form.sort_order' => ['required', 'integer', 'min:0'],
         ]);
@@ -64,6 +76,15 @@ new class extends Component {
         $houseguest = $this->editingId
             ? Houseguest::query()->findOrFail($this->editingId)
             : new Houseguest(['season_id' => $this->season->id]);
+
+        if ($this->avatar) {
+            if ($houseguest->avatar_url) {
+                Storage::disk('public')->delete($houseguest->avatar_url);
+            }
+
+            $validated['form']['avatar_url'] = $this->avatar->store('houseguests/avatars', 'public');
+            $this->avatar = null;
+        }
 
         $houseguest->fill(array_merge($validated['form'], ['season_id' => $this->season->id]));
         $houseguest->save();
@@ -99,6 +120,24 @@ new class extends Component {
             <div class="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-zinc-900">
                 <form wire:submit="save" class="grid gap-4">
                     <flux:input wire:model="form.name" :label="__('Name')" required />
+
+                    <flux:file-upload wire:model="avatar">
+                        <div class="flex items-center gap-4">
+                            @if ($avatar)
+                                <img src="{{ $avatar?->temporaryUrl() }}" class="size-10 rounded-full object-cover" />
+                            @elseif ($form['avatar_url'])
+                                <img src="{{ asset('storage/'.$form['avatar_url']) }}" class="size-10 rounded-full object-cover" />
+                            @else
+                                <flux:avatar :name="$form['name']" size="sm" circle />
+                            @endif
+
+                            <div class="grid gap-1">
+                                <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ __('Avatar') }}</div>
+                                <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ __('Upload an image (max 2MB).') }}</div>
+                            </div>
+                        </div>
+                    </flux:file-upload>
+
                     <div class="grid gap-4 md:grid-cols-2">
                         <flux:input wire:model="form.sort_order" :label="__('Sort order')" type="number" min="0" required />
                         <flux:switch wire:model="form.is_active" :label="__('Active')" />
@@ -116,6 +155,7 @@ new class extends Component {
                     <table class="w-full text-sm">
                         <thead class="bg-zinc-50 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
                             <tr>
+                                <th class="px-4 py-3 text-left font-medium">{{ __('Avatar') }}</th>
                                 <th class="px-4 py-3 text-left font-medium">{{ __('Name') }}</th>
                                 <th class="px-4 py-3 text-left font-medium">{{ __('Active') }}</th>
                                 <th class="px-4 py-3"></th>
@@ -124,6 +164,9 @@ new class extends Component {
                         <tbody class="divide-y divide-neutral-200 dark:divide-neutral-800">
                             @foreach ($houseguests as $hg)
                                 <tr>
+                                    <td class="px-4 py-3">
+                                        <flux:avatar :src="$hg->avatar_url ? asset('storage/'.$hg->avatar_url) : null" :name="$hg->name" size="sm" circle />
+                                    </td>
                                     <td class="px-4 py-3">{{ $hg->name }}</td>
                                     <td class="px-4 py-3">
                                         @if ($hg->is_active)

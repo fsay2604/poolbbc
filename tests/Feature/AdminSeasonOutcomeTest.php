@@ -43,3 +43,33 @@ test('admin can set season outcome for the active season', function () {
         $houseguests[6]->id,
     ]);
 });
+
+test('admin season outcome keeps inactive selections visible', function () {
+    $season = Season::factory()->create([
+        'is_active' => true,
+        'winner_houseguest_id' => null,
+        'first_evicted_houseguest_id' => null,
+        'top_6_houseguest_ids' => [],
+    ]);
+
+    $inactiveSelected = Houseguest::factory()->for($season)->create([
+        'is_active' => false,
+        'name' => 'Evicted Player',
+    ]);
+
+    Houseguest::factory()->for($season)->create([
+        'is_active' => true,
+        'name' => 'Active Player',
+    ]);
+
+    $season->forceFill([
+        'winner_houseguest_id' => $inactiveSelected->id,
+    ])->save();
+
+    $admin = User::factory()->admin()->create();
+    $this->actingAs($admin);
+
+    Volt::test('admin.seasons.outcome')
+        ->assertSee('Evicted Player')
+        ->assertSee('Active Player');
+});

@@ -26,6 +26,7 @@ class HouseguestFactory extends Factory
         return [
             'season_id' => Season::factory(),
             'name' => $this->faker->unique()->firstName(),
+            'avatar_url' => null,
             'is_active' => true,
             'sort_order' => 0,
         ];

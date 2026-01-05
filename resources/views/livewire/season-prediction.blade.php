@@ -229,7 +229,7 @@ new class extends Component {
                             @endforeach
                         </flux:select>
 
-                        <flux:select wire:model="form.first_evicted_houseguest_id" :label="__('Who will be the first evicted?')" :disabled="! $season || $this->isLocked" placeholder="—">
+                        <flux:select wire:model="form.first_evicted_houseguest_id" :label="__('Who will be the first evicted?')" :disabled="! $season || $this->isLocked">
                             <option value="">—</option>
                             @foreach ($houseguests as $hg)
                                 <option value="{{ $hg->id }}">{{ $hg->name }}</option>
@@ -242,42 +242,42 @@ new class extends Component {
                     <flux:heading size="lg" level="2">{{ __('Top 6') }}</flux:heading>
 
                     <div class="grid gap-4 md:grid-cols-3">
-                        <flux:select wire:model="form.top_6_1_houseguest_id" :label="__('Top 6 #1')" :disabled="! $season || $this->isLocked" placeholder="—">
+                        <flux:select wire:model="form.top_6_1_houseguest_id" :label="__('Top 6 #1')" :disabled="! $season || $this->isLocked">
                             <option value="">—</option>
                             @foreach ($houseguests as $hg)
                                 <option value="{{ $hg->id }}">{{ $hg->name }}</option>
                             @endforeach
                         </flux:select>
 
-                        <flux:select wire:model="form.top_6_2_houseguest_id" :label="__('Top 6 #2')" :disabled="! $season || $this->isLocked" placeholder="—">
+                        <flux:select wire:model="form.top_6_2_houseguest_id" :label="__('Top 6 #2')" :disabled="! $season || $this->isLocked">
                             <option value="">—</option>
                             @foreach ($houseguests as $hg)
                                 <option value="{{ $hg->id }}">{{ $hg->name }}</option>
                             @endforeach
                         </flux:select>
 
-                        <flux:select wire:model="form.top_6_3_houseguest_id" :label="__('Top 6 #3')" :disabled="! $season || $this->isLocked" placeholder="—">
+                        <flux:select wire:model="form.top_6_3_houseguest_id" :label="__('Top 6 #3')" :disabled="! $season || $this->isLocked">
                             <option value="">—</option>
                             @foreach ($houseguests as $hg)
                                 <option value="{{ $hg->id }}">{{ $hg->name }}</option>
                             @endforeach
                         </flux:select>
 
-                        <flux:select wire:model="form.top_6_4_houseguest_id" :label="__('Top 6 #4')" :disabled="! $season || $this->isLocked" placeholder="—">
+                        <flux:select wire:model="form.top_6_4_houseguest_id" :label="__('Top 6 #4')" :disabled="! $season || $this->isLocked" >
                             <option value="">—</option>
                             @foreach ($houseguests as $hg)
                                 <option value="{{ $hg->id }}">{{ $hg->name }}</option>
                             @endforeach
                         </flux:select>
 
-                        <flux:select wire:model="form.top_6_5_houseguest_id" :label="__('Top 6 #5')" :disabled="! $season || $this->isLocked" placeholder="—">
+                        <flux:select wire:model="form.top_6_5_houseguest_id" :label="__('Top 6 #5')" :disabled="! $season || $this->isLocked" >
                             <option value="">—</option>
                             @foreach ($houseguests as $hg)
                                 <option value="{{ $hg->id }}">{{ $hg->name }}</option>
                             @endforeach
                         </flux:select>
 
-                        <flux:select wire:model="form.top_6_6_houseguest_id" :label="__('Top 6 #6')" :disabled="! $season || $this->isLocked" placeholder="—">
+                        <flux:select wire:model="form.top_6_6_houseguest_id" :label="__('Top 6 #6')" :disabled="! $season || $this->isLocked" >
                             <option value="">—</option>
                             @foreach ($houseguests as $hg)
                                 <option value="{{ $hg->id }}">{{ $hg->name }}</option>

@@ -392,7 +392,7 @@ new class extends Component {
                         <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ __('HOH') }}</div>
                         <div class="grid gap-4 md:grid-cols-3">
                             @for ($i = 0; $i < ($week->boss_count ?? 1); $i++)
-                                <flux:select wire:model.live="form.boss_houseguest_ids.{{ $i }}" :label="($week->boss_count ?? 1) > 1 ? __('HOH (Boss) #').($i + 1) : __('HOH (Boss)')" :disabled="$this->isLocked" placeholder="—">
+                                <flux:select wire:model.live="form.boss_houseguest_ids.{{ $i }}" :label="($week->boss_count ?? 1) > 1 ? __('HOH (Boss) #').($i + 1) : __('HOH (Boss)')" :disabled="$this->isLocked">
                                     <option value="">—</option>
                                     @foreach ($houseguests as $hg)
                                         <option value="{{ $hg->id }}">{{ $hg->name }}</option>
@@ -406,7 +406,7 @@ new class extends Component {
                         <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ __('Nominees') }}</div>
                         <div class="grid gap-4 md:grid-cols-3">
                             @for ($i = 0; $i < ($week->nominee_count ?? 2); $i++)
-                                <flux:select wire:model.live="form.nominee_houseguest_ids.{{ $i }}" :label="__('Nominee #').($i + 1).' ('.__('In danger').')'" :disabled="$this->isLocked" placeholder="—">
+                                <flux:select wire:model.live="form.nominee_houseguest_ids.{{ $i }}" :label="__('Nominee #').($i + 1).' ('.__('In danger').')'" :disabled="$this->isLocked">
                                     <option value="">—</option>
                                     @foreach ($houseguests as $hg)
                                         <option value="{{ $hg->id }}">{{ $hg->name }}</option>
@@ -419,7 +419,7 @@ new class extends Component {
                     <div class="grid gap-3">
                         <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ __('Veto') }}</div>
                         <div class="grid gap-4 md:grid-cols-3">
-                            <flux:select wire:model="form.veto_winner_houseguest_id" :label="__('Veto Winner')" :disabled="$this->isLocked" placeholder="—">
+                            <flux:select wire:model="form.veto_winner_houseguest_id" :label="__('Veto Winner')" :disabled="$this->isLocked">
                                 <option value="">—</option>
                                 @foreach ($houseguests as $hg)
                                     <option value="{{ $hg->id }}">{{ $hg->name }}</option>
@@ -428,7 +428,7 @@ new class extends Component {
 
                             <div class="hidden md:block md:col-span-2"></div>
 
-                            <flux:select wire:model.live="form.veto_used" :label="__('Will the veto be used?')" :disabled="$this->isLocked" placeholder="—">
+                            <flux:select wire:model.live="form.veto_used" :label="__('Will the veto be used?')" :disabled="$this->isLocked">
                                 <option value="">—</option>
                                 <option value="1">{{ __('Yes') }}</option>
                                 <option value="0">{{ __('No') }}</option>
@@ -462,7 +462,7 @@ new class extends Component {
                         <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ __('Evicted') }}</div>
                         <div class="grid gap-4 md:grid-cols-3">
                             @for ($i = 0; $i < ($week->evicted_count ?? 1); $i++)
-                                <flux:select wire:model.live="form.evicted_houseguest_ids.{{ $i }}" :label="($week->evicted_count ?? 1) > 1 ? __('Evicted #').($i + 1) : __('Evicted')" :disabled="$this->isLocked" placeholder="—">
+                                <flux:select wire:model.live="form.evicted_houseguest_ids.{{ $i }}" :label="($week->evicted_count ?? 1) > 1 ? __('Evicted #').($i + 1) : __('Evicted')" :disabled="$this->isLocked">
                                     <option value="">—</option>
                                     @foreach ($houseguests as $hg)
                                         <option value="{{ $hg->id }}">{{ $hg->name }}</option>

@@ -14,7 +14,7 @@
             <flux:navlist variant="outline">
                 <flux:navlist.group :heading="__('Platform')" class="grid">
                     <flux:navlist.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>{{ __('Dashboard') }}</flux:navlist.item>
-                    <flux:navlist.item icon="calendar" :href="route('weeks.index')" :current="request()->routeIs('weeks.*')" wire:navigate>{{ __('Weeks') }}</flux:navlist.item>
+                    <flux:navlist.item icon="calendar" :href="route('weeks.index')" :current="request()->routeIs('weeks.*')" wire:navigate>{{ __('Weeks Predictions') }}</flux:navlist.item>
                     <flux:navlist.item icon="users" :href="route('season.prediction')" :current="request()->routeIs('season.prediction')" wire:navigate>{{ __('Season Predictions') }}</flux:navlist.item>
                     <flux:navlist.item icon="trophy" :href="route('leaderboard')" :current="request()->routeIs('leaderboard')" wire:navigate>{{ __('Leaderboard') }}</flux:navlist.item>
                 </flux:navlist.group>

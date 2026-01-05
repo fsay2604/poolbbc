@@ -16,7 +16,7 @@
                     {{ __('Dashboard') }}
                 </flux:navbar.item>
                 <flux:navbar.item icon="calendar" :href="route('weeks.index')" :current="request()->routeIs('weeks.*')" wire:navigate>
-                    {{ __('Weeks') }}
+                    {{ __('Weeks Predictions') }}
                 </flux:navbar.item>
                 <flux:navbar.item icon="users" :href="route('season.prediction')" :current="request()->routeIs('season.prediction')" wire:navigate>
                     {{ __('Season Predictions') }}
@@ -111,7 +111,7 @@
                     {{ __('Dashboard') }}
                     </flux:navlist.item>
                     <flux:navlist.item icon="calendar" :href="route('weeks.index')" :current="request()->routeIs('weeks.*')" wire:navigate>
-                    {{ __('Weeks') }}
+                    {{ __('Weeks Predictions') }}
                     </flux:navlist.item>
                     <flux:navlist.item icon="users" :href="route('season.prediction')" :current="request()->routeIs('season.prediction')" wire:navigate>
                     {{ __('Season Predictions') }}

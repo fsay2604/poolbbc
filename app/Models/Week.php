@@ -21,6 +21,7 @@ class Week extends Model
     protected $fillable = [
         'season_id',
         'number',
+        'boss_count',
         'nominee_count',
         'evicted_count',
         'name',
@@ -36,6 +37,7 @@ class Week extends Model
     protected function casts(): array
     {
         return [
+            'boss_count' => 'integer',
             'nominee_count' => 'integer',
             'evicted_count' => 'integer',
             'prediction_deadline_at' => 'datetime',

@@ -14,8 +14,13 @@ class ScorePrediction
     {
         $points = 0;
 
-        $hohCorrect = $this->idMatches($prediction->hoh_houseguest_id, $outcome->hoh_houseguest_id);
-        $points += $hohCorrect ? 1 : 0;
+        $bossCount = max(1, (int) ($prediction->week->boss_count ?? 1));
+        $predictedBosses = $this->bossesList($prediction);
+        $actualBosses = $this->bossesList($outcome);
+        $bossPoints = $this->listIntersectionPoints($predictedBosses, $actualBosses);
+        $points += $bossPoints;
+
+        $hohCorrect = $bossCount === 1 ? $bossPoints === 1 : null;
 
         $predictedNominees = $this->nomineesList($prediction);
         $actualNominees = $this->nomineesList($outcome);
@@ -57,6 +62,7 @@ class ScorePrediction
             'points' => $points,
             'breakdown' => [
                 'hoh' => $hohCorrect,
+                'boss_points' => $bossPoints,
                 'nominees_points' => $nomineesPoints,
                 'veto_winner' => $vetoWinnerCorrect,
                 'veto_used' => $vetoUsedCorrect,
@@ -118,6 +124,19 @@ class ScorePrediction
         }
 
         return $this->normalizeIdList([$model->evicted_houseguest_id ?? null]);
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function bossesList(Prediction|WeekOutcome $model): array
+    {
+        $ids = $this->normalizeIdList($model->boss_houseguest_ids ?? null);
+        if ($ids !== []) {
+            return $ids;
+        }
+
+        return $this->normalizeIdList([$model->hoh_houseguest_id ?? null]);
     }
 
     /**

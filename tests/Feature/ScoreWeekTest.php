@@ -137,3 +137,41 @@ it('scores dynamic nominees and evicted counts using json arrays', function () {
     expect($score->breakdown['evicted_points'])->toBe(2);
     expect($score->breakdown['evicted'])->toBeNull();
 });
+
+it('scores dynamic bosses using json arrays', function () {
+    $season = Season::factory()->create(['is_active' => true]);
+    $week = Week::factory()->for($season)->create([
+        'number' => 3,
+        'boss_count' => 2,
+    ]);
+
+    $admin = User::factory()->admin()->create();
+    $user = User::factory()->create();
+
+    $boss1 = Houseguest::factory()->for($season)->create();
+    $boss2 = Houseguest::factory()->for($season)->create();
+
+    $prediction = Prediction::factory()
+        ->for($week)
+        ->for($user)
+        ->create([
+            'boss_houseguest_ids' => [$boss1->id, $boss2->id],
+            'hoh_houseguest_id' => null,
+        ]);
+
+    WeekOutcome::factory()->for($week)->create([
+        'boss_houseguest_ids' => [$boss1->id, $boss2->id],
+        'hoh_houseguest_id' => null,
+        'last_admin_edited_by_user_id' => $admin->id,
+        'last_admin_edited_at' => now(),
+    ]);
+
+    app(ScoreWeek::class)->run($week, $admin);
+
+    $score = PredictionScore::query()->where('prediction_id', $prediction->id)->first();
+
+    expect($score)->not->toBeNull();
+    expect($score->points)->toBe(2);
+    expect($score->breakdown['boss_points'])->toBe(2);
+    expect($score->breakdown['hoh'])->toBeNull();
+});

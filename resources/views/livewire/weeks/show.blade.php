@@ -17,7 +17,7 @@ new class extends Component {
 
     /** @var array<string, mixed> */
     public array $form = [
-        'hoh_houseguest_id' => null,
+        'boss_houseguest_ids' => [],
         'nominee_houseguest_ids' => [],
         'veto_winner_houseguest_id' => null,
         'veto_used' => null,
@@ -32,6 +32,7 @@ new class extends Component {
     {
         $this->week = $week->loadMissing('season');
 
+        $bossCount = $this->bossCount();
         $nomineeCount = $this->nomineeCount();
         $evictedCount = $this->evictedCount();
 
@@ -48,6 +49,11 @@ new class extends Component {
             ->first();
 
         if ($this->prediction) {
+            $bosses = $this->normalizeIdList($this->prediction->boss_houseguest_ids);
+            if (count($bosses) === 0) {
+                $bosses = $this->normalizeIdList([$this->prediction->hoh_houseguest_id]);
+            }
+
             $nominees = $this->normalizeIdList($this->prediction->nominee_houseguest_ids);
             if (count($nominees) === 0) {
                 $nominees = $this->normalizeIdList([
@@ -62,7 +68,7 @@ new class extends Component {
             }
 
             $this->form = [
-                'hoh_houseguest_id' => $this->prediction->hoh_houseguest_id,
+                'boss_houseguest_ids' => $this->padToCount($bosses, $bossCount),
                 'nominee_houseguest_ids' => $this->padToCount($nominees, $nomineeCount),
                 'veto_winner_houseguest_id' => $this->prediction->veto_winner_houseguest_id,
                 'veto_used' => $this->normalizeVetoUsedSelectValue($this->prediction->veto_used),
@@ -71,9 +77,15 @@ new class extends Component {
                 'evicted_houseguest_ids' => $this->padToCount($evicted, $evictedCount),
             ];
         } else {
+            $this->form['boss_houseguest_ids'] = $this->padToCount([], $bossCount);
             $this->form['nominee_houseguest_ids'] = $this->padToCount([], $nomineeCount);
             $this->form['evicted_houseguest_ids'] = $this->padToCount([], $evictedCount);
         }
+    }
+
+    private function bossCount(): int
+    {
+        return max(1, (int) ($this->week->boss_count ?? 1));
     }
 
     private function nomineeCount(): int
@@ -156,11 +168,12 @@ new class extends Component {
 
         $houseguestIds = $this->houseguests->pluck('id')->all();
 
+        $bossCount = $this->bossCount();
         $nomineeCount = $this->nomineeCount();
         $evictedCount = $this->evictedCount();
 
         $rules = [
-            'form.hoh_houseguest_id' => ['nullable', Rule::in($houseguestIds)],
+            'form.boss_houseguest_ids' => ['array'],
             'form.nominee_houseguest_ids' => ['array'],
             'form.evicted_houseguest_ids' => ['array'],
             'form.veto_winner_houseguest_id' => ['nullable', Rule::in($houseguestIds)],
@@ -168,6 +181,10 @@ new class extends Component {
             'form.saved_houseguest_id' => ['nullable', Rule::in($houseguestIds)],
             'form.replacement_nominee_houseguest_id' => ['nullable', Rule::in($houseguestIds)],
         ];
+
+        for ($i = 0; $i < $bossCount; $i++) {
+            $rules["form.boss_houseguest_ids.$i"] = ['nullable', Rule::in($houseguestIds), 'distinct'];
+        }
 
         for ($i = 0; $i < $nomineeCount; $i++) {
             $rules["form.nominee_houseguest_ids.$i"] = ['nullable', Rule::in($houseguestIds), 'distinct'];
@@ -179,21 +196,24 @@ new class extends Component {
 
         $validated = $this->validate($rules);
 
+        $bosses = $this->padToCount($this->normalizeIdList($validated['form']['boss_houseguest_ids'] ?? []), $bossCount);
         $nominees = $this->padToCount($this->normalizeIdList($validated['form']['nominee_houseguest_ids'] ?? []), $nomineeCount);
         $evicted = $this->padToCount($this->normalizeIdList($validated['form']['evicted_houseguest_ids'] ?? []), $evictedCount);
 
-        $hohId = isset($validated['form']['hoh_houseguest_id']) && is_numeric($validated['form']['hoh_houseguest_id'])
-            ? (int) $validated['form']['hoh_houseguest_id']
-            : null;
-
-        if ($hohId !== null) {
+        $bossIds = array_values(array_filter($bosses));
+        if ($bossIds !== []) {
             $nomineeIds = array_values(array_filter($nominees));
             $evictedIds = array_values(array_filter($evicted));
+            $vetoWinnerId = is_numeric($validated['form']['veto_winner_houseguest_id'] ?? null)
+                ? (int) $validated['form']['veto_winner_houseguest_id']
+                : null;
 
-            if (in_array($hohId, $nomineeIds, true) || in_array($hohId, $evictedIds, true) || ((int) ($validated['form']['veto_winner_houseguest_id'] ?? 0) === $hohId)) {
-                $this->addError('form.hoh_houseguest_id', __('HOH (Boss) cannot also be a nominee, veto winner, or evicted.'));
+            foreach ($bossIds as $bossId) {
+                if (in_array($bossId, $nomineeIds, true) || in_array($bossId, $evictedIds, true) || ($vetoWinnerId !== null && $vetoWinnerId === $bossId)) {
+                    $this->addError('form.boss_houseguest_ids', __('Boss cannot also be a nominee, veto winner, or evicted.'));
 
-                return;
+                    return;
+                }
             }
         }
 
@@ -205,6 +225,8 @@ new class extends Component {
         $data = array_merge(
             $validated['form'],
             [
+                'boss_houseguest_ids' => $bosses,
+                'hoh_houseguest_id' => $bosses[0] ?? null,
                 'nominee_houseguest_ids' => $nominees,
                 'evicted_houseguest_ids' => $evicted,
                 'nominee_1_houseguest_id' => $nominees[0] ?? null,
@@ -232,11 +254,12 @@ new class extends Component {
 
         $houseguestIds = $this->houseguests->pluck('id')->all();
 
+        $bossCount = $this->bossCount();
         $nomineeCount = $this->nomineeCount();
         $evictedCount = $this->evictedCount();
 
         $rules = [
-            'form.hoh_houseguest_id' => ['required', Rule::in($houseguestIds)],
+            'form.boss_houseguest_ids' => ['array'],
             'form.nominee_houseguest_ids' => ['array'],
             'form.evicted_houseguest_ids' => ['array'],
             'form.veto_winner_houseguest_id' => ['required', Rule::in($houseguestIds)],
@@ -244,6 +267,10 @@ new class extends Component {
             'form.saved_houseguest_id' => ['required_if:form.veto_used,1', Rule::in($houseguestIds)],
             'form.replacement_nominee_houseguest_id' => ['required_if:form.veto_used,1', Rule::in($houseguestIds)],
         ];
+
+        for ($i = 0; $i < $bossCount; $i++) {
+            $rules["form.boss_houseguest_ids.$i"] = ['required', Rule::in($houseguestIds), 'distinct'];
+        }
 
         for ($i = 0; $i < $nomineeCount; $i++) {
             $rules["form.nominee_houseguest_ids.$i"] = ['required', Rule::in($houseguestIds), 'distinct'];
@@ -255,18 +282,21 @@ new class extends Component {
 
         $validated = $this->validate($rules);
 
+        $bosses = $this->padToCount($this->normalizeIdList($validated['form']['boss_houseguest_ids'] ?? []), $bossCount);
         $nominees = $this->padToCount($this->normalizeIdList($validated['form']['nominee_houseguest_ids'] ?? []), $nomineeCount);
         $evicted = $this->padToCount($this->normalizeIdList($validated['form']['evicted_houseguest_ids'] ?? []), $evictedCount);
 
-        $hohId = (int) $validated['form']['hoh_houseguest_id'];
+        $bossIds = array_values(array_filter($bosses));
         $vetoWinnerId = (int) $validated['form']['veto_winner_houseguest_id'];
         $nomineeIds = array_values(array_filter($nominees));
         $evictedIds = array_values(array_filter($evicted));
 
-        if (in_array($hohId, $nomineeIds, true) || in_array($hohId, $evictedIds, true) || $vetoWinnerId === $hohId) {
-            $this->addError('form.hoh_houseguest_id', __('HOH (Boss) cannot also be a nominee, veto winner, or evicted.'));
+        foreach ($bossIds as $bossId) {
+            if (in_array($bossId, $nomineeIds, true) || in_array($bossId, $evictedIds, true) || $vetoWinnerId === $bossId) {
+                $this->addError('form.boss_houseguest_ids', __('Boss cannot also be a nominee, veto winner, or evicted.'));
 
-            return;
+                return;
+            }
         }
 
         if (! ($validated['form']['veto_used'] ?? false)) {
@@ -277,6 +307,8 @@ new class extends Component {
         $data = array_merge(
             $validated['form'],
             [
+                'boss_houseguest_ids' => $bosses,
+                'hoh_houseguest_id' => $bosses[0] ?? null,
                 'nominee_houseguest_ids' => $nominees,
                 'evicted_houseguest_ids' => $evicted,
                 'nominee_1_houseguest_id' => $nominees[0] ?? null,
@@ -338,12 +370,14 @@ new class extends Component {
         <div class="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-zinc-900">
             <form wire:submit="save" class="grid gap-6">
                 <div class="grid gap-4 md:grid-cols-2">
-                    <flux:select wire:model="form.hoh_houseguest_id" :label="__('HOH (Boss)')" :disabled="$this->isLocked" placeholder="—">
-                        <option value="">—</option>
-                        @foreach ($houseguests as $hg)
-                            <option value="{{ $hg->id }}">{{ $hg->name }}</option>
-                        @endforeach
-                    </flux:select>
+                    @for ($i = 0; $i < ($week->boss_count ?? 1); $i++)
+                        <flux:select wire:model.live="form.boss_houseguest_ids.{{ $i }}" :label="($week->boss_count ?? 1) > 1 ? __('HOH (Boss) #').($i + 1) : __('HOH (Boss)')" :disabled="$this->isLocked" placeholder="—">
+                            <option value="">—</option>
+                            @foreach ($houseguests as $hg)
+                                <option value="{{ $hg->id }}">{{ $hg->name }}</option>
+                            @endforeach
+                        </flux:select>
+                    @endfor
 
                     @for ($i = 0; $i < ($week->evicted_count ?? 1); $i++)
                         <flux:select wire:model.live="form.evicted_houseguest_ids.{{ $i }}" :label="($week->evicted_count ?? 1) > 1 ? __('Evicted #').($i + 1) : __('Evicted')" :disabled="$this->isLocked" placeholder="—">

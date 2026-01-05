@@ -20,6 +20,7 @@ class Prediction extends Model
         'week_id',
         'user_id',
         'hoh_houseguest_id',
+        'boss_houseguest_ids',
         'nominee_1_houseguest_id',
         'nominee_2_houseguest_id',
         'nominee_houseguest_ids',
@@ -42,6 +43,7 @@ class Prediction extends Model
     {
         return [
             'veto_used' => 'boolean',
+            'boss_houseguest_ids' => 'array',
             'nominee_houseguest_ids' => 'array',
             'evicted_houseguest_ids' => 'array',
             'confirmed_at' => 'datetime',

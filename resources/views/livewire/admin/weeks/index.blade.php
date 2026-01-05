@@ -15,6 +15,7 @@ new class extends Component {
     /** @var array<string, mixed> */
     public array $form = [
         'number' => 1,
+        'boss_count' => 1,
         'nominee_count' => 2,
         'evicted_count' => 1,
         'name' => null,
@@ -40,6 +41,7 @@ new class extends Component {
         $this->editingId = null;
         $this->form = [
             'number' => $nextNumber,
+            'boss_count' => 1,
             'nominee_count' => 2,
             'evicted_count' => 1,
             'name' => null,
@@ -56,6 +58,7 @@ new class extends Component {
         $this->editingId = $week->id;
         $this->form = [
             'number' => $week->number,
+            'boss_count' => $week->boss_count ?? 1,
             'nominee_count' => $week->nominee_count ?? 2,
             'evicted_count' => $week->evicted_count ?? 1,
             'name' => $week->name,
@@ -73,6 +76,7 @@ new class extends Component {
 
         $validated = $this->validate([
             'form.number' => ['required', 'integer', 'min:1'],
+            'form.boss_count' => ['required', 'integer', 'min:1', 'max:20'],
             'form.nominee_count' => ['required', 'integer', 'min:1', 'max:20'],
             'form.evicted_count' => ['required', 'integer', 'min:1', 'max:20'],
             'form.name' => ['nullable', 'string', 'max:255'],
@@ -123,6 +127,7 @@ new class extends Component {
                     <flux:input wire:model="form.number" :label="__('Week #')" type="number" min="1" required />
 
                     <div class="grid gap-4 md:grid-cols-2">
+                        <flux:input wire:model="form.boss_count" :label="__('Bosses')" type="number" min="1" max="20" required />
                         <flux:input wire:model="form.nominee_count" :label="__('Nominees')" type="number" min="1" max="20" required />
                         <flux:input wire:model="form.evicted_count" :label="__('Evicted')" type="number" min="1" max="20" required />
                     </div>

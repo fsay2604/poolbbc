@@ -28,7 +28,7 @@ test('user cannot confirm a prediction where HOH is also a nominee/veto winner/e
     $this->actingAs($user);
 
     $response = Volt::test('weeks.show', ['week' => $week])
-        ->set('form.hoh_houseguest_id', $boss->id)
+        ->set('form.boss_houseguest_ids.0', $boss->id)
         ->set('form.nominee_houseguest_ids.0', $boss->id)
         ->set('form.nominee_houseguest_ids.1', $hg2->id)
         ->set('form.veto_winner_houseguest_id', $hg3->id)
@@ -38,7 +38,7 @@ test('user cannot confirm a prediction where HOH is also a nominee/veto winner/e
         ->set('form.evicted_houseguest_ids.0', $hg6->id)
         ->call('confirm');
 
-    $response->assertHasErrors(['form.hoh_houseguest_id']);
+    $response->assertHasErrors(['form.boss_houseguest_ids']);
 });
 
 test('admin cannot save an outcome where HOH is also veto winner or evicted', function () {
@@ -57,12 +57,12 @@ test('admin cannot save an outcome where HOH is also veto winner or evicted', fu
     $this->actingAs($admin);
 
     $response = Volt::test('admin.weeks.outcome', ['week' => $week])
-        ->set('form.hoh_houseguest_id', $boss->id)
+        ->set('form.boss_houseguest_ids.0', $boss->id)
         ->set('form.veto_winner_houseguest_id', $boss->id)
         ->set('form.evicted_houseguest_ids.0', $other->id)
         ->call('save');
 
-    $response->assertHasErrors(['form.hoh_houseguest_id']);
+    $response->assertHasErrors(['form.boss_houseguest_ids']);
 });
 
 test('admin cannot save a prediction where HOH is also evicted', function () {
@@ -87,9 +87,9 @@ test('admin cannot save a prediction where HOH is also evicted', function () {
     $this->actingAs($admin);
 
     $response = Volt::test('admin.predictions.edit', ['prediction' => $prediction])
-        ->set('form.hoh_houseguest_id', $boss->id)
+        ->set('form.boss_houseguest_ids.0', $boss->id)
         ->set('form.evicted_houseguest_ids.0', $boss->id)
         ->call('save');
 
-    $response->assertHasErrors(['form.hoh_houseguest_id']);
+    $response->assertHasErrors(['form.boss_houseguest_ids']);
 });

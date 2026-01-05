@@ -87,7 +87,7 @@ test('admin can set multiple houseguest occupations', function () {
     Volt::test('admin.houseguests.index')
         ->set('form.name', 'Player Three')
         ->set('form.sex', 'M')
-        ->set('form.occupations', 'Actor, Comedian')
+        ->set('form.occupations', ['Actor', 'Comedian'])
         ->set('form.is_active', true)
         ->set('form.sort_order', 3)
         ->call('save')

@@ -17,9 +17,10 @@ new class extends Component {
 
     public mixed $avatar = null;
 
-    /** @var array{name:string,avatar_url:?string,is_active:bool,sort_order:int} */
+    /** @var array{name:string,sex:?string,avatar_url:?string,is_active:bool,sort_order:int} */
     public array $form = [
         'name' => '',
+        'sex' => null,
         'avatar_url' => null,
         'is_active' => true,
         'sort_order' => 0,
@@ -41,6 +42,7 @@ new class extends Component {
         $this->avatar = null;
         $this->form = [
             'name' => '',
+            'sex' => null,
             'avatar_url' => null,
             'is_active' => true,
             'sort_order' => 0,
@@ -55,6 +57,7 @@ new class extends Component {
         $this->avatar = null;
         $this->form = [
             'name' => $houseguest->name,
+            'sex' => $houseguest->sex,
             'avatar_url' => $houseguest->avatar_url,
             'is_active' => $houseguest->is_active,
             'sort_order' => $houseguest->sort_order,
@@ -68,6 +71,7 @@ new class extends Component {
 
         $validated = $this->validate([
             'form.name' => ['required', 'string', 'max:255'],
+            'form.sex' => ['nullable', 'string', 'in:M,F'],
             'avatar' => ['nullable', 'image', 'max:2048'],
             'form.is_active' => ['required', 'boolean'],
             'form.sort_order' => ['required', 'integer', 'min:0'],
@@ -121,6 +125,11 @@ new class extends Component {
                 <form wire:submit="save" class="grid gap-4">
                     <flux:input wire:model="form.name" :label="__('Name')" required />
 
+                    <flux:select wire:model="form.sex" :label="__('Sex')">
+                        <option value="M">{{ __('Male') }}</option>
+                        <option value="F">{{ __('Female') }}</option>
+                    </flux:select>
+
                     <flux:file-upload wire:model="avatar">
                         <div class="flex items-center gap-4">
                             @if ($avatar)
@@ -157,6 +166,7 @@ new class extends Component {
                             <tr>
                                 <th class="px-4 py-3 text-left font-medium">{{ __('Avatar') }}</th>
                                 <th class="px-4 py-3 text-left font-medium">{{ __('Name') }}</th>
+                                <th class="px-4 py-3 text-left font-medium">{{ __('Sex') }}</th>
                                 <th class="px-4 py-3 text-left font-medium">{{ __('Active') }}</th>
                                 <th class="px-4 py-3"></th>
                             </tr>
@@ -168,6 +178,7 @@ new class extends Component {
                                         <flux:avatar :src="$hg->avatar_url ? asset('storage/'.$hg->avatar_url) : null" :name="$hg->name" size="sm" circle />
                                     </td>
                                     <td class="px-4 py-3">{{ $hg->name }}</td>
+                                    <td class="px-4 py-3">{{ $hg->sex ?? '—' }}</td>
                                     <td class="px-4 py-3">
                                         @if ($hg->is_active)
                                             <span class="text-green-600">{{ __('Yes') }}</span>

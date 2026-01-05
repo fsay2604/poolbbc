@@ -32,3 +32,26 @@ test('admin can upload a houseguest avatar', function () {
 
     Storage::disk('public')->assertExists($houseguest->avatar_url);
 });
+
+test('admin can set houseguest sex', function () {
+    $season = Season::factory()->create(['is_active' => true]);
+
+    $admin = User::factory()->admin()->create();
+    $this->actingAs($admin);
+
+    Volt::test('admin.houseguests.index')
+        ->set('form.name', 'Player Two')
+        ->set('form.sex', 'F')
+        ->set('form.is_active', true)
+        ->set('form.sort_order', 2)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $houseguest = Houseguest::query()
+        ->where('season_id', $season->id)
+        ->where('name', 'Player Two')
+        ->first();
+
+    expect($houseguest)->not->toBeNull();
+    expect($houseguest->sex)->toBe('F');
+});

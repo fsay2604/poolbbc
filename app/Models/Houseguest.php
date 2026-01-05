@@ -17,6 +17,7 @@ class Houseguest extends Model
     protected $fillable = [
         'season_id',
         'name',
+        'sex',
         'avatar_url',
         'is_active',
         'sort_order',

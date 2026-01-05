@@ -15,12 +15,15 @@ new class extends Component {
     {
         $this->season = Season::query()->where('is_active', true)->first();
 
+        $userId = auth()->id();
+
         $this->weeks = Week::query()
             ->when(
                 $this->season,
                 fn (Builder $q) => $q->where('season_id', $this->season->id),
                 fn (Builder $q) => $q->whereRaw('1=0'),
             )
+            ->when($userId, fn (Builder $q) => $q->with(['predictions' => fn ($relation) => $relation->where('user_id', $userId)]))
             ->orderBy('number')
             ->get();
     }
@@ -51,6 +54,7 @@ new class extends Component {
                             <th class="px-4 py-3 text-left font-medium">{{ __('Week') }}</th>
                             <th class="px-4 py-3 text-left font-medium">{{ __('Deadline') }}</th>
                             <th class="px-4 py-3 text-left font-medium">{{ __('Status') }}</th>
+                            <th class="px-4 py-3 text-left font-medium">{{ __('Confirmation status') }}</th>
                             <th class="px-4 py-3"></th>
                         </tr>
                     </thead>
@@ -66,6 +70,15 @@ new class extends Component {
                                         <span class="text-green-600">{{ __('Open') }}</span>
                                     @endif
                                 </td>
+                                <td class="px-4 py-3">
+                                    @php($prediction = $week->relationLoaded('predictions') ? $week->predictions->first() : null)
+
+                                    @if ($prediction?->isConfirmed())
+                                        <span class="text-green-600">{{ __('Confirmed') }}</span>
+                                    @else
+                                        <span class="text-zinc-500 dark:text-zinc-400">{{ __('Pending') }}</span>
+                                    @endif
+                                </td>
                                 <td class="px-4 py-3 text-right">
                                     <flux:button size="sm" :href="route('weeks.show', $week)" wire:navigate>
                                         {{ __('View') }}
@@ -74,7 +87,7 @@ new class extends Component {
                             </tr>
                         @empty
                             <tr>
-                                <td class="px-4 py-6 text-center text-zinc-500 dark:text-zinc-400" colspan="4">
+                                <td class="px-4 py-6 text-center text-zinc-500 dark:text-zinc-400" colspan="5">
                                     {{ __('No weeks found.') }}
                                 </td>
                             </tr>

@@ -236,6 +236,14 @@ new class extends Component {
             ),
         );
 
+        $evictedIds = array_values(array_filter($this->normalizeIdList($evicted)));
+        if ($evictedIds !== []) {
+            Houseguest::query()
+                ->where('season_id', $this->week->season_id)
+                ->whereIn('id', $evictedIds)
+                ->update(['is_active' => false]);
+        }
+
         $this->outcome = $outcome;
         $this->dispatch('outcome-saved');
     }

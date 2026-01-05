@@ -12,7 +12,7 @@ new class extends Component {
     /** @var \Illuminate\Support\Collection<int, \App\Models\Week> */
     public $weeks;
 
-    public ?int $weekId = null;
+    public ?string $weekId = null;
 
     public function mount(): void
     {
@@ -33,8 +33,10 @@ new class extends Component {
         $admin = Auth::user();
         abort_if($admin === null, 403);
 
-        $weeks = $this->weekId
-            ? Week::query()->whereKey($this->weekId)->get()
+        $weekId = is_numeric($this->weekId) ? (int) $this->weekId : null;
+
+        $weeks = $weekId
+            ? Week::query()->whereKey($weekId)->get()
             : $this->weeks;
 
         foreach ($weeks as $week) {
@@ -56,7 +58,8 @@ new class extends Component {
 
         <div class="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-zinc-900">
             <div class="grid gap-4">
-                <flux:select wire:model="weekId" :label="__('Week (optional)')" placeholder="{{ __('All weeks') }}">
+                <flux:select wire:model.live="weekId" :label="__('Week (optional)')">
+                    <option value="">{{ __('All weeks') }}</option>
                     @foreach ($weeks as $week)
                         <option value="{{ $week->id }}">{{ $week->name ?? __('Week').' '.$week->number }}</option>
                     @endforeach

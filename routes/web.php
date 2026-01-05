@@ -34,6 +34,8 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('weeks', 'weeks.index')->name('weeks.index');
     Volt::route('weeks/{week}', 'weeks.show')->name('weeks.show');
 
+    Volt::route('season-prediction', 'season-prediction')->name('season.prediction');
+
     Route::get('current-week', function () {
         $now = now();
 
@@ -57,6 +59,7 @@ Route::middleware(['auth'])->group(function () {
 
     Route::middleware(['can:admin'])->prefix('admin')->group(function () {
         Volt::route('seasons', 'admin.seasons.index')->name('admin.seasons.index');
+        Volt::route('season-outcome', 'admin.seasons.outcome')->name('admin.seasons.outcome');
         Volt::route('weeks', 'admin.weeks.index')->name('admin.weeks.index');
         Volt::route('houseguests', 'admin.houseguests.index')->name('admin.houseguests.index');
         Volt::route('weeks/{week}/outcome', 'admin.weeks.outcome')->name('admin.weeks.outcome');

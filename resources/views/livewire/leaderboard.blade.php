@@ -14,7 +14,7 @@ new class extends Component {
     /** @var \Illuminate\Support\Collection<int, \App\Models\Week> */
     public $weeks;
 
-    /** @var \Illuminate\Support\Collection<int, array{user:\App\Models\User,total:int,by_week:array<int,int>}> */
+    /** @var \Illuminate\Support\Collection<int, array{user:\App\Models\User,total:int,season:int,by_week:array<int,int>}> */
     public $rows;
 
     public function mount(): void
@@ -36,7 +36,7 @@ new class extends Component {
             return;
         }
 
-        $scores = DB::table('prediction_scores')
+        $weeklyScores = DB::table('prediction_scores')
             ->join('weeks', 'weeks.id', '=', 'prediction_scores.week_id')
             ->where('weeks.season_id', $this->season->id)
             ->select([
@@ -46,21 +46,36 @@ new class extends Component {
             ])
             ->get();
 
-        $userIds = $scores->pluck('user_id')->unique()->values();
+        $seasonScores = DB::table('season_prediction_scores')
+            ->where('season_id', $this->season->id)
+            ->select([
+                'user_id',
+                'points',
+            ])
+            ->get();
+
+        $userIds = $weeklyScores
+            ->pluck('user_id')
+            ->merge($seasonScores->pluck('user_id'))
+            ->unique()
+            ->values();
         $users = User::query()->whereIn('id', $userIds)->get()->keyBy('id');
 
-        $rows = $userIds->map(function (int $userId) use ($scores, $users): array {
-            $byWeek = $scores
+        $rows = $userIds->map(function (int $userId) use ($weeklyScores, $seasonScores, $users): array {
+            $byWeek = $weeklyScores
                 ->where('user_id', $userId)
                 ->keyBy('week_id')
                 ->map(fn ($row) => (int) $row->points)
                 ->all();
 
-            $total = array_sum($byWeek);
+            $weeklyTotal = array_sum($byWeek);
+            $seasonPoints = (int) ($seasonScores->firstWhere('user_id', $userId)->points ?? 0);
+            $total = $weeklyTotal + $seasonPoints;
 
             return [
                 'user' => $users[$userId],
                 'total' => $total,
+                'season' => $seasonPoints,
                 'by_week' => $byWeek,
             ];
         })->sortByDesc('total')->values();
@@ -87,6 +102,7 @@ new class extends Component {
                         <tr>
                             <th class="px-4 py-3 text-left font-medium">{{ __('Player') }}</th>
                             <th class="px-4 py-3 text-right font-medium">{{ __('Total') }}</th>
+                            <th class="px-4 py-3 text-right font-medium">{{ __('Season') }}</th>
                             @foreach ($weeks as $week)
                                 <th class="px-4 py-3 text-right font-medium">{{ __('W').$week->number }}</th>
                             @endforeach
@@ -97,6 +113,9 @@ new class extends Component {
                             <tr>
                                 <td class="px-4 py-3">{{ $row['user']->name }}</td>
                                 <td class="px-4 py-3 text-right font-semibold">{{ $row['total'] }}</td>
+                                <td class="px-4 py-3 text-right text-zinc-600 dark:text-zinc-300">
+                                    {{ $row['season'] ?? 0 }}
+                                </td>
                                 @foreach ($weeks as $week)
                                     <td class="px-4 py-3 text-right text-zinc-600 dark:text-zinc-300">
                                         {{ $row['by_week'][$week->id] ?? 0 }}
@@ -105,7 +124,7 @@ new class extends Component {
                             </tr>
                         @empty
                             <tr>
-                                <td class="px-4 py-6 text-center text-zinc-500 dark:text-zinc-400" colspan="{{ 2 + $weeks->count() }}">
+                                <td class="px-4 py-6 text-center text-zinc-500 dark:text-zinc-400" colspan="{{ 3 + $weeks->count() }}">
                                     {{ __('No scores yet.') }}
                                 </td>
                             </tr>

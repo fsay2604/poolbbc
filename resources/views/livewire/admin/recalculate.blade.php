@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Predictions\ScoreWeek;
+use App\Actions\Predictions\ScoreSeasonPredictions;
 use App\Models\Season;
 use App\Models\Week;
 use Illuminate\Support\Facades\Auth;
@@ -25,7 +26,7 @@ new class extends Component {
             ->get();
     }
 
-    public function recalculate(ScoreWeek $scoreWeek): void
+    public function recalculate(ScoreWeek $scoreWeek, ScoreSeasonPredictions $scoreSeasonPredictions): void
     {
         Gate::authorize('admin');
 
@@ -38,6 +39,11 @@ new class extends Component {
 
         foreach ($weeks as $week) {
             $scoreWeek->run($week, $admin);
+        }
+
+        $season = Season::query()->where('is_active', true)->first();
+        if ($season) {
+            $scoreSeasonPredictions->run($season, $admin);
         }
 
         $this->dispatch('scores-recalculated');

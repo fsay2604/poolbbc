@@ -19,6 +19,9 @@ class Season extends Model
         'is_active',
         'starts_on',
         'ends_on',
+        'winner_houseguest_id',
+        'first_evicted_houseguest_id',
+        'top_6_houseguest_ids',
     ];
 
     /**
@@ -30,6 +33,7 @@ class Season extends Model
             'is_active' => 'boolean',
             'starts_on' => 'date',
             'ends_on' => 'date',
+            'top_6_houseguest_ids' => 'array',
         ];
     }
 

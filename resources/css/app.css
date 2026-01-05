@@ -11,37 +11,88 @@
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 
-    /* PoolBBC theme palette */
-    --color-zinc-50: #ffffff;
-    --color-zinc-100: #f1beef;
-    --color-zinc-200: #f1beef;
-    --color-zinc-300: #d783ec;
-    --color-zinc-400: #99a4dc;
-    --color-zinc-500: #6e3dd9;
-    --color-zinc-600: #482dd6;
-    --color-zinc-700: #1e25c1;
-    --color-zinc-800: #1b096e;
-    --color-zinc-900: #170956;
-    --color-zinc-950: #170956;
+    /* Palette B — Light “Glow Glass” */
+    --color-zinc-50: #f7f5ff; /* app background */
+    --color-zinc-100: #f0edff; /* elevated surface */
+    --color-zinc-200: #ddd7ff; /* borders / separators */
+    --color-zinc-300: #ddd7ff;
+    --color-zinc-400: #6e64a8; /* muted text */
+    --color-zinc-500: #3b2f73; /* secondary text */
+    --color-zinc-600: #3b2f73;
+    --color-zinc-700: #3b2f73;
+    --color-zinc-800: #120b2d; /* primary text */
+    --color-zinc-900: #120b2d;
+    --color-zinc-950: #120b2d;
 
-    /* Flux accent colors */
-    --color-accent: #482dd6;
-    --color-accent-content: #1b096e;
+    /* Flux brand / actions */
+    --color-accent: #482dd6; /* primary (violet) */
+    --color-accent-content: #3f25c9; /* primary hover */
     --color-accent-foreground: #ffffff;
 
-    /* Extra named tokens (usable via bg-*/
-    --color-glow-magenta: #ae35ae;
-    --color-glow-pink: #d783ec;
-    --color-highlight: #f1beef;
-    --color-text-secondary: #99a4dc;
-    --color-gold: #d8a774;
+    /* Extra named tokens */
+    --color-surface: #ffffff;
+    --color-surface-elevated: #f0edff;
+    --color-border: #ddd7ff;
+    --color-text-primary: #120b2d;
+    --color-text-secondary: #3b2f73;
+    --color-text-muted: #6e64a8;
+
+    --color-brand-secondary: #1e25c1; /* secondary (blue) */
+    --color-glow-pink: #ae35ae; /* accent glow (pink) */
+    --color-gold: #d8a774; /* accent gold */
+
+    /* Feedback */
+    --color-success: #16a34a;
+    --color-warning: #d97706;
+    --color-danger: #dc2626;
+    --color-info: #0284c7;
+
+    /* Gradients (optional) */
+    --gradient-hero: linear-gradient(135deg, #1e25c1 0%, #482dd6 55%, #ae35ae 100%);
+    --gradient-button: linear-gradient(135deg, #482dd6 0%, #482dd6 60%, #ae35ae 100%);
 }
 
 @layer theme {
     .dark {
-        --color-accent: #6e3dd9;
-        --color-accent-content: #d783ec;
-        --color-accent-foreground: #ffffff;
+        /* Palette A — Dark “Neon Night” */
+        --color-zinc-50: #f2eeff; /* primary text */
+        --color-zinc-100: #f2eeff;
+        --color-zinc-200: #c8bff2; /* secondary text */
+        --color-zinc-300: #c8bff2;
+        --color-zinc-400: #9b8fd1; /* muted text */
+        --color-zinc-500: #6e64a8; /* disabled text */
+        --color-zinc-600: #6e64a8;
+        --color-zinc-700: #2a1c63; /* borders / separators */
+        --color-zinc-800: #0b0820; /* app background */
+        --color-zinc-900: #120b2d; /* surface / cards */
+        --color-zinc-950: #0b0820;
+
+        /* Flux brand / actions */
+        --color-accent: #6e3dd9; /* primary (violet) */
+        --color-accent-content: #7d4cf0; /* primary hover */
+        --color-accent-foreground: #f2eeff;
+
+        /* Extra named tokens */
+        --color-surface: #120b2d;
+        --color-surface-elevated: #1a1140;
+        --color-border: #2a1c63;
+        --color-text-primary: #f2eeff;
+        --color-text-secondary: #c8bff2;
+        --color-text-muted: #9b8fd1;
+
+        --color-brand-secondary: #1e25c1; /* secondary (electric blue) */
+        --color-glow-pink: #d783ec; /* accent glow (pink) */
+        --color-gold: #d8a774;
+
+        /* Feedback */
+        --color-success: #22c55e;
+        --color-warning: #f59e0b;
+        --color-danger: #ef4444;
+        --color-info: #38bdf8;
+
+        /* Gradients (optional) */
+        --gradient-hero: linear-gradient(135deg, #1e25c1 0%, #6e3dd9 55%, #d783ec 100%);
+        --gradient-button: linear-gradient(135deg, #482dd6 0%, #6e3dd9 60%, #ae35ae 100%);
     }
 }
 

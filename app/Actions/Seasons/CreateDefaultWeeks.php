@@ -25,7 +25,7 @@ class CreateDefaultWeeks
         /** @var array<int, array<string, mixed>> $weeks */
         $weeks = [];
 
-        for ($number = 1; $number <= 16; $number++) {
+        for ($number = 1; $number <= 12; $number++) {
             $startsAt = $secondSunday->copy()->addWeeks($number - 1);
 
             $weeks[] = [

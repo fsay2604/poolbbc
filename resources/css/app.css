@@ -11,28 +11,37 @@
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 
-    --color-zinc-50: #fafafa;
-    --color-zinc-100: #f5f5f5;
-    --color-zinc-200: #e5e5e5;
-    --color-zinc-300: #d4d4d4;
-    --color-zinc-400: #a3a3a3;
-    --color-zinc-500: #737373;
-    --color-zinc-600: #525252;
-    --color-zinc-700: #404040;
-    --color-zinc-800: #262626;
-    --color-zinc-900: #171717;
-    --color-zinc-950: #0a0a0a;
+    /* PoolBBC theme palette */
+    --color-zinc-50: #ffffff;
+    --color-zinc-100: #f1beef;
+    --color-zinc-200: #f1beef;
+    --color-zinc-300: #d783ec;
+    --color-zinc-400: #99a4dc;
+    --color-zinc-500: #6e3dd9;
+    --color-zinc-600: #482dd6;
+    --color-zinc-700: #1e25c1;
+    --color-zinc-800: #1b096e;
+    --color-zinc-900: #170956;
+    --color-zinc-950: #170956;
 
-    --color-accent: var(--color-neutral-800);
-    --color-accent-content: var(--color-neutral-800);
-    --color-accent-foreground: var(--color-white);
+    /* Flux accent colors */
+    --color-accent: #482dd6;
+    --color-accent-content: #1b096e;
+    --color-accent-foreground: #ffffff;
+
+    /* Extra named tokens (usable via bg-*/
+    --color-glow-magenta: #ae35ae;
+    --color-glow-pink: #d783ec;
+    --color-highlight: #f1beef;
+    --color-text-secondary: #99a4dc;
+    --color-gold: #d8a774;
 }
 
 @layer theme {
     .dark {
-        --color-accent: var(--color-white);
-        --color-accent-content: var(--color-white);
-        --color-accent-foreground: var(--color-neutral-800);
+        --color-accent: #6e3dd9;
+        --color-accent-content: #d783ec;
+        --color-accent-foreground: #ffffff;
     }
 }
 

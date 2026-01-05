@@ -19,11 +19,13 @@ class WeekOutcome extends Model
         'hoh_houseguest_id',
         'nominee_1_houseguest_id',
         'nominee_2_houseguest_id',
+        'nominee_houseguest_ids',
         'veto_winner_houseguest_id',
         'veto_used',
         'saved_houseguest_id',
         'replacement_nominee_houseguest_id',
         'evicted_houseguest_id',
+        'evicted_houseguest_ids',
         'last_admin_edited_by_user_id',
         'last_admin_edited_at',
     ];
@@ -35,6 +37,8 @@ class WeekOutcome extends Model
     {
         return [
             'veto_used' => 'boolean',
+            'nominee_houseguest_ids' => 'array',
+            'evicted_houseguest_ids' => 'array',
             'last_admin_edited_at' => 'datetime',
         ];
     }

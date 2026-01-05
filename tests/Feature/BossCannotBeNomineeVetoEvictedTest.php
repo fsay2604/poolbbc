@@ -29,13 +29,13 @@ test('user cannot confirm a prediction where HOH is also a nominee/veto winner/e
 
     $response = Volt::test('weeks.show', ['week' => $week])
         ->set('form.hoh_houseguest_id', $boss->id)
-        ->set('form.nominee_1_houseguest_id', $boss->id)
-        ->set('form.nominee_2_houseguest_id', $hg2->id)
+        ->set('form.nominee_houseguest_ids.0', $boss->id)
+        ->set('form.nominee_houseguest_ids.1', $hg2->id)
         ->set('form.veto_winner_houseguest_id', $hg3->id)
         ->set('form.veto_used', true)
         ->set('form.saved_houseguest_id', $hg4->id)
         ->set('form.replacement_nominee_houseguest_id', $hg5->id)
-        ->set('form.evicted_houseguest_id', $hg6->id)
+        ->set('form.evicted_houseguest_ids.0', $hg6->id)
         ->call('confirm');
 
     $response->assertHasErrors(['form.hoh_houseguest_id']);
@@ -59,7 +59,7 @@ test('admin cannot save an outcome where HOH is also veto winner or evicted', fu
     $response = Volt::test('admin.weeks.outcome', ['week' => $week])
         ->set('form.hoh_houseguest_id', $boss->id)
         ->set('form.veto_winner_houseguest_id', $boss->id)
-        ->set('form.evicted_houseguest_id', $other->id)
+        ->set('form.evicted_houseguest_ids.0', $other->id)
         ->call('save');
 
     $response->assertHasErrors(['form.hoh_houseguest_id']);
@@ -88,7 +88,7 @@ test('admin cannot save a prediction where HOH is also evicted', function () {
 
     $response = Volt::test('admin.predictions.edit', ['prediction' => $prediction])
         ->set('form.hoh_houseguest_id', $boss->id)
-        ->set('form.evicted_houseguest_id', $boss->id)
+        ->set('form.evicted_houseguest_ids.0', $boss->id)
         ->call('save');
 
     $response->assertHasErrors(['form.hoh_houseguest_id']);

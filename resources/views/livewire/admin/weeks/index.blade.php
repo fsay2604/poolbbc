@@ -15,6 +15,8 @@ new class extends Component {
     /** @var array<string, mixed> */
     public array $form = [
         'number' => 1,
+        'nominee_count' => 2,
+        'evicted_count' => 1,
         'name' => null,
         'prediction_deadline_at' => null,
         'locked_at' => null,
@@ -38,6 +40,8 @@ new class extends Component {
         $this->editingId = null;
         $this->form = [
             'number' => $nextNumber,
+            'nominee_count' => 2,
+            'evicted_count' => 1,
             'name' => null,
             'prediction_deadline_at' => now()->addDays(2)->format('Y-m-d\TH:i'),
             'locked_at' => null,
@@ -52,6 +56,8 @@ new class extends Component {
         $this->editingId = $week->id;
         $this->form = [
             'number' => $week->number,
+            'nominee_count' => $week->nominee_count ?? 2,
+            'evicted_count' => $week->evicted_count ?? 1,
             'name' => $week->name,
             'prediction_deadline_at' => $week->prediction_deadline_at->format('Y-m-d\TH:i'),
             'locked_at' => $week->locked_at?->format('Y-m-d\TH:i'),
@@ -67,6 +73,8 @@ new class extends Component {
 
         $validated = $this->validate([
             'form.number' => ['required', 'integer', 'min:1'],
+            'form.nominee_count' => ['required', 'integer', 'min:1', 'max:20'],
+            'form.evicted_count' => ['required', 'integer', 'min:1', 'max:20'],
             'form.name' => ['nullable', 'string', 'max:255'],
             'form.prediction_deadline_at' => ['required', 'date'],
             'form.locked_at' => ['nullable', 'date'],
@@ -113,6 +121,11 @@ new class extends Component {
             <div class="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-zinc-900">
                 <form wire:submit="save" class="grid gap-4">
                     <flux:input wire:model="form.number" :label="__('Week #')" type="number" min="1" required />
+
+                    <div class="grid gap-4 md:grid-cols-2">
+                        <flux:input wire:model="form.nominee_count" :label="__('Nominees')" type="number" min="1" max="20" required />
+                        <flux:input wire:model="form.evicted_count" :label="__('Evicted')" type="number" min="1" max="20" required />
+                    </div>
                     <flux:input wire:model="form.name" :label="__('Name (optional)')" />
 
                     <flux:input wire:model="form.prediction_deadline_at" :label="__('Prediction deadline')" type="datetime-local" required />

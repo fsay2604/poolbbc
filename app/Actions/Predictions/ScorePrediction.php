@@ -17,12 +17,10 @@ class ScorePrediction
         $hohCorrect = $this->idMatches($prediction->hoh_houseguest_id, $outcome->hoh_houseguest_id);
         $points += $hohCorrect ? 1 : 0;
 
-        $nomineesPoints = $this->nomineesPoints(
-            $prediction->nominee_1_houseguest_id,
-            $prediction->nominee_2_houseguest_id,
-            $outcome->nominee_1_houseguest_id,
-            $outcome->nominee_2_houseguest_id,
-        );
+        $predictedNominees = $this->nomineesList($prediction);
+        $actualNominees = $this->nomineesList($outcome);
+
+        $nomineesPoints = $this->listIntersectionPoints($predictedNominees, $actualNominees);
         $points += $nomineesPoints;
 
         $vetoWinnerCorrect = $this->idMatches($prediction->veto_winner_houseguest_id, $outcome->veto_winner_houseguest_id);
@@ -44,8 +42,16 @@ class ScorePrediction
             $points += $replacementCorrect ? 1 : 0;
         }
 
-        $evictedCorrect = $this->idMatches($prediction->evicted_houseguest_id, $outcome->evicted_houseguest_id);
-        $points += $evictedCorrect ? 1 : 0;
+        $predictedEvicted = $this->evictedList($prediction);
+        $actualEvicted = $this->evictedList($outcome);
+
+        $evictedPoints = $this->listIntersectionPoints($predictedEvicted, $actualEvicted);
+        $points += $evictedPoints;
+
+        $evictedCorrect = null;
+        if (count($predictedEvicted) === 1 && count($actualEvicted) === 1) {
+            $evictedCorrect = $predictedEvicted[0] === $actualEvicted[0];
+        }
 
         return [
             'points' => $points,
@@ -57,6 +63,7 @@ class ScorePrediction
                 'saved' => $savedCorrect,
                 'replacement' => $replacementCorrect,
                 'evicted' => $evictedCorrect,
+                'evicted_points' => $evictedPoints,
             ],
         ];
     }
@@ -71,15 +78,62 @@ class ScorePrediction
         return $predicted !== null && $actual !== null && $predicted === $actual;
     }
 
-    private function nomineesPoints(?int $p1, ?int $p2, ?int $a1, ?int $a2): int
+    /**
+     * @param  list<int>  $predicted
+     * @param  list<int>  $actual
+     */
+    private function listIntersectionPoints(array $predicted, array $actual): int
     {
-        if ($a1 === null || $a2 === null || $p1 === null || $p2 === null) {
+        if ($predicted === [] || $actual === []) {
             return 0;
         }
 
-        $predicted = array_values(array_unique([$p1, $p2]));
-        $actual = array_values(array_unique([$a1, $a2]));
-
         return count(array_intersect($predicted, $actual));
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function nomineesList(Prediction|WeekOutcome $model): array
+    {
+        $ids = $this->normalizeIdList($model->nominee_houseguest_ids ?? null);
+        if ($ids !== []) {
+            return $ids;
+        }
+
+        return $this->normalizeIdList([
+            $model->nominee_1_houseguest_id ?? null,
+            $model->nominee_2_houseguest_id ?? null,
+        ]);
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function evictedList(Prediction|WeekOutcome $model): array
+    {
+        $ids = $this->normalizeIdList($model->evicted_houseguest_ids ?? null);
+        if ($ids !== []) {
+            return $ids;
+        }
+
+        return $this->normalizeIdList([$model->evicted_houseguest_id ?? null]);
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function normalizeIdList(mixed $value): array
+    {
+        if (! is_array($value)) {
+            $value = [$value];
+        }
+
+        $ids = array_values(array_filter(array_map(
+            static fn ($id): ?int => is_numeric($id) ? (int) $id : null,
+            $value,
+        )));
+
+        return array_values(array_unique($ids));
     }
 }

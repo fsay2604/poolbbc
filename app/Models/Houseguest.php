@@ -18,6 +18,7 @@ class Houseguest extends Model
         'season_id',
         'name',
         'sex',
+        'occupations',
         'avatar_url',
         'is_active',
         'sort_order',
@@ -30,6 +31,7 @@ class Houseguest extends Model
     {
         return [
             'is_active' => 'boolean',
+            'occupations' => 'array',
         ];
     }
 

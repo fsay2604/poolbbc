@@ -55,3 +55,27 @@ test('admin can set houseguest sex', function () {
     expect($houseguest)->not->toBeNull();
     expect($houseguest->sex)->toBe('F');
 });
+
+test('admin can set multiple houseguest occupations', function () {
+    $season = Season::factory()->create(['is_active' => true]);
+
+    $admin = User::factory()->admin()->create();
+    $this->actingAs($admin);
+
+    Volt::test('admin.houseguests.index')
+        ->set('form.name', 'Player Three')
+        ->set('form.sex', 'M')
+        ->set('form.occupations', 'Actor, Comedian')
+        ->set('form.is_active', true)
+        ->set('form.sort_order', 3)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $houseguest = Houseguest::query()
+        ->where('season_id', $season->id)
+        ->where('name', 'Player Three')
+        ->first();
+
+    expect($houseguest)->not->toBeNull();
+    expect($houseguest->occupations)->toBe(['Actor', 'Comedian']);
+});

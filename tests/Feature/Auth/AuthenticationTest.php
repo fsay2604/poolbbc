@@ -7,6 +7,7 @@ test('login screen can be rendered', function () {
     $response = $this->get(route('login'));
 
     $response->assertStatus(200);
+    $response->assertSee('storage/images/logo.png');
 });
 
 test('users can authenticate using the login screen', function () {

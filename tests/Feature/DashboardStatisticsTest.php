@@ -13,11 +13,11 @@ use App\Models\WeekOutcome;
 test('dashboard shows user prediction accuracy statistics', function () {
     $season = Season::factory()->create(['is_active' => true]);
 
-    $hoh = Houseguest::factory()->create(['season_id' => $season->id]);
-    $nominee1 = Houseguest::factory()->create(['season_id' => $season->id]);
-    $nominee2 = Houseguest::factory()->create(['season_id' => $season->id]);
-    $vetoWinner = Houseguest::factory()->create(['season_id' => $season->id]);
-    $evicted = Houseguest::factory()->create(['season_id' => $season->id]);
+    $hoh = Houseguest::factory()->create(['season_id' => $season->id, 'sex' => 'M', 'occupations' => ['Actor']]);
+    $nominee1 = Houseguest::factory()->create(['season_id' => $season->id, 'sex' => 'M', 'occupations' => ['Actor']]);
+    $nominee2 = Houseguest::factory()->create(['season_id' => $season->id, 'sex' => 'M', 'occupations' => ['Gamer']]);
+    $vetoWinner = Houseguest::factory()->create(['season_id' => $season->id, 'sex' => 'M', 'occupations' => ['Gamer']]);
+    $evicted = Houseguest::factory()->create(['season_id' => $season->id, 'sex' => 'F', 'occupations' => []]);
 
     $week = Week::factory()->create([
         'season_id' => $season->id,
@@ -66,5 +66,15 @@ test('dashboard shows user prediction accuracy statistics', function () {
         ->assertSee('Alice')
         ->assertSee('100%')
         ->assertSee('Bob')
-        ->assertSee('0%');
+        ->assertSee('0%')
+        ->assertSee('Houseguest sex breakdown')
+        ->assertSee('Male')
+        ->assertSee('80%')
+        ->assertSee('Female')
+        ->assertSee('20%')
+        ->assertSee('Houseguest occupation breakdown')
+        ->assertSee('Actor')
+        ->assertSee('Gamer')
+        ->assertSee('Unknown')
+        ->assertSee('40%');
 });

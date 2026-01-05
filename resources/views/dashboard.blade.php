@@ -52,5 +52,71 @@
                 @endforeach
             </div>
         @endif
+
+        <div class="grid gap-1">
+            <div class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('Houseguest sex breakdown') }}</div>
+        </div>
+
+        <flux:card>
+            @if (($houseguestSexStatistics['total'] ?? 0) === 0)
+                <div class="py-6 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                    {{ __('No houseguests yet.') }}
+                </div>
+            @else
+                <div class="grid gap-4">
+                    <div class="flex items-end justify-between gap-6">
+                        <div class="grid gap-1">
+                            <flux:text>{{ __('Male') }}</flux:text>
+                            <flux:heading size="lg" class="tabular-nums">
+                                {{ $houseguestSexStatistics['male_percent'] ?? 0 }}%
+                            </flux:heading>
+                        </div>
+
+                        <div class="grid gap-1 text-right">
+                            <flux:text>{{ __('Female') }}</flux:text>
+                            <flux:heading size="lg" class="tabular-nums">
+                                {{ $houseguestSexStatistics['female_percent'] ?? 0 }}%
+                            </flux:heading>
+                        </div>
+                    </div>
+
+                    <div class="h-2 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+                        <div
+                            class="h-full bg-accent"
+                            style="width: {{ $houseguestSexStatistics['male_percent'] ?? 0 }}%"
+                        ></div>
+                    </div>
+                </div>
+            @endif
+        </flux:card>
+
+        <div class="grid gap-1">
+            <div class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('Houseguest occupation breakdown') }}</div>
+        </div>
+
+        <flux:card>
+            @if (count($houseguestOccupationStatistics) === 0)
+                <div class="py-6 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                    {{ __('No houseguests yet.') }}
+                </div>
+            @else
+                <div class="grid gap-3">
+                    @foreach ($houseguestOccupationStatistics as $row)
+                        <div class="grid gap-2">
+                            <div class="flex items-center justify-between gap-6">
+                                <flux:text>{{ $row['occupation'] }}</flux:text>
+                                <flux:text class="tabular-nums text-zinc-500 dark:text-zinc-400">
+                                    {{ $row['percent'] }}%
+                                </flux:text>
+                            </div>
+
+                            <div class="h-2 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+                                <div class="h-full bg-accent" style="width: {{ $row['percent'] }}%"></div>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+        </flux:card>
     </div>
 </x-layouts.app>

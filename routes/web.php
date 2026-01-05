@@ -27,6 +27,66 @@ Route::get('dashboard', function () {
 
     $statistics = collect();
 
+    $houseguestSexStatistics = [
+        'male_percent' => 0,
+        'female_percent' => 0,
+        'total' => 0,
+    ];
+
+    $houseguestOccupationStatistics = collect();
+
+    if ($houseguests->isNotEmpty()) {
+        $totalHouseguests = $houseguests->count();
+
+        $maleCount = $houseguests->where('sex', 'M')->count();
+        $femaleCount = $houseguests->where('sex', 'F')->count();
+        $total = $maleCount + $femaleCount;
+
+        if ($total > 0) {
+            $malePercent = (int) round(($maleCount / $total) * 100);
+            $femalePercent = 100 - $malePercent;
+        } else {
+            $malePercent = 0;
+            $femalePercent = 0;
+        }
+
+        $houseguestSexStatistics = [
+            'male_percent' => $malePercent,
+            'female_percent' => $femalePercent,
+            'total' => $total,
+        ];
+
+        $occupationCounts = $houseguests
+            ->map(function (Houseguest $houseguest): string {
+                if (! is_array($houseguest->occupations)) {
+                    return __('Unknown');
+                }
+
+                $occupation = collect($houseguest->occupations)
+                    ->filter(fn ($value) => is_string($value) && $value !== '')
+                    ->first();
+
+                return is_string($occupation) ? $occupation : __('Unknown');
+            })
+            ->countBy();
+
+        $houseguestOccupationStatistics = $occupationCounts
+            ->map(function (int $count, string $occupation) use ($totalHouseguests): array {
+                $percent = $totalHouseguests > 0
+                    ? (int) round(($count / $totalHouseguests) * 100)
+                    : 0;
+
+                return [
+                    'occupation' => $occupation,
+                    'count' => $count,
+                    'percent' => $percent,
+                ];
+            })
+            ->sortByDesc('percent')
+            ->sortBy('occupation')
+            ->values();
+    }
+
     if ($season !== null) {
         $weeksWithOutcomes = Week::query()
             ->where('season_id', $season->id)
@@ -130,6 +190,8 @@ Route::get('dashboard', function () {
         'season' => $season,
         'houseguests' => $houseguests,
         'statistics' => $statistics,
+        'houseguestSexStatistics' => $houseguestSexStatistics,
+        'houseguestOccupationStatistics' => $houseguestOccupationStatistics,
     ]);
 })
     ->middleware(['auth', 'verified'])

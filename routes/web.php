@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\Houseguest;
+use App\Models\Season;
 use App\Models\Week;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
@@ -9,7 +11,20 @@ Route::get('/', function () {
     return view('welcome');
 })->name('home');
 
-Route::view('dashboard', 'dashboard')
+Route::get('dashboard', function () {
+    $season = Season::query()->where('is_active', true)->first();
+
+    $houseguests = Houseguest::query()
+        ->when($season, fn ($q) => $q->where('season_id', $season->id), fn ($q) => $q->whereRaw('1=0'))
+        ->orderBy('sort_order')
+        ->orderBy('name')
+        ->get();
+
+    return view('dashboard', [
+        'season' => $season,
+        'houseguests' => $houseguests,
+    ]);
+})
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
 

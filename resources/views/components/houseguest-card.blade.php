@@ -1,7 +1,7 @@
 @props(['houseguest'])
 
 <div class="flex flex-col items-center gap-2 rounded-xl border border-neutral-200 bg-white p-3 text-center dark:border-neutral-700 dark:bg-zinc-900">
-    <div @class([$houseguest->is_active ? null : 'filter sepia'])>
+    <div @class([$houseguest->is_active ? null : 'filter grayscale'])>
         <flux:avatar
             :src="$houseguest->avatar_url ? asset('storage/'.$houseguest->avatar_url) : null"
             :name="$houseguest->name"

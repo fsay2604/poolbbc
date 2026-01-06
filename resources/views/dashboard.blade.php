@@ -104,7 +104,7 @@
                     @foreach ($houseguestOccupationStatistics as $row)
                         <div class="grid gap-2">
                             <div class="flex items-center justify-between gap-6">
-                                <flux:text>{{ $row['occupation'] }}</flux:text>
+                                <flux:text>{{ __($row['occupation']) }}</flux:text>
                                 <flux:text class="tabular-nums text-zinc-500 dark:text-zinc-400">
                                     {{ $row['percent'] }}%
                                 </flux:text>

@@ -22,5 +22,31 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Gate::define('admin', fn (User $user): bool => (bool) $user->is_admin);
+
+        $jsonTranslationsPath = lang_path('fr/app.php');
+
+        if (is_file($jsonTranslationsPath)) {
+            $lines = require $jsonTranslationsPath;
+
+            if (is_array($lines) && $lines !== []) {
+                $prefixed = [];
+
+                foreach ($lines as $key => $value) {
+                    if (! is_string($key) || $key === '') {
+                        continue;
+                    }
+
+                    if (! is_string($value) || $value === '') {
+                        continue;
+                    }
+
+                    $prefixed['*.'.$key] = $value;
+                }
+
+                if ($prefixed !== []) {
+                    app('translator')->addLines($prefixed, 'fr', '*');
+                }
+            }
+        }
     }
 }

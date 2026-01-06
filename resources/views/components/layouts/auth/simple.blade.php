@@ -5,7 +5,7 @@
     </head>
     <body class="min-h-screen bg-white antialiased dark:bg-linear-to-b dark:from-neutral-950 dark:to-neutral-900">
         <div
-            class="bg-background flex min-h-svh flex-col items-center justify-center gap-6 bg-cover bg-center bg-no-repeat p-4 md:p-8"
+            class="bg-background flex min-h-svh flex-col items-center justify-center gap-6 bg-cover bg-center bg-no-repeat p-4 md:p-8 md:pt-0"
             style="background-image: url('{{ asset('storage/images/background.png') }}');"
         >
             <div class="flex w-full max-w-sm flex-col gap-2">

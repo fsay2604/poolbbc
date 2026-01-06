@@ -16,7 +16,7 @@
         </div>
 
         <div class="grid gap-1">
-            <flux:heading size="lg" level="2">{{ __('Statistics') }}</flux:heading>
+            <flux:heading size="xl" level="1">{{ __('Statistics') }}</flux:heading>
             <div class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('Overall prediction accuracy') }}</div>
         </div>
 

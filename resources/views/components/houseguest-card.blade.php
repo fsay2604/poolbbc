@@ -5,8 +5,8 @@
         <flux:avatar
             :src="$houseguest->avatar_url ? asset('storage/'.$houseguest->avatar_url) : null"
             :name="$houseguest->name"
-            size="xl"
-            class="size-32 shadow-sm"
+            {{-- size="xl" --}}
+            class="size-32 shadow-sm rounded-none border-none"
         />
 
     </div>

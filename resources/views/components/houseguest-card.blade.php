@@ -6,7 +6,7 @@
             :src="$houseguest->avatar_url ? asset('storage/'.$houseguest->avatar_url) : null"
             :name="$houseguest->name"
             size="xl"
-            class="size-32"
+            class="size-32 shadow-sm"
         />
 
     </div>

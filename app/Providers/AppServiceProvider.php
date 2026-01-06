@@ -3,8 +3,10 @@
 namespace App\Providers;
 
 use App\Models\User;
+use App\Translation\PhpJsonFileLoader;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Translation\FileLoader;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -13,7 +15,23 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->extend('translation.loader', function ($loader, $app) {
+            if (! $loader instanceof FileLoader) {
+                return $loader;
+            }
+
+            $custom = new PhpJsonFileLoader($app['files'], $loader->paths());
+
+            foreach ($loader->jsonPaths() as $path) {
+                $custom->addJsonPath($path);
+            }
+
+            foreach ($loader->namespaces() as $namespace => $hint) {
+                $custom->addNamespace($namespace, $hint);
+            }
+
+            return $custom;
+        });
     }
 
     /**
@@ -22,31 +40,5 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Gate::define('admin', fn (User $user): bool => (bool) $user->is_admin);
-
-        $jsonTranslationsPath = lang_path('fr/app.php');
-
-        if (is_file($jsonTranslationsPath)) {
-            $lines = require $jsonTranslationsPath;
-
-            if (is_array($lines) && $lines !== []) {
-                $prefixed = [];
-
-                foreach ($lines as $key => $value) {
-                    if (! is_string($key) || $key === '') {
-                        continue;
-                    }
-
-                    if (! is_string($value) || $value === '') {
-                        continue;
-                    }
-
-                    $prefixed['*.'.$key] = $value;
-                }
-
-                if ($prefixed !== []) {
-                    app('translator')->addLines($prefixed, 'fr', '*');
-                }
-            }
-        }
     }
 }

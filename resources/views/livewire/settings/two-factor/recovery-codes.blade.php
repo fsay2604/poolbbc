@@ -37,7 +37,7 @@ new class extends Component {
             try {
                 $this->recoveryCodes = json_decode(decrypt($user->two_factor_recovery_codes), true);
             } catch (Exception) {
-                $this->addError('recoveryCodes', 'Failed to load recovery codes');
+                $this->addError('recoveryCodes', __('Failed to load recovery codes'));
 
                 $this->recoveryCodes = [];
             }
@@ -114,7 +114,7 @@ new class extends Component {
                     <div
                         class="grid gap-1 p-4 font-mono text-sm rounded-lg bg-zinc-100 dark:bg-white/5"
                         role="list"
-                        aria-label="Recovery codes"
+                        aria-label="{{ __('Recovery codes') }}"
                     >
                         @foreach($recoveryCodes as $code)
                             <div

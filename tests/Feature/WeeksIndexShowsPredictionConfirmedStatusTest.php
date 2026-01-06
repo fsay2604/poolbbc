@@ -20,7 +20,7 @@ test('weeks table shows whether current user predictions are confirmed', functio
     $this->actingAs($user)
         ->get('/weeks')
         ->assertSuccessful()
-        ->assertSee('Confirmation status')
-        ->assertSee('Confirmed')
-        ->assertSee('Pending');
+        ->assertSee('Statut de confirmation')
+        ->assertSee('Confirmé')
+        ->assertSee('En attente');
 });

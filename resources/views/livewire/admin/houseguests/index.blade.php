@@ -4,8 +4,10 @@ use App\Models\Houseguest;
 use App\Models\Season;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Livewire\WithFileUploads;
 use Livewire\Volt\Component;
+use App\Enums\Occupation;
 
 new class extends Component {
     use WithFileUploads;
@@ -76,7 +78,7 @@ new class extends Component {
             'form.name' => ['required', 'string', 'max:255'],
             'form.sex' => ['required', 'string', 'in:M,F'],
             'form.occupations' => ['array'],
-            'form.occupations.*' => ['string', 'in:Actor,Animator,Athlete,Chef,Comedian,Dancer,Gamer,Influencer,Musician,Singer'],
+            'form.occupations.*' => ['string', Rule::in(Occupation::values())],
             'avatar' => ['nullable', 'image', 'max:2048'],
             'form.is_active' => ['required', 'boolean'],
             'form.sort_order' => ['required', 'integer', 'min:0'],
@@ -135,17 +137,11 @@ new class extends Component {
                         <option value="F">{{ __('Female') }}</option>
                     </flux:select>
 
-                    <flux:pillbox wire:model="form.occupations" :label="__('Occupations')" placeholder="{{ __('Select occupations') }}" multiple>
-                        <flux:pillbox.option value="Actor">{{ __('Actor') }}</flux:pillbox.option>
-                        <flux:pillbox.option value="Animator">{{ __('Animator') }}</flux:pillbox.option>
-                        <flux:pillbox.option value="Athlete">{{ __('Athlete') }}</flux:pillbox.option>
-                        <flux:pillbox.option value="Chef">{{ __('Chef') }}</flux:pillbox.option>
-                        <flux:pillbox.option value="Comedian">{{ __('Comedian') }}</flux:pillbox.option>
-                        <flux:pillbox.option value="Dancer">{{ __('Dancer') }}</flux:pillbox.option>
-                        <flux:pillbox.option value="Gamer">{{ __('Gamer') }}</flux:pillbox.option>
-                        <flux:pillbox.option value="Influencer">{{ __('Influencer') }}</flux:pillbox.option>
-                        <flux:pillbox.option value="Musician">{{ __('Musician') }}</flux:pillbox.option>
-                        <flux:pillbox.option value="Singer">{{ __('Singer') }}</flux:pillbox.option>
+                    <flux:pillbox wire:model="form.occupations" :label="__('Occupations')" placeholder="{{ __('Select occupations') }}" multiple searchable>
+                        @foreach (Occupation::cases() as $occupation)
+                            <flux:pillbox.option value="{{ $occupation->value }}">{{ __($occupation->value) }}</flux:pillbox.option>
+                        @endforeach
+
                     </flux:pillbox>
 
                     <flux:file-upload wire:model="avatar">
@@ -199,7 +195,7 @@ new class extends Component {
                                     <td class="px-4 py-3">{{ $hg->name }}</td>
                                     <td class="px-4 py-3">{{ $hg->sex ?? '—' }}</td>
                                     <td class="px-4 py-3">
-                                        {{ is_array($hg->occupations) && $hg->occupations !== [] ? implode(', ', $hg->occupations) : '—' }}
+                                        {{ is_array($hg->occupations) && $hg->occupations !== [] ? implode(', ', array_map(fn ($occupation) => __($occupation), $hg->occupations)) : '—' }}
                                     </td>
                                     <td class="px-4 py-3">
                                         @if ($hg->is_active)

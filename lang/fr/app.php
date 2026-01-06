@@ -135,6 +135,17 @@ return [
     "Don't have an account?" => 'Vous n’avez pas de compte ?',
     'Sign up' => 'S’inscrire',
 
+    'Create an account' => 'Créer un compte',
+    'Enter your details below to create your account' => 'Saisissez vos informations ci-dessous pour créer votre compte',
+    'Full name' => 'Nom complet',
+    'Create account' => 'Créer un compte',
+    'Already have an account?' => 'Vous avez déjà un compte ?',
+
+    'Forgot password' => 'Mot de passe oublié',
+    'Enter your email to receive a password reset link' => 'Saisissez votre e-mail pour recevoir un lien de réinitialisation du mot de passe',
+    'Email password reset link' => 'Envoyer le lien de réinitialisation',
+    'Or, return to' => 'Ou, revenir à',
+
     'Avatar' => 'Avatar',
     'Sex' => 'Sexe',
     'Occupations' => 'Professions',

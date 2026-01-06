@@ -1,5 +1,5 @@
 <x-layouts.auth>
-    <div class="flex flex-col gap-6">
+    <div class="flex flex-col gap-4 bg-zinc-900/60 rounded-xl p-4 px-6 shadow-xl/20 backdrop-blur-sm">
         <x-auth-header :title="__('Create an account')" :description="__('Enter your details below to create your account')" />
 
         <!-- Session Status -->
@@ -44,11 +44,11 @@
             <!-- Confirm Password -->
             <flux:input
                 name="password_confirmation"
-                :label="__('Confirm password')"
+                :label="__('Confirm Password')"
                 type="password"
                 required
                 autocomplete="new-password"
-                :placeholder="__('Confirm password')"
+                :placeholder="__('Confirm Password')"
                 viewable
             />
 

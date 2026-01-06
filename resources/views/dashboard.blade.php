@@ -9,7 +9,7 @@
             @endif
         </div>
 
-        <div class="grid gap-3 grid-cols-2 sm:grid-cols-4 md:grid-cols-8">
+        <div class="grid gap-2 grid-cols-4 md:grid-cols-6 xl:grid-cols-8">
             @foreach ($houseguests as $houseguest)
                 <x-houseguest-card :houseguest="$houseguest" />
             @endforeach

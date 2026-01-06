@@ -79,6 +79,9 @@
                     </form>
                 </flux:menu>
             </flux:dropdown>
+
+            <flux:subheading size="sm" class="text-center italic">version {{ config('app.version') }}</flux:subheading>
+
         </flux:sidebar>
 
         <!-- Mobile User Menu -->
@@ -129,6 +132,7 @@
                     </form>
                 </flux:menu>
             </flux:dropdown>
+
         </flux:header>
 
         {{ $slot }}

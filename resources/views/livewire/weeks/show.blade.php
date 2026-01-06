@@ -196,8 +196,8 @@ new class extends Component {
             'form.evicted_houseguest_ids' => ['array'],
             'form.veto_winner_houseguest_id' => ['nullable', Rule::in($houseguestIds)],
             'form.veto_used' => ['nullable', 'boolean'],
-            'form.saved_houseguest_id' => ['nullable', Rule::in($houseguestIds)],
-            'form.replacement_nominee_houseguest_id' => ['nullable', Rule::in($houseguestIds)],
+            'form.saved_houseguest_id' => ['nullable', Rule::requiredIf(fn () => ($this->form['veto_used'] ?? false) === '1'), Rule::in($houseguestIds)],
+            'form.replacement_nominee_houseguest_id' => ['nullable', Rule::requiredIf(fn () => ($this->form['veto_used'] ?? false) === '1'), Rule::in($houseguestIds)],
         ];
 
         for ($i = 0; $i < $bossCount; $i++) {
@@ -282,8 +282,8 @@ new class extends Component {
             'form.evicted_houseguest_ids' => ['array'],
             'form.veto_winner_houseguest_id' => ['required', Rule::in($houseguestIds)],
             'form.veto_used' => ['required', 'boolean'],
-            'form.saved_houseguest_id' => ['required_if:form.veto_used,1', Rule::in($houseguestIds)],
-            'form.replacement_nominee_houseguest_id' => ['required_if:form.veto_used,1', Rule::in($houseguestIds)],
+            'form.saved_houseguest_id' => ['nullable', Rule::requiredIf(fn () => ($this->form['veto_used'] ?? false) === '1'), Rule::in($houseguestIds)],
+            'form.replacement_nominee_houseguest_id' => ['nullable', Rule::requiredIf(fn () => ($this->form['veto_used'] ?? false) === '1'), Rule::in($houseguestIds)],
         ];
 
         for ($i = 0; $i < $bossCount; $i++) {
@@ -434,27 +434,21 @@ new class extends Component {
                                 <option value="0">{{ __('No') }}</option>
                             </flux:select>
 
-                            <flux:select
-                                wire:model="form.saved_houseguest_id"
-                                :label="__('If used: Who will be saved?')"
-                                :disabled="$this->isLocked || ! $form['veto_used']"
-                                placeholder="—"
-                            >
-                                @foreach ($houseguests as $hg)
-                                    <option value="{{ $hg->id }}">{{ $hg->name }}</option>
-                                @endforeach
-                            </flux:select>
+                            @if (($form['veto_used'] ?? null) === '1')
+                                <flux:select wire:model="form.saved_houseguest_id" :label="__('If used: Who will be saved?')" :disabled="$this->isLocked">
+                                    <option value="">—</option>
+                                    @foreach ($houseguests as $hg)
+                                        <option value="{{ $hg->id }}">{{ $hg->name }}</option>
+                                    @endforeach
+                                </flux:select>
 
-                            <flux:select
-                                wire:model="form.replacement_nominee_houseguest_id"
-                                :label="__('If used: Replacement nominee')"
-                                :disabled="$this->isLocked || ! $form['veto_used']"
-                                placeholder="—"
-                            >
-                                @foreach ($houseguests as $hg)
-                                    <option value="{{ $hg->id }}">{{ $hg->name }}</option>
-                                @endforeach
-                            </flux:select>
+                                <flux:select wire:model="form.replacement_nominee_houseguest_id" :label="__('If used: Replacement nominee')" :disabled="$this->isLocked">
+                                    <option value="">—</option>
+                                    @foreach ($houseguests as $hg)
+                                        <option value="{{ $hg->id }}">{{ $hg->name }}</option>
+                                    @endforeach
+                                </flux:select>
+                            @endif
                         </div>
                     </div>
 

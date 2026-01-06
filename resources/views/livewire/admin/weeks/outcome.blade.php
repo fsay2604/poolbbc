@@ -334,17 +334,21 @@ new class extends Component {
                                 <option value="0">{{ __('No') }}</option>
                             </flux:select>
 
-                            <flux:select wire:model.live="form.saved_houseguest_id" :label="__('If used: Saved')" :disabled="! $form['veto_used']" placeholder="—">
-                                @foreach ($houseguests as $hg)
-                                    <option value="{{ $hg->id }}">{{ $hg->name }}</option>
-                                @endforeach
-                            </flux:select>
+                            @if (($form['veto_used'] ?? null) === '1')
+                                <flux:select wire:model.live="form.saved_houseguest_id" :label="__('If used: Saved')">
+                                    <option value="">—</option>
+                                    @foreach ($houseguests as $hg)
+                                        <option value="{{ $hg->id }}">{{ $hg->name }}</option>
+                                    @endforeach
+                                </flux:select>
 
-                            <flux:select wire:model.live="form.replacement_nominee_houseguest_id" :label="__('If used: Replacement nominee')" :disabled="! $form['veto_used']" placeholder="—">
-                                @foreach ($houseguests as $hg)
-                                    <option value="{{ $hg->id }}">{{ $hg->name }}</option>
-                                @endforeach
-                            </flux:select>
+                                <flux:select wire:model.live="form.replacement_nominee_houseguest_id" :label="__('If used: Replacement nominee')">
+                                    <option value="">—</option>
+                                    @foreach ($houseguests as $hg)
+                                        <option value="{{ $hg->id }}">{{ $hg->name }}</option>
+                                    @endforeach
+                                </flux:select>
+                            @endif
                         </div>
                     </div>
 

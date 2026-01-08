@@ -1,47 +1,47 @@
-# Pool BBC — Système
+# Pool BBC — System
 
-Ce dépôt contient une application Laravel 12 basée sur le **starter kit Livewire**. L’interface est construite avec **Livewire / Volt** et les assets sont compilés via **Vite**. L’authentification est fournie par **Laravel Fortify**.
+This repository contains a Laravel 12 application based on the **Livewire starter kit**. The UI is built with **Livewire / Volt** and assets are compiled with **Vite**. Authentication is provided by **Laravel Fortify**.
 
-## Stack technique
+## Tech stack
 
-- **Backend** : Laravel 12 (PHP 8.2+).
-- **UI** : Livewire (Volt) + Flux UI.
-- **Build front** : Vite.
-- **Tests** : Pest.
+- **Backend**: Laravel 12 (PHP 8.2+).
+- **UI**: Livewire (Volt) + Flux UI.
+- **Frontend build**: Vite.
+- **Tests**: Pest.
 
-## Organisation du code
+## Code organization
 
-- `app/` : logique métier (Controllers, Models, Services, etc.).
-- `routes/` : routes web/API.
-- `resources/` : vues Livewire/Blade et assets front.
-- `database/` : migrations, factories et seeders.
-- `config/` : configuration Laravel.
+- `app/`: business logic (Controllers, Models, Services, etc.).
+- `routes/`: web/API routes.
+- `resources/`: Livewire/Blade views and frontend assets.
+- `database/`: migrations, factories, and seeders.
+- `config/`: Laravel configuration.
 
-## Démarrage rapide
+## Quick start
 
-1. Installer les dépendances PHP/JS :
+1. Install PHP/JS dependencies:
    ```bash
    composer install
    npm install
    ```
-2. Préparer l’environnement :
+2. Prepare the environment:
    ```bash
    cp .env.example .env
    php artisan key:generate
    php artisan migrate
    ```
-3. Lancer l’environnement de dev :
+3. Start the dev environment:
    ```bash
    composer run dev
    ```
 
-## Scripts utiles
+## Useful scripts
 
-- **Build assets** : `npm run build`
-- **Dev** : `composer run dev`
-- **Tests** : `composer run test`
+- **Build assets**: `npm run build`
+- **Dev**: `composer run dev`
+- **Tests**: `composer run test`
 
 ## Notes
 
-- Le script `composer run dev` lance simultanément le serveur Laravel, la queue et Vite.
-- Pour un setup complet automatisé, utilisez `composer run setup`.
+- `composer run dev` starts the Laravel server, queue worker, and Vite together.
+- For a complete automated setup, use `composer run setup`.

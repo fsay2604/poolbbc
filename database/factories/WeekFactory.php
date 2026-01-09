@@ -30,8 +30,8 @@ class WeekFactory extends Factory
             'season_id' => Season::factory(),
             'number' => $this->faker->numberBetween(1, 30),
             'name' => null,
-            'prediction_deadline_at' => $now->copy()->addDays(2),
-            'locked_at' => null,
+            'is_locked' => true,
+            'auto_lock_at' => $now->copy()->addDays(2),
             'starts_at' => $now->copy()->addDay(),
             'ends_at' => $now->copy()->addDays(7),
         ];

@@ -17,8 +17,8 @@ it('keeps locked selections visible even if houseguest becomes inactive', functi
     $season = Season::factory()->create(['is_active' => true]);
 
     $week = Week::factory()->for($season)->create([
-        'prediction_deadline_at' => Carbon::parse('2026-01-10 19:00:00'),
-        'locked_at' => null,
+        'is_locked' => false,
+        'auto_lock_at' => Carbon::parse('2026-01-10 19:00:00'),
     ]);
 
     $inactiveSelected = Houseguest::factory()->for($season)->create([

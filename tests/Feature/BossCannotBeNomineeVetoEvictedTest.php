@@ -14,8 +14,8 @@ test('user cannot confirm a prediction where HOH is also a nominee/veto winner/e
     $user = User::factory()->create();
     $season = Season::factory()->create(['is_active' => true]);
     $week = Week::factory()->for($season)->create([
-        'prediction_deadline_at' => Carbon::parse('2026-01-10 19:00:00'),
-        'locked_at' => null,
+        'is_locked' => false,
+        'auto_lock_at' => Carbon::parse('2026-01-10 19:00:00'),
     ]);
 
     $boss = Houseguest::factory()->for($season)->create(['is_active' => true]);
@@ -47,8 +47,8 @@ test('admin cannot save an outcome where HOH is also veto winner or evicted', fu
     $admin = User::factory()->admin()->create();
     $season = Season::factory()->create(['is_active' => true]);
     $week = Week::factory()->for($season)->create([
-        'prediction_deadline_at' => Carbon::parse('2026-01-10 19:00:00'),
-        'locked_at' => null,
+        'is_locked' => false,
+        'auto_lock_at' => Carbon::parse('2026-01-10 19:00:00'),
     ]);
 
     $boss = Houseguest::factory()->for($season)->create(['is_active' => true]);
@@ -72,8 +72,8 @@ test('admin cannot save a prediction where HOH is also evicted', function () {
     $user = User::factory()->create();
     $season = Season::factory()->create(['is_active' => true]);
     $week = Week::factory()->for($season)->create([
-        'prediction_deadline_at' => Carbon::parse('2026-01-10 19:00:00'),
-        'locked_at' => null,
+        'is_locked' => false,
+        'auto_lock_at' => Carbon::parse('2026-01-10 19:00:00'),
     ]);
 
     $boss = Houseguest::factory()->for($season)->create(['is_active' => true]);

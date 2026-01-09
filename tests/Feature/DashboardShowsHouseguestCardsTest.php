@@ -39,5 +39,5 @@ test('dashboard shows a card for each houseguest and sepia for inactive avatars'
 
     $this->actingAs($user)
         ->get('/dashboard')
-        ->assertSee('filter sepia');
+        ->assertSee('filter grayscale');
 });

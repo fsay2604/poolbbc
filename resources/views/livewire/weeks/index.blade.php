@@ -52,7 +52,6 @@ new class extends Component {
                     <thead class="bg-zinc-50 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
                         <tr>
                             <th class="px-4 py-3 text-left font-medium">{{ __('Week') }}</th>
-                            <th class="px-4 py-3 text-left font-medium">{{ __('Deadline') }}</th>
                             <th class="px-4 py-3 text-left font-medium">{{ __('Status') }}</th>
                             <th class="px-4 py-3 text-left font-medium">{{ __('Confirmation status') }}</th>
                             <th class="px-4 py-3"></th>
@@ -60,11 +59,10 @@ new class extends Component {
                     </thead>
                     <tbody class="divide-y divide-neutral-200 dark:divide-neutral-800">
                         @forelse ($weeks as $week)
-                            <tr>
-                                <td class="px-4 py-3">{{ $week->name ?? __('Week').' '.$week->number }}</td>
-                                <td class="px-4 py-3">{{ $week->prediction_deadline_at->format('Y-m-d H:i') }}</td>
-                                <td class="px-4 py-3">
-                                    @if ($week->isLocked())
+                                <tr>
+                                    <td class="px-4 py-3">{{ $week->name ?? __('Week').' '.$week->number }}</td>
+                                    <td class="px-4 py-3">
+                                        @if ($week->isLocked())
                                         <span class="text-zinc-500 dark:text-zinc-400">{{ __('Locked') }}</span>
                                     @else
                                         <span class="text-green-600">{{ __('Open') }}</span>
@@ -87,7 +85,7 @@ new class extends Component {
                             </tr>
                         @empty
                             <tr>
-                                <td class="px-4 py-6 text-center text-zinc-500 dark:text-zinc-400" colspan="5">
+                                <td class="px-4 py-6 text-center text-zinc-500 dark:text-zinc-400" colspan="4">
                                     {{ __('No weeks found.') }}
                                 </td>
                             </tr>

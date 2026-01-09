@@ -20,8 +20,8 @@ it('can save a week outcome when veto is not used', function () {
         'boss_count' => 1,
         'nominee_count' => 2,
         'evicted_count' => 1,
-        'prediction_deadline_at' => Carbon::parse('2026-01-10 19:00:00'),
-        'locked_at' => null,
+        'is_locked' => false,
+        'auto_lock_at' => Carbon::parse('2026-01-10 19:00:00'),
     ]);
 
     $boss = Houseguest::factory()->for($season)->create(['is_active' => true]);

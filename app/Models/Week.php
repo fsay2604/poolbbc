@@ -78,7 +78,7 @@ class Week extends Model
             return $this->auto_lock_at->lessThanOrEqualTo($now);
         }
 
-        return $now->greaterThanOrEqualTo($this->prediction_deadline_at);
+        return false;
     }
 
     public function scopeForActiveSeason(Builder $query): Builder

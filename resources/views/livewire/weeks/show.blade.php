@@ -357,9 +357,6 @@ new class extends Component {
         <div class="flex items-start justify-between gap-4">
             <div class="grid gap-1">
                 <flux:heading size="xl" level="1">{{ $week->name ?? __('Week').' '.$week->number }}</flux:heading>
-                <div class="text-sm text-zinc-500 dark:text-zinc-400">
-                    {{ __('Deadline:') }} {{ $week->prediction_deadline_at->format('Y-m-d H:i') }}
-                </div>
             </div>
 
             <flux:button :href="route('weeks.index')" wire:navigate>
@@ -371,9 +368,9 @@ new class extends Component {
             <div class="flex flex-col gap-2">
                 <div class="text-sm">
                     @if ($this->isLocked)
-                        <span class="text-zinc-500 dark:text-zinc-400">{{ __('Locked (confirmed or deadline passed).') }}</span>
+                        <span class="text-zinc-500 dark:text-zinc-400">{{ __('Locked (confirmed or week locked).') }}</span>
                     @else
-                        <span class="text-green-600">{{ __('Open — you can edit until you confirm and before the deadline.') }}</span>
+                        <span class="text-green-600">{{ __('Open — you can edit until you confirm or the week is locked.') }}</span>
                     @endif
                 </div>
 

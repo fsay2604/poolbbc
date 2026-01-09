@@ -31,8 +31,8 @@ class CreateDefaultWeeks
             $weeks[] = [
                 'number' => $number,
                 'name' => null,
-                'prediction_deadline_at' => $startsAt->copy()->addDays(6)->setTime(19, 0),
-                'locked_at' => null,
+                'is_locked' => true,
+                'auto_lock_at' => $startsAt->copy()->addDays(6)->setTime(19, 0),
                 'starts_at' => $startsAt,
                 'ends_at' => $startsAt->copy()->addWeek(),
             ];

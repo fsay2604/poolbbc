@@ -17,14 +17,12 @@ return new class extends Migration
             $table->unsignedSmallInteger('number');
             $table->string('name')->nullable();
 
-            $table->dateTime('prediction_deadline_at');
             $table->dateTime('locked_at')->nullable();
 
             $table->dateTime('starts_at')->nullable();
             $table->dateTime('ends_at')->nullable();
 
             $table->unique(['season_id', 'number']);
-            $table->index(['season_id', 'prediction_deadline_at']);
             $table->timestamps();
         });
     }

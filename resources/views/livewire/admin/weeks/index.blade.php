@@ -19,8 +19,8 @@ new class extends Component {
         'nominee_count' => 2,
         'evicted_count' => 1,
         'name' => null,
-        'prediction_deadline_at' => null,
-        'locked_at' => null,
+        'is_locked' => true,
+        'auto_lock_at' => null,
         'starts_at' => null,
         'ends_at' => null,
     ];
@@ -45,8 +45,8 @@ new class extends Component {
             'nominee_count' => 2,
             'evicted_count' => 1,
             'name' => null,
-            'prediction_deadline_at' => now()->addDays(2)->format('Y-m-d\TH:i'),
-            'locked_at' => null,
+            'is_locked' => true,
+            'auto_lock_at' => now()->addDays(2)->format('Y-m-d\TH:i'),
             'starts_at' => null,
             'ends_at' => null,
         ];
@@ -62,8 +62,8 @@ new class extends Component {
             'nominee_count' => $week->nominee_count ?? 2,
             'evicted_count' => $week->evicted_count ?? 1,
             'name' => $week->name,
-            'prediction_deadline_at' => $week->prediction_deadline_at->format('Y-m-d\TH:i'),
-            'locked_at' => $week->locked_at?->format('Y-m-d\TH:i'),
+            'is_locked' => $week->is_locked,
+            'auto_lock_at' => $week->auto_lock_at?->format('Y-m-d\TH:i'),
             'starts_at' => $week->starts_at?->format('Y-m-d\TH:i'),
             'ends_at' => $week->ends_at?->format('Y-m-d\TH:i'),
         ];
@@ -80,8 +80,8 @@ new class extends Component {
             'form.nominee_count' => ['required', 'integer', 'min:1', 'max:20'],
             'form.evicted_count' => ['required', 'integer', 'min:1', 'max:20'],
             'form.name' => ['nullable', 'string', 'max:255'],
-            'form.prediction_deadline_at' => ['required', 'date'],
-            'form.locked_at' => ['nullable', 'date'],
+            'form.is_locked' => ['required', 'boolean'],
+            'form.auto_lock_at' => ['nullable', 'date'],
             'form.starts_at' => ['nullable', 'date'],
             'form.ends_at' => ['nullable', 'date'],
         ]);
@@ -133,8 +133,8 @@ new class extends Component {
                     </div>
                     <flux:input wire:model="form.name" :label="__('Name (optional)')" />
 
-                    <flux:input wire:model="form.prediction_deadline_at" :label="__('Prediction deadline')" type="datetime-local" required />
-                    <flux:input wire:model="form.locked_at" :label="__('Locked at (optional)')" type="datetime-local" />
+                    <flux:switch wire:model="form.is_locked" :label="__('Locked')" />
+                    <flux:input wire:model="form.auto_lock_at" :label="__('Auto lock at (optional)')" type="datetime-local" />
 
                     <div class="grid gap-4 md:grid-cols-2">
                         <flux:input wire:model="form.starts_at" :label="__('Starts at (optional)')" type="datetime-local" />
@@ -154,7 +154,6 @@ new class extends Component {
                         <thead class="bg-zinc-50 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
                             <tr>
                                 <th class="px-4 py-3 text-left font-medium">{{ __('Week') }}</th>
-                                <th class="px-4 py-3 text-left font-medium">{{ __('Deadline') }}</th>
                                 <th class="px-4 py-3 text-left font-medium">{{ __('Outcome') }}</th>
                                 <th class="px-4 py-3"></th>
                             </tr>
@@ -163,7 +162,6 @@ new class extends Component {
                             @foreach ($weeks as $week)
                                 <tr>
                                     <td class="px-4 py-3">{{ $week->name ?? __('Week').' '.$week->number }}</td>
-                                    <td class="px-4 py-3">{{ $week->prediction_deadline_at->format('Y-m-d H:i') }}</td>
                                     <td class="px-4 py-3">
                                         <flux:button size="sm" :href="route('admin.weeks.outcome', $week)" wire:navigate>
                                             {{ __('Set') }}

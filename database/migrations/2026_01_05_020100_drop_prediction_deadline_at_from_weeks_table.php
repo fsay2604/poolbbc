@@ -11,9 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('weeks', function (Blueprint $table) {
-            $table->dropColumn('prediction_deadline_at');
-        });
+        if (Schema::hasColumn('weeks', 'prediction_deadline_at')) {
+            Schema::table('weeks', function (Blueprint $table) {
+                $table->dropColumn('prediction_deadline_at');
+            });
+        }
     }
 
     /**
@@ -21,8 +23,10 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('weeks', function (Blueprint $table) {
-            $table->dateTime('prediction_deadline_at')->after('name');
-        });
+        if (! Schema::hasColumn('weeks', 'prediction_deadline_at')) {
+            Schema::table('weeks', function (Blueprint $table) {
+                $table->dateTime('prediction_deadline_at')->after('name');
+            });
+        }
     }
 };

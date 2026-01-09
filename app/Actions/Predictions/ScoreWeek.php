@@ -22,7 +22,7 @@ class ScoreWeek
         }
 
         $week->predictions()
-            ->with('user')
+            ->with(['user', 'week'])
             ->whereHas('user')
             ->each(function (Prediction $prediction) use ($outcome, $now): void {
                 $scored = $this->scorePrediction->score($prediction, $outcome);

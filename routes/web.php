@@ -227,7 +227,9 @@ Route::middleware(['auth'])->group(function () {
             ->forActiveSeason()
             ->orderBy('number')
             ->where(function ($query) use ($now) {
-                $query->whereNull('locked_at')->orWhere('locked_at', '>', $now);
+                $query
+                    ->where('is_locked', false)
+                    ->where(fn ($query) => $query->whereNull('auto_lock_at')->orWhere('auto_lock_at', '>', $now));
             })
             ->where('prediction_deadline_at', '>', $now)
             ->first();

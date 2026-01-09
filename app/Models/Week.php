@@ -26,6 +26,8 @@ class Week extends Model
         'evicted_count',
         'name',
         'prediction_deadline_at',
+        'is_locked',
+        'auto_lock_at',
         'locked_at',
         'starts_at',
         'ends_at',
@@ -41,6 +43,8 @@ class Week extends Model
             'nominee_count' => 'integer',
             'evicted_count' => 'integer',
             'prediction_deadline_at' => 'datetime',
+            'is_locked' => 'boolean',
+            'auto_lock_at' => 'datetime',
             'locked_at' => 'datetime',
             'starts_at' => 'datetime',
             'ends_at' => 'datetime',
@@ -66,8 +70,12 @@ class Week extends Model
     {
         $now ??= now();
 
-        if ($this->locked_at !== null) {
-            return $this->locked_at->lessThanOrEqualTo($now);
+        if ($this->is_locked) {
+            return true;
+        }
+
+        if ($this->auto_lock_at !== null) {
+            return $this->auto_lock_at->lessThanOrEqualTo($now);
         }
 
         return $now->greaterThanOrEqualTo($this->prediction_deadline_at);

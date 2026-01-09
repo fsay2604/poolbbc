@@ -11,7 +11,6 @@ it('locks a week when it is forced locked (regardless of auto lock time)', funct
     $season = Season::factory()->create(['is_active' => true]);
 
     $week = Week::factory()->for($season)->create([
-        'prediction_deadline_at' => Carbon::parse('2026-01-10 12:00:00'),
         'is_locked' => true,
         'auto_lock_at' => Carbon::parse('2026-01-10 12:00:00'),
     ]);

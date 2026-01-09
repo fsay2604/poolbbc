@@ -12,8 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('weeks', function (Blueprint $table) {
-            $table->boolean('is_locked')->default(true)->after('name');
-            $table->dateTime('auto_lock_at')->nullable()->after('is_locked');
+            $table->dropColumn('prediction_deadline_at');
         });
     }
 
@@ -23,7 +22,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('weeks', function (Blueprint $table) {
-            $table->dropColumn(['is_locked', 'auto_lock_at']);
+            $table->dateTime('prediction_deadline_at')->after('name');
         });
     }
 };

@@ -23,11 +23,11 @@ test('creating a season auto-creates 16 weeks starting the second Sunday of Janu
 
     $week1 = $season->weeks()->where('number', 1)->firstOrFail();
     expect($week1->starts_at->toDateTimeString())->toBe('2026-01-11 00:00:00');
-    expect($week1->prediction_deadline_at->toDateTimeString())->toBe('2026-01-17 19:00:00');
+    expect($week1->auto_lock_at->toDateTimeString())->toBe('2026-01-17 19:00:00');
     expect($week1->ends_at->toDateTimeString())->toBe('2026-01-18 00:00:00');
 
     $week16 = $season->weeks()->where('number', 16)->firstOrFail();
     expect($week16->starts_at->toDateTimeString())->toBe('2026-04-26 00:00:00');
-    expect($week16->prediction_deadline_at->toDateTimeString())->toBe('2026-05-02 19:00:00');
+    expect($week16->auto_lock_at->toDateTimeString())->toBe('2026-05-02 19:00:00');
     expect($week16->ends_at->toDateTimeString())->toBe('2026-05-03 00:00:00');
 });

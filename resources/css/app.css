@@ -64,3 +64,10 @@ select:focus[data-flux-control] {
 /* \[:where(&)\]:size-4 {
     @apply size-4;
 } */
+
+#auth-simple {
+    background-image: url('../../storage/app/public/images/background.png');
+    background-size:     cover;
+    background-repeat:   no-repeat;
+    background-position: center center;  
+}

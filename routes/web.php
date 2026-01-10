@@ -82,8 +82,10 @@ Route::get('dashboard', function () {
                     'percent' => $percent,
                 ];
             })
-            ->sortByDesc('percent')
-            ->sortBy('occupation')
+            ->sortBy([
+                ['percent', 'desc'],
+                ['occupation', 'asc'],
+            ])
             ->values();
     }
 

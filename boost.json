@@ -1,9 +1,15 @@
 {
     "agents": [
+        "claude_code",
+        "codex",
         "copilot"
     ],
     "editors": [
+        "claude_code",
+        "codex",
         "vscode"
     ],
-    "guidelines": []
+    "guidelines": [
+        "laravel/fortify"
+    ]
 }

@@ -3,7 +3,7 @@
     <head>
         @include('partials.head')
     </head>
-    <body class="min-h-screen antialiased dark:bg-linear-to-b dark:from-neutral-950 dark:to-neutral-900 bg-[url('{{ asset('storage/images/background.png') }}')] bg-cover bg-center bg-no-repeat">
+    <body class="min-h-screen antialiased dark:bg-linear-to-b dark:from-neutral-950 dark:to-neutral-900 bg-[url('{{ asset('storage/images/background.png') }}')] bg-cover">
             <div class="flex w-full max-w-sm flex-col gap-2">
                 <a href="{{ route('home') }}" class="flex w-full flex-col items-center gap-2 font-medium" wire:navigate>
                     <span class="flex w-full items-center justify-center">

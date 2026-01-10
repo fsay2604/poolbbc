@@ -1,6 +1,6 @@
 <x-layouts.auth>
 
-    <div class="flex flex-col gap-4 bg-indigo-50/60 rounded-xl p-4 px-6 shadow-xl/20 backdrop-blur-sm max-w-full">
+    <div class="flex flex-col gap-4 bg-slate-100/80 rounded-xl p-4 px-6 shadow-xl/20 backdrop-blur-sm max-w-full">
         <x-auth-header :title="__('Log in to your account')" :description="__('Enter your email and password below to log in')" />
 
         <!-- Session Status -->

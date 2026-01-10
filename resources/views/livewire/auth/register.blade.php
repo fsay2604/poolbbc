@@ -1,5 +1,5 @@
 <x-layouts.auth>
-    <div class="flex flex-col gap-4 bg-zinc-900/60 rounded-xl p-4 px-6 shadow-xl/20 backdrop-blur-sm">
+    <div class="flex flex-col gap-4 bg-slate-100/80 dark:bg-slate-800/80 rounded-xl p-4 px-6 shadow-xl/20 backdrop-blur-sm">
         <x-auth-header :title="__('Create an account')" :description="__('Enter your details below to create your account')" />
 
         <!-- Session Status -->

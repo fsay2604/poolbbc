@@ -10,20 +10,15 @@ use App\Models\Season;
 use App\Models\SeasonPrediction;
 use App\Models\User;
 use App\Models\Week;
-use App\Models\WeekOutcome;
 
-test('leaderboard includes season scores in totals', function () {
+test('leaderboard detail shows season and weekly breakdown', function () {
     $season = Season::factory()->create(['is_active' => true]);
-
-    $user = User::factory()->create(['name' => 'Season Scorer']);
+    $user = User::factory()->create(['name' => 'Detail Player']);
     $admin = User::factory()->admin()->create();
 
     $week = Week::factory()->for($season)->create(['number' => 1]);
-
-    $week16 = Week::factory()->for($season)->create(['number' => 16]);
-    WeekOutcome::factory()->for($week16)->create();
-
     $prediction = Prediction::factory()->for($week)->for($user)->create();
+
     PredictionScore::factory()->create([
         'prediction_id' => $prediction->id,
         'week_id' => $week->id,
@@ -60,11 +55,13 @@ test('leaderboard includes season scores in totals', function () {
 
     $this->actingAs($user);
 
-    $response = $this->get(route('leaderboard'));
+    $response = $this->get(route('leaderboard.show', $user));
 
     $response->assertOk();
-    $response->assertSee('Season Scorer');
-
-    // Total = weekly (8) + season (42)
+    $response->assertSee('Detail Player');
+    $response->assertSee('Season');
+    $response->assertSee('W1');
     $response->assertSee('50');
+    $response->assertSee('42');
+    $response->assertSee('8');
 });

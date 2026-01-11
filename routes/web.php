@@ -243,6 +243,7 @@ Route::middleware(['auth'])->group(function () {
     })->name('current-week');
 
     Volt::route('leaderboard', 'leaderboard')->name('leaderboard');
+    Volt::route('leaderboard/{user}', 'leaderboard.show')->name('leaderboard.show');
 
     Route::middleware(['can:admin'])->prefix('admin')->group(function () {
         Volt::route('seasons', 'admin.seasons.index')->name('admin.seasons.index');

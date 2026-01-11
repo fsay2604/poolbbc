@@ -250,6 +250,7 @@ Route::middleware(['auth'])->group(function () {
         Volt::route('season-outcome', 'admin.seasons.outcome')->name('admin.seasons.outcome');
         Volt::route('weeks', 'admin.weeks.index')->name('admin.weeks.index');
         Volt::route('houseguests', 'admin.houseguests.index')->name('admin.houseguests.index');
+        Volt::route('users', 'admin.users.index')->name('admin.users.index');
         Volt::route('weeks/{week}/outcome', 'admin.weeks.outcome')->name('admin.weeks.outcome');
         Volt::route('predictions/{prediction}', 'admin.predictions.edit')->name('admin.predictions.edit');
         Volt::route('recalculate', 'admin.recalculate')->name('admin.recalculate');

@@ -1,9 +1,8 @@
 <?php
 
-use App\Models\User;
+use App\Http\Requests\Settings\UpdateProfileRequest;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
-use Illuminate\Validation\Rule;
 use Livewire\Volt\Component;
 
 new class extends Component {
@@ -26,18 +25,8 @@ new class extends Component {
     {
         $user = Auth::user();
 
-        $validated = $this->validate([
-            'name' => ['required', 'string', 'max:255'],
-
-            'email' => [
-                'required',
-                'string',
-                'lowercase',
-                'email',
-                'max:255',
-                Rule::unique(User::class)->ignore($user->id)
-            ],
-        ]);
+        $request = (new UpdateProfileRequest())->setUserId($user->id);
+        $validated = $this->validate($request->rules(), $request->messages(), $request->attributes());
 
         $user->fill($validated);
 

@@ -1,10 +1,10 @@
 <?php
 
+use App\Http\Requests\Admin\SaveHouseguestRequest;
 use App\Models\Houseguest;
 use App\Models\Season;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\Rule;
 use Livewire\WithFileUploads;
 use Livewire\Volt\Component;
 use App\Enums\Occupation;
@@ -74,15 +74,8 @@ new class extends Component {
         Gate::authorize('admin');
         abort_if($this->season === null, 422);
 
-        $validated = $this->validate([
-            'form.name' => ['required', 'string', 'max:255'],
-            'form.sex' => ['required', 'string', 'in:M,F'],
-            'form.occupations' => ['array'],
-            'form.occupations.*' => ['string', Rule::in(Occupation::values())],
-            'avatar' => ['nullable', 'image', 'max:2048'],
-            'form.is_active' => ['required', 'boolean'],
-            'form.sort_order' => ['required', 'integer', 'min:0'],
-        ]);
+        $request = new SaveHouseguestRequest();
+        $validated = $this->validate($request->rules(), $request->messages(), $request->attributes());
 
         $houseguest = $this->editingId
             ? Houseguest::query()->findOrFail($this->editingId)

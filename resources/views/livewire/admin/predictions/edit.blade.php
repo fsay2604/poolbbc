@@ -1,10 +1,10 @@
 <?php
 
+use App\Http\Requests\Admin\UpdatePredictionRequest;
 use App\Models\Houseguest;
 use App\Models\Prediction;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Validation\Rule;
 use Livewire\Volt\Component;
 
 new class extends Component {
@@ -151,30 +151,8 @@ new class extends Component {
         $nomineeCount = $this->nomineeCount();
         $evictedCount = $this->evictedCount();
 
-        $rules = [
-            'form.boss_houseguest_ids' => ['array'],
-            'form.nominee_houseguest_ids' => ['array'],
-            'form.evicted_houseguest_ids' => ['array'],
-            'form.veto_winner_houseguest_id' => ['nullable', Rule::in($houseguestIds)],
-            'form.veto_used' => ['nullable', 'boolean'],
-            'form.saved_houseguest_id' => ['nullable', Rule::in($houseguestIds)],
-            'form.replacement_nominee_houseguest_id' => ['nullable', Rule::in($houseguestIds)],
-            'form.confirmed_at' => ['nullable', 'date'],
-        ];
-
-        for ($i = 0; $i < $bossCount; $i++) {
-            $rules["form.boss_houseguest_ids.$i"] = ['nullable', Rule::in($houseguestIds), 'distinct'];
-        }
-
-        for ($i = 0; $i < $nomineeCount; $i++) {
-            $rules["form.nominee_houseguest_ids.$i"] = ['nullable', Rule::in($houseguestIds), 'distinct'];
-        }
-
-        for ($i = 0; $i < $evictedCount; $i++) {
-            $rules["form.evicted_houseguest_ids.$i"] = ['nullable', Rule::in($houseguestIds), 'distinct'];
-        }
-
-        $validated = $this->validate($rules);
+        $request = (new UpdatePredictionRequest())->setContext($houseguestIds, $bossCount, $nomineeCount, $evictedCount);
+        $validated = $this->validate($request->rules(), $request->messages(), $request->attributes());
 
         $bosses = $this->padToCount($this->normalizeIdList($validated['form']['boss_houseguest_ids'] ?? []), $bossCount);
         $nominees = $this->padToCount($this->normalizeIdList($validated['form']['nominee_houseguest_ids'] ?? []), $nomineeCount);

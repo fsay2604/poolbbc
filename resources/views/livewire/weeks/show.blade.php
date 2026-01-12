@@ -1,12 +1,13 @@
 <?php
 
+use App\Http\Requests\Weeks\ConfirmWeekPredictionRequest;
+use App\Http\Requests\Weeks\SaveWeekPredictionRequest;
 use App\Models\Houseguest;
 use App\Models\Prediction;
 use App\Models\Season;
 use App\Models\Week;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Rule;
 use Livewire\Volt\Component;
 
 new class extends Component {
@@ -190,29 +191,14 @@ new class extends Component {
         $nomineeCount = $this->nomineeCount();
         $evictedCount = $this->evictedCount();
 
-        $rules = [
-            'form.boss_houseguest_ids' => ['array'],
-            'form.nominee_houseguest_ids' => ['array'],
-            'form.evicted_houseguest_ids' => ['array'],
-            'form.veto_winner_houseguest_id' => ['nullable', Rule::in($houseguestIds)],
-            'form.veto_used' => ['nullable', 'boolean'],
-            'form.saved_houseguest_id' => ['nullable', Rule::requiredIf(fn () => ($this->form['veto_used'] ?? false) === '1'), Rule::in($houseguestIds)],
-            'form.replacement_nominee_houseguest_id' => ['nullable', Rule::requiredIf(fn () => ($this->form['veto_used'] ?? false) === '1'), Rule::in($houseguestIds)],
-        ];
-
-        for ($i = 0; $i < $bossCount; $i++) {
-            $rules["form.boss_houseguest_ids.$i"] = ['nullable', Rule::in($houseguestIds), 'distinct'];
-        }
-
-        for ($i = 0; $i < $nomineeCount; $i++) {
-            $rules["form.nominee_houseguest_ids.$i"] = ['nullable', Rule::in($houseguestIds), 'distinct'];
-        }
-
-        for ($i = 0; $i < $evictedCount; $i++) {
-            $rules["form.evicted_houseguest_ids.$i"] = ['nullable', Rule::in($houseguestIds), 'distinct'];
-        }
-
-        $validated = $this->validate($rules);
+        $request = (new SaveWeekPredictionRequest())->setContext(
+            $houseguestIds,
+            $bossCount,
+            $nomineeCount,
+            $evictedCount,
+            $this->form['veto_used'] ?? null,
+        );
+        $validated = $this->validate($request->rules(), $request->messages(), $request->attributes());
 
         $bosses = $this->padToCount($this->normalizeIdList($validated['form']['boss_houseguest_ids'] ?? []), $bossCount);
         $nominees = $this->padToCount($this->normalizeIdList($validated['form']['nominee_houseguest_ids'] ?? []), $nomineeCount);
@@ -276,29 +262,14 @@ new class extends Component {
         $nomineeCount = $this->nomineeCount();
         $evictedCount = $this->evictedCount();
 
-        $rules = [
-            'form.boss_houseguest_ids' => ['array'],
-            'form.nominee_houseguest_ids' => ['array'],
-            'form.evicted_houseguest_ids' => ['array'],
-            'form.veto_winner_houseguest_id' => ['required', Rule::in($houseguestIds)],
-            'form.veto_used' => ['required', 'boolean'],
-            'form.saved_houseguest_id' => ['nullable', Rule::requiredIf(fn () => ($this->form['veto_used'] ?? false) === '1'), Rule::in($houseguestIds)],
-            'form.replacement_nominee_houseguest_id' => ['nullable', Rule::requiredIf(fn () => ($this->form['veto_used'] ?? false) === '1'), Rule::in($houseguestIds)],
-        ];
-
-        for ($i = 0; $i < $bossCount; $i++) {
-            $rules["form.boss_houseguest_ids.$i"] = ['required', Rule::in($houseguestIds), 'distinct'];
-        }
-
-        for ($i = 0; $i < $nomineeCount; $i++) {
-            $rules["form.nominee_houseguest_ids.$i"] = ['required', Rule::in($houseguestIds), 'distinct'];
-        }
-
-        for ($i = 0; $i < $evictedCount; $i++) {
-            $rules["form.evicted_houseguest_ids.$i"] = ['required', Rule::in($houseguestIds), 'distinct'];
-        }
-
-        $validated = $this->validate($rules);
+        $request = (new ConfirmWeekPredictionRequest())->setContext(
+            $houseguestIds,
+            $bossCount,
+            $nomineeCount,
+            $evictedCount,
+            $this->form['veto_used'] ?? null,
+        );
+        $validated = $this->validate($request->rules(), $request->messages(), $request->attributes());
 
         $bosses = $this->padToCount($this->normalizeIdList($validated['form']['boss_houseguest_ids'] ?? []), $bossCount);
         $nominees = $this->padToCount($this->normalizeIdList($validated['form']['nominee_houseguest_ids'] ?? []), $nomineeCount);

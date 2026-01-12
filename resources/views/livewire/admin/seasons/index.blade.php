@@ -1,9 +1,9 @@
 <?php
 
 use App\Actions\Seasons\CreateDefaultWeeks;
+use App\Http\Requests\Admin\SaveSeasonRequest;
 use App\Models\Season;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\DB;
 use Livewire\Volt\Component;
 
@@ -63,12 +63,8 @@ new class extends Component {
 
         $isCreating = $this->editingId === null;
 
-        $validated = $this->validate([
-            'form.name' => ['required', 'string', 'max:255'],
-            'form.is_active' => ['required', 'boolean'],
-            'form.starts_on' => ['nullable', 'date'],
-            'form.ends_on' => ['nullable', 'date'],
-        ]);
+        $request = new SaveSeasonRequest();
+        $validated = $this->validate($request->rules(), $request->messages(), $request->attributes());
 
         $season = $this->editingId
             ? Season::query()->findOrFail($this->editingId)

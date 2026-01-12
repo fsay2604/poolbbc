@@ -1,10 +1,11 @@
 <?php
 
+use App\Http\Requests\SeasonPrediction\ConfirmSeasonPredictionRequest;
+use App\Http\Requests\SeasonPrediction\SaveSeasonPredictionRequest;
 use App\Models\Houseguest;
 use App\Models\Season;
 use App\Models\SeasonPrediction;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Rule;
 use Livewire\Volt\Component;
 
 new class extends Component {
@@ -94,18 +95,8 @@ new class extends Component {
         }
 
         $houseguestIds = $this->houseguests->pluck('id')->all();
-
-        $validated = $this->validate([
-            'form.winner_houseguest_id' => ['nullable', Rule::in($houseguestIds), 'different:form.first_evicted_houseguest_id'],
-            'form.first_evicted_houseguest_id' => ['nullable', Rule::in($houseguestIds), 'different:form.winner_houseguest_id'],
-
-            'form.top_6_1_houseguest_id' => ['nullable', Rule::in($houseguestIds)],
-            'form.top_6_2_houseguest_id' => ['nullable', Rule::in($houseguestIds), 'different:form.top_6_1_houseguest_id'],
-            'form.top_6_3_houseguest_id' => ['nullable', Rule::in($houseguestIds), 'different:form.top_6_1_houseguest_id', 'different:form.top_6_2_houseguest_id'],
-            'form.top_6_4_houseguest_id' => ['nullable', Rule::in($houseguestIds), 'different:form.top_6_1_houseguest_id', 'different:form.top_6_2_houseguest_id', 'different:form.top_6_3_houseguest_id'],
-            'form.top_6_5_houseguest_id' => ['nullable', Rule::in($houseguestIds), 'different:form.top_6_1_houseguest_id', 'different:form.top_6_2_houseguest_id', 'different:form.top_6_3_houseguest_id', 'different:form.top_6_4_houseguest_id'],
-            'form.top_6_6_houseguest_id' => ['nullable', Rule::in($houseguestIds), 'different:form.top_6_1_houseguest_id', 'different:form.top_6_2_houseguest_id', 'different:form.top_6_3_houseguest_id', 'different:form.top_6_4_houseguest_id', 'different:form.top_6_5_houseguest_id'],
-        ]);
+        $request = (new SaveSeasonPredictionRequest())->setHouseguestIds($houseguestIds);
+        $validated = $this->validate($request->rules(), $request->messages(), $request->attributes());
 
         $top6 = [
             $validated['form']['top_6_1_houseguest_id'],
@@ -140,18 +131,8 @@ new class extends Component {
         }
 
         $houseguestIds = $this->houseguests->pluck('id')->all();
-
-        $validated = $this->validate([
-            'form.winner_houseguest_id' => ['required', Rule::in($houseguestIds), 'different:form.first_evicted_houseguest_id'],
-            'form.first_evicted_houseguest_id' => ['required', Rule::in($houseguestIds), 'different:form.winner_houseguest_id'],
-
-            'form.top_6_1_houseguest_id' => ['required', Rule::in($houseguestIds)],
-            'form.top_6_2_houseguest_id' => ['required', Rule::in($houseguestIds), 'different:form.top_6_1_houseguest_id'],
-            'form.top_6_3_houseguest_id' => ['required', Rule::in($houseguestIds), 'different:form.top_6_1_houseguest_id', 'different:form.top_6_2_houseguest_id'],
-            'form.top_6_4_houseguest_id' => ['required', Rule::in($houseguestIds), 'different:form.top_6_1_houseguest_id', 'different:form.top_6_2_houseguest_id', 'different:form.top_6_3_houseguest_id'],
-            'form.top_6_5_houseguest_id' => ['required', Rule::in($houseguestIds), 'different:form.top_6_1_houseguest_id', 'different:form.top_6_2_houseguest_id', 'different:form.top_6_3_houseguest_id', 'different:form.top_6_4_houseguest_id'],
-            'form.top_6_6_houseguest_id' => ['required', Rule::in($houseguestIds), 'different:form.top_6_1_houseguest_id', 'different:form.top_6_2_houseguest_id', 'different:form.top_6_3_houseguest_id', 'different:form.top_6_4_houseguest_id', 'different:form.top_6_5_houseguest_id'],
-        ]);
+        $request = (new ConfirmSeasonPredictionRequest())->setHouseguestIds($houseguestIds);
+        $validated = $this->validate($request->rules(), $request->messages(), $request->attributes());
 
         $top6 = [
             $validated['form']['top_6_1_houseguest_id'],

@@ -1,7 +1,7 @@
 <?php
 
+use App\Http\Requests\Settings\UpdatePasswordRequest;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 use Livewire\Volt\Component;
 
@@ -16,10 +16,8 @@ new class extends Component {
     public function updatePassword(): void
     {
         try {
-            $validated = $this->validate([
-                'current_password' => ['required', 'string', 'current_password'],
-                'password' => ['required', 'string', Password::defaults(), 'confirmed'],
-            ]);
+            $request = new UpdatePasswordRequest();
+            $validated = $this->validate($request->rules(), $request->messages(), $request->attributes());
         } catch (ValidationException $e) {
             $this->reset('current_password', 'password', 'password_confirmation');
 

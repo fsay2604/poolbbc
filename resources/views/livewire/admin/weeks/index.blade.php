@@ -1,9 +1,9 @@
 <?php
 
+use App\Http\Requests\Admin\SaveWeekRequest;
 use App\Models\Season;
 use App\Models\Week;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Validation\Rule;
 use Livewire\Volt\Component;
 
 new class extends Component {
@@ -74,17 +74,8 @@ new class extends Component {
         Gate::authorize('admin');
         abort_if($this->season === null, 422);
 
-        $validated = $this->validate([
-            'form.number' => ['required', 'integer', 'min:1'],
-            'form.boss_count' => ['required', 'integer', 'min:1', 'max:20'],
-            'form.nominee_count' => ['required', 'integer', 'min:1', 'max:20'],
-            'form.evicted_count' => ['required', 'integer', 'min:1', 'max:20'],
-            'form.name' => ['nullable', 'string', 'max:255'],
-            'form.is_locked' => ['required', 'boolean'],
-            'form.auto_lock_at' => ['nullable', 'date'],
-            'form.starts_at' => ['nullable', 'date'],
-            'form.ends_at' => ['nullable', 'date'],
-        ]);
+        $request = new SaveWeekRequest();
+        $validated = $this->validate($request->rules(), $request->messages(), $request->attributes());
 
         $week = $this->editingId ? Week::query()->findOrFail($this->editingId) : new Week(['season_id' => $this->season->id]);
 

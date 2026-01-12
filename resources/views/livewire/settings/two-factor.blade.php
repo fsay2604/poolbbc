@@ -1,12 +1,12 @@
 <?php
 
+use App\Http\Requests\Settings\TwoFactorCodeRequest;
 use Laravel\Fortify\Actions\ConfirmTwoFactorAuthentication;
 use Laravel\Fortify\Actions\DisableTwoFactorAuthentication;
 use Laravel\Fortify\Actions\EnableTwoFactorAuthentication;
 use Laravel\Fortify\Features;
 use Laravel\Fortify\Fortify;
 use Livewire\Attributes\Locked;
-use Livewire\Attributes\Validate;
 use Livewire\Volt\Component;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -27,7 +27,6 @@ new class extends Component {
 
     public bool $showVerificationStep = false;
 
-    #[Validate('required|string|size:6', onUpdate: false)]
     public string $code = '';
 
     /**
@@ -99,7 +98,8 @@ new class extends Component {
      */
     public function confirmTwoFactor(ConfirmTwoFactorAuthentication $confirmTwoFactorAuthentication): void
     {
-        $this->validate();
+        $request = new TwoFactorCodeRequest();
+        $this->validate($request->rules(), $request->messages(), $request->attributes());
 
         $confirmTwoFactorAuthentication(auth()->user(), $this->code);
 

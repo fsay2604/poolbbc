@@ -1,9 +1,10 @@
 <?php
 
+use App\Http\Requests\Admin\ResetUserPasswordRequest;
+use App\Http\Requests\Admin\SaveUserRequest;
 use App\Models\User;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\Rule;
 use Livewire\Volt\Component;
 use Livewire\WithFileUploads;
 
@@ -90,22 +91,8 @@ new class extends Component {
         Gate::authorize('admin');
         $isCreating = $this->editingId === null;
 
-        $rules = [
-            'form.name' => ['required', 'string', 'max:255'],
-            'avatar' => ['nullable', 'image', 'max:2048'],
-            'form.email' => [
-                'required',
-                'email',
-                Rule::unique('users', 'email')->ignore($this->editingId),
-            ],
-            'form.is_admin' => ['required', 'boolean'],
-        ];
-
-        if ($isCreating) {
-            $rules['form.password'] = ['required', 'string', 'min:8', 'confirmed'];
-        }
-
-        $validated = $this->validate($rules);
+        $request = (new SaveUserRequest())->setContext($this->editingId, $isCreating);
+        $validated = $this->validate($request->rules(), $request->messages(), $request->attributes());
 
         $user = $isCreating
             ? new User()
@@ -203,9 +190,8 @@ new class extends Component {
         Gate::authorize('admin');
         abort_if($this->resettingPasswordId === null, 422);
 
-        $validated = $this->validate([
-            'resetPasswordForm.password' => ['required', 'string', 'min:8', 'confirmed'],
-        ]);
+        $request = new ResetUserPasswordRequest();
+        $validated = $this->validate($request->rules(), $request->messages(), $request->attributes());
 
         $user = User::query()->findOrFail($this->resettingPasswordId);
         $user->forceFill(['password' => $validated['resetPasswordForm']['password']])->save();

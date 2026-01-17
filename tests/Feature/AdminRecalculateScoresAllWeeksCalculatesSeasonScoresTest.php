@@ -9,7 +9,7 @@ use App\Models\SeasonPredictionScore;
 use App\Models\User;
 use App\Models\Week;
 use App\Models\WeekOutcome;
-use Livewire\Volt\Volt;
+use Livewire\Livewire;
 
 test('admin recalculate scores (all weeks) calculates season outcome and scores season predictions', function () {
     $season = Season::factory()->create(['is_active' => true]);
@@ -66,7 +66,7 @@ test('admin recalculate scores (all weeks) calculates season outcome and scores 
     $admin = User::factory()->admin()->create();
     $this->actingAs($admin);
 
-    Volt::test('admin.recalculate')
+    Livewire::test('admin.recalculate')
         ->call('recalculate');
 
     expect($season->refresh()->winner_houseguest_id)->toBe($houseguests[0]->id);

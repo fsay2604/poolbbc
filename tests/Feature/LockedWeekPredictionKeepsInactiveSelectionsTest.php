@@ -8,7 +8,7 @@ use App\Models\Season;
 use App\Models\User;
 use App\Models\Week;
 use Illuminate\Support\Carbon;
-use Livewire\Volt\Volt;
+use Livewire\Livewire;
 
 it('keeps locked selections visible even if houseguest becomes inactive', function () {
     Carbon::setTestNow('2026-01-05 12:00:00');
@@ -38,7 +38,7 @@ it('keeps locked selections visible even if houseguest becomes inactive', functi
 
     $this->actingAs($user);
 
-    Volt::test('weeks.show', ['week' => $week])
+    Livewire::test('weeks.show', ['week' => $week])
         ->assertSee('Evicted Player')
         ->assertSee('Active Player');
 });

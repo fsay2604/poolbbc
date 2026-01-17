@@ -7,7 +7,7 @@ use App\Models\Season;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
-use Livewire\Volt\Volt;
+use Livewire\Livewire;
 
 test('admin can upload a houseguest avatar', function () {
     $season = Season::factory()->create(['is_active' => true]);
@@ -17,7 +17,7 @@ test('admin can upload a houseguest avatar', function () {
 
     Storage::fake('public');
 
-    Volt::test('admin.houseguests.index')
+    Livewire::test('admin.houseguests.index')
         ->set('form.name', 'Player One')
         ->set('avatar', UploadedFile::fake()->image('avatar.png'))
         ->set('form.is_active', true)
@@ -39,7 +39,7 @@ test('new houseguest defaults to male when not explicitly set', function () {
     $admin = User::factory()->admin()->create();
     $this->actingAs($admin);
 
-    Volt::test('admin.houseguests.index')
+    Livewire::test('admin.houseguests.index')
         ->set('form.name', 'Player Default Sex')
         ->set('form.is_active', true)
         ->set('form.sort_order', 10)
@@ -61,7 +61,7 @@ test('admin can set houseguest sex', function () {
     $admin = User::factory()->admin()->create();
     $this->actingAs($admin);
 
-    Volt::test('admin.houseguests.index')
+    Livewire::test('admin.houseguests.index')
         ->set('form.name', 'Player Two')
         ->set('form.sex', 'F')
         ->set('form.is_active', true)
@@ -84,7 +84,7 @@ test('admin can set multiple houseguest occupations', function () {
     $admin = User::factory()->admin()->create();
     $this->actingAs($admin);
 
-    Volt::test('admin.houseguests.index')
+    Livewire::test('admin.houseguests.index')
         ->set('form.name', 'Player Three')
         ->set('form.sex', 'M')
         ->set('form.occupations', ['Author', 'Drag', 'Model'])

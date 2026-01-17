@@ -5,7 +5,7 @@ declare(strict_types=1);
 use App\Models\Houseguest;
 use App\Models\Season;
 use App\Models\User;
-use Livewire\Volt\Volt;
+use Livewire\Livewire;
 
 test('admin can set season outcome for the active season', function () {
     $season = Season::factory()->create(['is_active' => true]);
@@ -18,7 +18,7 @@ test('admin can set season outcome for the active season', function () {
     $admin = User::factory()->admin()->create();
     $this->actingAs($admin);
 
-    Volt::test('admin.seasons.outcome')
+    Livewire::test('admin.seasons.outcome')
         ->set('form.winner_houseguest_id', $houseguests[0]->id)
         ->set('form.first_evicted_houseguest_id', $houseguests[1]->id)
         ->set('form.top_6_1_houseguest_id', $houseguests[0]->id)
@@ -69,7 +69,7 @@ test('admin season outcome keeps inactive selections visible', function () {
     $admin = User::factory()->admin()->create();
     $this->actingAs($admin);
 
-    Volt::test('admin.seasons.outcome')
+    Livewire::test('admin.seasons.outcome')
         ->assertSee('Evicted Player')
         ->assertSee('Active Player');
 });

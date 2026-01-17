@@ -6,7 +6,6 @@ use App\Models\Season;
 use App\Models\Week;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
-use Livewire\Volt\Volt;
 
 Route::get('/', function () {
     if (auth()->check()) {
@@ -202,11 +201,11 @@ Route::get('dashboard', function () {
 Route::middleware(['auth'])->group(function () {
     Route::redirect('settings', 'settings/profile');
 
-    Volt::route('settings/profile', 'settings.profile')->name('profile.edit');
-    Volt::route('settings/password', 'settings.password')->name('user-password.edit');
-    Volt::route('settings/appearance', 'settings.appearance')->name('appearance.edit');
+    Route::livewire('settings/profile', 'settings.profile')->name('profile.edit');
+    Route::livewire('settings/password', 'settings.password')->name('user-password.edit');
+    Route::livewire('settings/appearance', 'settings.appearance')->name('appearance.edit');
 
-    Volt::route('settings/two-factor', 'settings.two-factor')
+    Route::livewire('settings/two-factor', 'settings.two-factor')
         ->middleware(
             when(
                 Features::canManageTwoFactorAuthentication()
@@ -217,10 +216,10 @@ Route::middleware(['auth'])->group(function () {
         )
         ->name('two-factor.show');
 
-    Volt::route('weeks', 'weeks.index')->name('weeks.index');
-    Volt::route('weeks/{week}', 'weeks.show')->name('weeks.show');
+    Route::livewire('weeks', 'weeks.index')->name('weeks.index');
+    Route::livewire('weeks/{week}', 'weeks.show')->name('weeks.show');
 
-    Volt::route('season-prediction', 'season-prediction')->name('season.prediction');
+    Route::livewire('season-prediction', 'season-prediction')->name('season.prediction');
 
     Route::get('current-week', function () {
         $now = now();
@@ -242,17 +241,17 @@ Route::middleware(['auth'])->group(function () {
         return redirect()->route('weeks.show', $week);
     })->name('current-week');
 
-    Volt::route('leaderboard', 'leaderboard')->name('leaderboard');
-    Volt::route('leaderboard/{user}', 'leaderboard.show')->name('leaderboard.show');
+    Route::livewire('leaderboard', 'leaderboard')->name('leaderboard');
+    Route::livewire('leaderboard/{user}', 'leaderboard.show')->name('leaderboard.show');
 
     Route::middleware(['can:admin'])->prefix('admin')->group(function () {
-        Volt::route('seasons', 'admin.seasons.index')->name('admin.seasons.index');
-        Volt::route('season-outcome', 'admin.seasons.outcome')->name('admin.seasons.outcome');
-        Volt::route('weeks', 'admin.weeks.index')->name('admin.weeks.index');
-        Volt::route('houseguests', 'admin.houseguests.index')->name('admin.houseguests.index');
-        Volt::route('users', 'admin.users.index')->name('admin.users.index');
-        Volt::route('weeks/{week}/outcome', 'admin.weeks.outcome')->name('admin.weeks.outcome');
-        Volt::route('predictions/{prediction}', 'admin.predictions.edit')->name('admin.predictions.edit');
-        Volt::route('recalculate', 'admin.recalculate')->name('admin.recalculate');
+        Route::livewire('seasons', 'admin.seasons.index')->name('admin.seasons.index');
+        Route::livewire('season-outcome', 'admin.seasons.outcome')->name('admin.seasons.outcome');
+        Route::livewire('weeks', 'admin.weeks.index')->name('admin.weeks.index');
+        Route::livewire('houseguests', 'admin.houseguests.index')->name('admin.houseguests.index');
+        Route::livewire('users', 'admin.users.index')->name('admin.users.index');
+        Route::livewire('weeks/{week}/outcome', 'admin.weeks.outcome')->name('admin.weeks.outcome');
+        Route::livewire('predictions/{prediction}', 'admin.predictions.edit')->name('admin.predictions.edit');
+        Route::livewire('recalculate', 'admin.recalculate')->name('admin.recalculate');
     });
 });

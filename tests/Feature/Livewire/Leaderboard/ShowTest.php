@@ -1,9 +1,9 @@
 <?php
 
-use Livewire\Volt\Volt;
+use Livewire\Livewire;
 
 it('can render', function () {
-    $component = Volt::test('leaderboard.show');
+    $component = Livewire::test('leaderboard.show');
 
     $component->assertSee('');
 });

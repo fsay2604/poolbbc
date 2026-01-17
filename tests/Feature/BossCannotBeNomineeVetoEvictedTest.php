@@ -6,7 +6,7 @@ use App\Models\Season;
 use App\Models\User;
 use App\Models\Week;
 use Illuminate\Support\Carbon;
-use Livewire\Volt\Volt;
+use Livewire\Livewire;
 
 test('user cannot confirm a prediction where HOH is also a nominee/veto winner/evicted', function () {
     Carbon::setTestNow('2026-01-04 12:00:00');
@@ -27,7 +27,7 @@ test('user cannot confirm a prediction where HOH is also a nominee/veto winner/e
 
     $this->actingAs($user);
 
-    $response = Volt::test('weeks.show', ['week' => $week])
+    $response = Livewire::test('weeks.show', ['week' => $week])
         ->set('form.boss_houseguest_ids.0', $boss->id)
         ->set('form.nominee_houseguest_ids.0', $boss->id)
         ->set('form.nominee_houseguest_ids.1', $hg2->id)
@@ -56,7 +56,7 @@ test('admin cannot save an outcome where HOH is also veto winner or evicted', fu
 
     $this->actingAs($admin);
 
-    $response = Volt::test('admin.weeks.outcome', ['week' => $week])
+    $response = Livewire::test('admin.weeks.outcome', ['week' => $week])
         ->set('form.boss_houseguest_ids.0', $boss->id)
         ->set('form.veto_winner_houseguest_id', $boss->id)
         ->set('form.evicted_houseguest_ids.0', $other->id)
@@ -86,7 +86,7 @@ test('admin cannot save a prediction where HOH is also evicted', function () {
 
     $this->actingAs($admin);
 
-    $response = Volt::test('admin.predictions.edit', ['prediction' => $prediction])
+    $response = Livewire::test('admin.predictions.edit', ['prediction' => $prediction])
         ->set('form.boss_houseguest_ids.0', $boss->id)
         ->set('form.evicted_houseguest_ids.0', $boss->id)
         ->call('save');

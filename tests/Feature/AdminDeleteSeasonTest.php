@@ -9,7 +9,7 @@ use App\Models\User;
 use App\Models\Week;
 use App\Models\WeekOutcome;
 use Illuminate\Support\Carbon;
-use Livewire\Volt\Volt;
+use Livewire\Livewire;
 
 test('admin can delete a season and all related data', function () {
     Carbon::setTestNow('2026-01-04 12:00:00');
@@ -57,7 +57,7 @@ test('admin can delete a season and all related data', function () {
 
     $this->actingAs($admin);
 
-    Volt::test('admin.seasons.index')
+    Livewire::test('admin.seasons.index')
         ->call('delete', $season->id)
         ->assertHasNoErrors();
 

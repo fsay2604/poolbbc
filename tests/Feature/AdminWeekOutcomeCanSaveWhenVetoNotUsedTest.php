@@ -8,7 +8,7 @@ use App\Models\User;
 use App\Models\Week;
 use App\Models\WeekOutcome;
 use Illuminate\Support\Carbon;
-use Livewire\Volt\Volt;
+use Livewire\Livewire;
 
 it('can save a week outcome when veto is not used', function () {
     Carbon::setTestNow('2026-01-06 12:00:00');
@@ -32,7 +32,7 @@ it('can save a week outcome when veto is not used', function () {
 
     $this->actingAs($admin);
 
-    Volt::test('admin.weeks.outcome', ['week' => $week])
+    Livewire::test('admin.weeks.outcome', ['week' => $week])
         ->set('form.boss_houseguest_ids.0', $boss->id)
         ->set('form.nominee_houseguest_ids.0', $nominee1->id)
         ->set('form.nominee_houseguest_ids.1', $nominee2->id)

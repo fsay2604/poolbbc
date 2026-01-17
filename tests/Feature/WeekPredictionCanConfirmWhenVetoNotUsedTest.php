@@ -6,7 +6,7 @@ use App\Models\Season;
 use App\Models\User;
 use App\Models\Week;
 use Illuminate\Support\Carbon;
-use Livewire\Volt\Volt;
+use Livewire\Livewire;
 
 it('can confirm a week prediction when veto is not used', function () {
     Carbon::setTestNow('2026-01-06 12:00:00');
@@ -30,7 +30,7 @@ it('can confirm a week prediction when veto is not used', function () {
 
     $this->actingAs($user);
 
-    Volt::test('weeks.show', ['week' => $week])
+    Livewire::test('weeks.show', ['week' => $week])
         ->set('form.boss_houseguest_ids.0', $boss->id)
         ->set('form.nominee_houseguest_ids.0', $nominee1->id)
         ->set('form.nominee_houseguest_ids.1', $nominee2->id)

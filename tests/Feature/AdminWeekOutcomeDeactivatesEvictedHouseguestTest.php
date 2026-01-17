@@ -6,7 +6,7 @@ use App\Models\Houseguest;
 use App\Models\Season;
 use App\Models\User;
 use App\Models\Week;
-use Livewire\Volt\Volt;
+use Livewire\Livewire;
 
 it('deactivates evicted houseguests when an outcome is saved', function () {
     $admin = User::factory()->admin()->create();
@@ -21,7 +21,7 @@ it('deactivates evicted houseguests when an outcome is saved', function () {
 
     $this->actingAs($admin);
 
-    Volt::test('admin.weeks.outcome', ['week' => $week])
+    Livewire::test('admin.weeks.outcome', ['week' => $week])
         ->set('form.boss_houseguest_ids.0', $boss->id)
         ->set('form.evicted_houseguest_ids.0', $evicted->id)
         ->call('save')

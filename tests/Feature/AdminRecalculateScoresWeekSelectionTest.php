@@ -9,7 +9,7 @@ use App\Models\Season;
 use App\Models\User;
 use App\Models\Week;
 use App\Models\WeekOutcome;
-use Livewire\Volt\Volt;
+use Livewire\Livewire;
 
 it('allows selecting any week when recalculating scores', function () {
     $admin = User::factory()->admin()->create();
@@ -44,7 +44,7 @@ it('allows selecting any week when recalculating scores', function () {
 
     $this->actingAs($admin);
 
-    Volt::test('admin.recalculate')
+    Livewire::test('admin.recalculate')
         ->set('weekId', (string) $week1->id)
         ->call('recalculate')
         ->assertDispatched('scores-recalculated');

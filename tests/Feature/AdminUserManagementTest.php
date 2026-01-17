@@ -4,7 +4,7 @@ use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
-use Livewire\Volt\Volt;
+use Livewire\Livewire;
 
 test('admin can edit a user', function () {
     $admin = User::factory()->admin()->create();
@@ -12,7 +12,7 @@ test('admin can edit a user', function () {
 
     $this->actingAs($admin);
 
-    Volt::test('admin.users.index')
+    Livewire::test('admin.users.index')
         ->call('edit', $user->id)
         ->set('form.name', 'Updated Name')
         ->set('form.email', 'updated@example.com')
@@ -31,7 +31,7 @@ test('admin can create a user', function () {
 
     $this->actingAs($admin);
 
-    Volt::test('admin.users.index')
+    Livewire::test('admin.users.index')
         ->set('form.name', 'Created User')
         ->set('form.email', 'created@example.com')
         ->set('form.is_admin', false)
@@ -52,7 +52,7 @@ test('admin can create a user with an avatar', function () {
 
     $this->actingAs($admin);
 
-    Volt::test('admin.users.index')
+    Livewire::test('admin.users.index')
         ->set('form.name', 'Avatar User')
         ->set('form.email', 'avatar@example.com')
         ->set('form.is_admin', false)
@@ -73,7 +73,7 @@ test('admin can toggle admin status', function () {
 
     $this->actingAs($admin);
 
-    Volt::test('admin.users.index')
+    Livewire::test('admin.users.index')
         ->call('toggleAdmin', $user->id);
 
     $user->refresh();
@@ -87,7 +87,7 @@ test('admin can reset a user password', function () {
 
     $this->actingAs($admin);
 
-    Volt::test('admin.users.index')
+    Livewire::test('admin.users.index')
         ->call('confirmResetPassword', $user->id)
         ->set('resetPasswordForm.password', 'new-password-123')
         ->set('resetPasswordForm.password_confirmation', 'new-password-123')
@@ -104,7 +104,7 @@ test('admin can soft delete a user', function () {
 
     $this->actingAs($admin);
 
-    Volt::test('admin.users.index')
+    Livewire::test('admin.users.index')
         ->call('confirmDelete', $user->id)
         ->call('deleteSelectedUser');
 

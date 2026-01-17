@@ -115,7 +115,7 @@
 
                     <div class="h-2 w-full overflow-hidden rounded-full bg-pink-500/80 dark:bg-pink-500">
                         <div
-                            class="h-full bg-accent"
+                            class="h-full bg-blue-500"
                             style="width: {{ $houseguestSexStatistics['male_percent'] ?? 0 }}%"
                         ></div>
                     </div>

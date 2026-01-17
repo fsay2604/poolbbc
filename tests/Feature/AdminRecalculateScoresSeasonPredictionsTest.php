@@ -9,7 +9,7 @@ use App\Models\SeasonPredictionScore;
 use App\Models\User;
 use App\Models\Week;
 use App\Models\WeekOutcome;
-use Livewire\Volt\Volt;
+use Livewire\Livewire;
 
 test('admin recalculate also scores season predictions', function () {
     $season = Season::factory()->create(['is_active' => true]);
@@ -41,7 +41,7 @@ test('admin recalculate also scores season predictions', function () {
     $admin = User::factory()->admin()->create();
     $this->actingAs($admin);
 
-    Volt::test('admin.recalculate')
+    Livewire::test('admin.recalculate')
         ->call('recalculate');
 
     expect(SeasonPredictionScore::query()->where('season_prediction_id', $prediction->id)->exists())

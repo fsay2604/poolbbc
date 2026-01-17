@@ -3,7 +3,7 @@
 use App\Models\Season;
 use App\Models\User;
 use Illuminate\Support\Carbon;
-use Livewire\Volt\Volt;
+use Livewire\Livewire;
 
 test('creating a season auto-creates 12 weeks starting the second Sunday of January', function () {
     Carbon::setTestNow('2026-01-04 12:00:00');
@@ -11,7 +11,7 @@ test('creating a season auto-creates 12 weeks starting the second Sunday of Janu
     $admin = User::factory()->admin()->create();
     $this->actingAs($admin);
 
-    Volt::test('admin.seasons.index')
+    Livewire::test('admin.seasons.index')
         ->set('form.name', 'Season 2026')
         ->set('form.is_active', true)
         ->call('save')

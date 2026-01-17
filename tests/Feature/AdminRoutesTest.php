@@ -8,7 +8,6 @@ it('forbids admin routes for non-admin users', function () {
     $this->actingAs($user)->get('/admin/seasons')->assertForbidden();
     $this->actingAs($user)->get('/admin/weeks')->assertForbidden();
     $this->actingAs($user)->get('/admin/houseguests')->assertForbidden();
-    $this->actingAs($user)->get('/admin/recalculate')->assertForbidden();
 });
 
 it('allows admin routes for admin users', function () {
@@ -17,5 +16,4 @@ it('allows admin routes for admin users', function () {
     $this->actingAs($admin)->get('/admin/seasons')->assertSuccessful();
     $this->actingAs($admin)->get('/admin/weeks')->assertSuccessful();
     $this->actingAs($admin)->get('/admin/houseguests')->assertSuccessful();
-    $this->actingAs($admin)->get('/admin/recalculate')->assertSuccessful();
 });

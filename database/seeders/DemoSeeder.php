@@ -72,7 +72,6 @@ class DemoSeeder extends Seeder
 
             for ($i = $existing + 1; $i <= 16; $i++) {
                 Houseguest::factory()->for($season)->create([
-                    'name' => 'HG '.$i,
                     'is_active' => true,
                     'sort_order' => $i,
                 ]);

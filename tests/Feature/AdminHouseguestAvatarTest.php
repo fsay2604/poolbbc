@@ -6,6 +6,7 @@ use App\Models\Houseguest;
 use App\Models\Season;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 
@@ -16,6 +17,7 @@ test('admin can upload a houseguest avatar', function () {
     $this->actingAs($admin);
 
     Storage::fake('public');
+    Cache::spy();
 
     Livewire::test('admin.houseguests.index')
         ->set('form.name', 'Player One')
@@ -31,6 +33,7 @@ test('admin can upload a houseguest avatar', function () {
     expect($houseguest->avatar_url)->not->toBeNull();
 
     Storage::disk('public')->assertExists($houseguest->avatar_url);
+    Cache::shouldHaveReceived('forget')->with("dashboard.stats.season.{$season->id}");
 });
 
 test('new houseguest defaults to male when not explicitly set', function () {

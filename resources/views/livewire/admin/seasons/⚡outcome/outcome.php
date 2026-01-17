@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Dashboard\BuildDashboardStats;
 use App\Actions\Predictions\RecalculateAllScores;
 use App\Http\Requests\Admin\SaveSeasonOutcomeRequest;
 use App\Models\Houseguest;
@@ -101,6 +102,8 @@ new class extends Component {
             admin: $admin,
             updateSeasonOutcome: false,
         );
+
+        app(BuildDashboardStats::class)->forget($this->season);
 
         $this->dispatch('season-outcome-saved');
     }

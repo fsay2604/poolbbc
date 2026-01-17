@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Actions\Dashboard\BuildDashboardStats;
 use App\Actions\Predictions\ScoreWeek;
 use App\Models\Houseguest;
 use App\Models\Prediction;
@@ -79,4 +80,9 @@ test('dashboard shows user prediction accuracy statistics', function () {
         ->assertSee('Joueur')
         ->assertSee('Inconnu')
         ->assertSee('40%');
+
+    $stats = app(BuildDashboardStats::class)->handle();
+
+    expect($stats['season'])->not->toBeNull();
+    expect($stats['statistics'])->toHaveCount(2);
 });

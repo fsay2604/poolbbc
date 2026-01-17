@@ -25,7 +25,7 @@ class HouseguestFactory extends Factory
     {
         return [
             'season_id' => Season::factory(),
-            'name' => $this->faker->unique()->firstName(),
+            'name' => $this->faker->unique()->name(),
             'sex' => $this->faker->randomElement(['M', 'F']),
             'occupations' => [],
             'avatar_url' => null,

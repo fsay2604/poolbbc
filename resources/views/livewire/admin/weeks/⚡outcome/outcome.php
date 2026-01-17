@@ -6,6 +6,7 @@ use App\Models\Week;
 use App\Models\WeekOutcome;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
+use App\Actions\Dashboard\BuildDashboardStats;
 use App\Actions\Predictions\RecalculateAllScores;
 use Livewire\Component;
 
@@ -245,6 +246,8 @@ new class extends Component {
 
             app(RecalculateAllScores::class)->run(season: $this->week->season->refresh(), admin: $admin);
         }
+
+        app(BuildDashboardStats::class)->forget($this->week->season);
 
         $this->outcome = $outcome;
         $this->dispatch('outcome-saved');

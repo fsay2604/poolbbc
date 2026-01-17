@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Dashboard\BuildDashboardStats;
 use App\Http\Requests\Admin\SaveHouseguestRequest;
 use App\Models\Houseguest;
 use App\Models\Season;
@@ -30,6 +31,12 @@ new class extends Component {
     ];
 
     public ?int $editingId = null;
+
+    public bool $showConfirmHouseguestDeletionModal = false;
+
+    public ?int $confirmingHouseguestDeletionId = null;
+
+    public ?string $confirmingHouseguestDeletionName = null;
 
     public function mount(): void
     {
@@ -69,6 +76,48 @@ new class extends Component {
         ];
     }
 
+    public function confirmDelete(int $houseguestId): void
+    {
+        Gate::authorize('admin');
+
+        $houseguest = Houseguest::query()->findOrFail($houseguestId);
+
+        $this->confirmingHouseguestDeletionId = $houseguest->id;
+        $this->confirmingHouseguestDeletionName = $houseguest->name;
+        $this->showConfirmHouseguestDeletionModal = true;
+    }
+
+    public function deleteSelectedHouseguest(): void
+    {
+        Gate::authorize('admin');
+
+        if ($this->confirmingHouseguestDeletionId === null) {
+            return;
+        }
+
+        $houseguest = Houseguest::query()->findOrFail($this->confirmingHouseguestDeletionId);
+
+        if ($houseguest->avatar_url) {
+            Storage::disk('public')->delete($houseguest->avatar_url);
+        }
+
+        $houseguest->delete();
+
+        app(BuildDashboardStats::class)->forget($this->season);
+
+        if ($this->editingId === $houseguest->id) {
+            $this->startCreate();
+        }
+
+        $this->confirmingHouseguestDeletionId = null;
+        $this->confirmingHouseguestDeletionName = null;
+        $this->showConfirmHouseguestDeletionModal = false;
+
+        $this->refresh();
+
+        $this->dispatch('houseguest-deleted');
+    }
+
     public function save(): void
     {
         Gate::authorize('admin');
@@ -92,6 +141,8 @@ new class extends Component {
 
         $houseguest->fill(array_merge($validated['form'], ['season_id' => $this->season->id]));
         $houseguest->save();
+
+        app(BuildDashboardStats::class)->forget($this->season);
 
         $this->startCreate();
         $this->refresh();

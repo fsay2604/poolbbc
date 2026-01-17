@@ -9,6 +9,10 @@
             @endif
         </div>
 
+        @can('admin')
+            <livewire:admin.recalculate />
+        @endcan
+
         <div class="grid gap-2 grid-cols-4 md:grid-cols-6 xl:grid-cols-8">
             @foreach ($houseguests as $houseguest)
                 <x-houseguest-card :houseguest="$houseguest" />

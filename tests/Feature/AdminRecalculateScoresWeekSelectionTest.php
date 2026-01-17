@@ -11,7 +11,7 @@ use App\Models\Week;
 use App\Models\WeekOutcome;
 use Livewire\Livewire;
 
-it('allows selecting any week when recalculating scores', function () {
+it('recalculates all weeks when triggered', function () {
     $admin = User::factory()->admin()->create();
     $user = User::factory()->create();
 
@@ -45,10 +45,9 @@ it('allows selecting any week when recalculating scores', function () {
     $this->actingAs($admin);
 
     Livewire::test('admin.recalculate')
-        ->set('weekId', (string) $week1->id)
         ->call('recalculate')
         ->assertDispatched('scores-recalculated');
 
     expect(PredictionScore::query()->where('prediction_id', $prediction1->id)->exists())->toBeTrue();
-    expect(PredictionScore::query()->where('prediction_id', $prediction2->id)->exists())->toBeFalse();
+    expect(PredictionScore::query()->where('prediction_id', $prediction2->id)->exists())->toBeTrue();
 });

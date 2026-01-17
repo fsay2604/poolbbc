@@ -75,9 +75,7 @@
 
                     <div class="flex items-center gap-4">
                         <flux:button variant="primary" type="submit">{{ __('Save Outcome') }}</flux:button>
-                        <flux:button type="button" wire:click="recalculate">{{ __('Recalculate Season Scores') }}</flux:button>
                         <x-action-message on="season-outcome-saved" class="text-sm">{{ __('Saved.') }}</x-action-message>
-                        <x-action-message on="season-scores-recalculated" class="text-sm">{{ __('Recalculated.') }}</x-action-message>
                     </div>
                 </form>
             </div>

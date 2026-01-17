@@ -6,8 +6,7 @@ use App\Models\Week;
 use App\Models\WeekOutcome;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
-use App\Actions\Seasons\CalculateSeasonOutcomeFromWeekOutcomes;
-use App\Actions\Predictions\ScoreSeasonPredictions;
+use App\Actions\Predictions\RecalculateAllScores;
 use Livewire\Component;
 
 new class extends Component {
@@ -241,10 +240,10 @@ new class extends Component {
         }
 
         if ($this->week->season) {
-            (new CalculateSeasonOutcomeFromWeekOutcomes())->execute($this->week->season);
-
             $admin = Auth::user();
-            app(ScoreSeasonPredictions::class)->run($this->week->season->refresh(), $admin);
+            abort_if($admin === null, 403);
+
+            app(RecalculateAllScores::class)->run(season: $this->week->season->refresh(), admin: $admin);
         }
 
         $this->outcome = $outcome;

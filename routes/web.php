@@ -252,6 +252,5 @@ Route::middleware(['auth'])->group(function () {
         Route::livewire('users', 'admin.users.index')->name('admin.users.index');
         Route::livewire('weeks/{week}/outcome', 'admin.weeks.outcome')->name('admin.weeks.outcome');
         Route::livewire('predictions/{prediction}', 'admin.predictions.edit')->name('admin.predictions.edit');
-        Route::livewire('recalculate', 'admin.recalculate')->name('admin.recalculate');
     });
 });

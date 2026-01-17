@@ -27,7 +27,6 @@
                         <flux:navlist.item icon="trophy" :href="route('admin.seasons.outcome')" :current="request()->routeIs('admin.seasons.outcome')" wire:navigate>{{ __('Season Outcome') }}</flux:navlist.item>
                         <flux:navlist.item icon="calendar" :href="route('admin.weeks.index')" :current="request()->routeIs('admin.weeks.*')" wire:navigate>{{ __('Weeks') }}</flux:navlist.item>
                         <flux:navlist.item icon="user" :href="route('admin.houseguests.index')" :current="request()->routeIs('admin.houseguests.*')" wire:navigate>{{ __('Houseguests') }}</flux:navlist.item>
-                        <flux:navlist.item icon="calculator" :href="route('admin.recalculate')" :current="request()->routeIs('admin.recalculate')" wire:navigate>{{ __('Recalculate Scores') }}</flux:navlist.item>
                         <flux:separator class="my-2" />
                         <flux:navlist.item icon="users" :href="route('admin.users.index')" :current="request()->routeIs('admin.users.*')" wire:navigate>{{ __('Users') }}</flux:navlist.item>
                     </flux:navlist.group>

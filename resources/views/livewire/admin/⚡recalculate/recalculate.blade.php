@@ -1,21 +1,16 @@
-<section class="w-full">
-    <div class="flex w-full flex-1 flex-col gap-6">
-        <flux:heading size="xl" level="1">{{ __('Recalculate Scores') }}</flux:heading>
-
-        <div class="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-zinc-900">
-            <div class="grid gap-4">
-                <flux:select wire:model.live="weekId" :label="__('Week (optional)')">
-                    <option value="">{{ __('All weeks') }}</option>
-                    @foreach ($weeks as $week)
-                        <option value="{{ $week->id }}">{{ $week->name ?? __('Week').' '.$week->number }}</option>
-                    @endforeach
-                </flux:select>
-
-                <div class="flex items-center gap-4">
-                    <flux:button variant="primary" type="button" wire:click="recalculate">{{ __('Recalculate') }}</flux:button>
-                    <x-action-message on="scores-recalculated" class="text-sm">{{ __('Done.') }}</x-action-message>
-                </div>
+<div class="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-zinc-900">
+    <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div class="grid gap-1">
+            <flux:heading size="lg" level="2">{{ __('Recalculate Scores') }}</flux:heading>
+            <div class="text-sm text-zinc-500 dark:text-zinc-400">
+                {{ __('Updates all weeks and season scores.') }}
             </div>
         </div>
+        <div class="flex items-center gap-3">
+            <flux:button variant="primary" type="button" wire:click="recalculate">
+                {{ __('Recalculate All Weeks') }}
+            </flux:button>
+            <x-action-message on="scores-recalculated" class="text-sm">{{ __('Done.') }}</x-action-message>
+        </div>
     </div>
-</section>
+</div>

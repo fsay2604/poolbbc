@@ -1,9 +1,10 @@
 <?php
 
-use App\Actions\Predictions\ScoreSeasonPredictions;
+use App\Actions\Predictions\RecalculateAllScores;
 use App\Http\Requests\Admin\SaveSeasonOutcomeRequest;
 use App\Models\Houseguest;
 use App\Models\Season;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Component;
 
@@ -92,17 +93,15 @@ new class extends Component {
             ],
         ])->save();
 
+        $admin = Auth::user();
+        abort_if($admin === null, 403);
+
+        app(RecalculateAllScores::class)->run(
+            season: $this->season->refresh(),
+            admin: $admin,
+            updateSeasonOutcome: false,
+        );
+
         $this->dispatch('season-outcome-saved');
-    }
-
-    public function recalculate(ScoreSeasonPredictions $scoreSeasonPredictions): void
-    {
-        Gate::authorize('admin');
-
-        abort_if($this->season === null, 404);
-
-        $scoreSeasonPredictions->run($this->season);
-
-        $this->dispatch('season-scores-recalculated');
     }
 };

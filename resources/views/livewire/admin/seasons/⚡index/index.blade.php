@@ -31,6 +31,7 @@
                             <tr>
                                 <th class="px-4 py-3 text-left font-medium">{{ __('Name') }}</th>
                                 <th class="px-4 py-3 text-left font-medium">{{ __('Active') }}</th>
+                                <th class="px-4 py-3 text-left font-medium">{{ __('Outcome') }}</th>
                                 <th class="px-4 py-3"></th>
                             </tr>
                         </thead>
@@ -43,6 +44,15 @@
                                             <span class="text-green-600">{{ __('Yes') }}</span>
                                         @else
                                             <span class="text-zinc-500 dark:text-zinc-400">{{ __('No') }}</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        @if ($season->is_active)
+                                            <flux:button size="sm" :href="route('admin.seasons.outcome')" wire:navigate>
+                                                {{ __('Set') }}
+                                            </flux:button>
+                                        @else
+                                            <span class="text-zinc-500 dark:text-zinc-400">--</span>
                                         @endif
                                     </td>
                                     <td class="px-4 py-3 text-right">

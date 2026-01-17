@@ -24,7 +24,6 @@
                 <flux:navlist variant="outline">
                     <flux:navlist.group :heading="__('Admin')" class="grid">
                         <flux:navlist.item icon="cog" :href="route('admin.seasons.index')" :current="request()->routeIs('admin.seasons.*')" wire:navigate>{{ __('Seasons') }}</flux:navlist.item>
-                        <flux:navlist.item icon="trophy" :href="route('admin.seasons.outcome')" :current="request()->routeIs('admin.seasons.outcome')" wire:navigate>{{ __('Season Outcome') }}</flux:navlist.item>
                         <flux:navlist.item icon="calendar" :href="route('admin.weeks.index')" :current="request()->routeIs('admin.weeks.*')" wire:navigate>{{ __('Weeks') }}</flux:navlist.item>
                         <flux:navlist.item icon="user" :href="route('admin.houseguests.index')" :current="request()->routeIs('admin.houseguests.*')" wire:navigate>{{ __('Houseguests') }}</flux:navlist.item>
                         <flux:separator class="my-2" />

@@ -33,26 +33,55 @@
         @else
             <div class="flex gap-4 overflow-x-auto pb-1">
                 @foreach ($statistics as $stat)
-                    <flux:card class="min-w-[12rem] overflow-hidden">
-                        <flux:text>{{ $stat['user_name'] }}</flux:text>
+                    @if (! empty($stat['user']))
+                        <a
+                            href="{{ route('predictions.show', $stat['user']) }}"
+                            wire:navigate.hover
+                            class="group min-w-[12rem] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-zinc-900"
+                        >
+                            <flux:card class="h-full overflow-hidden transition group-hover:-translate-y-0.5 group-hover:shadow-md">
+                                <flux:text>{{ $stat['user_name'] }}</flux:text>
 
-                        <flux:heading size="xl" class="mt-2 tabular-nums">
-                            {{ $stat['accuracy'] }}%
-                        </flux:heading>
+                                <flux:heading size="xl" class="mt-2 tabular-nums">
+                                    {{ $stat['accuracy'] }}%
+                                </flux:heading>
 
-                        <flux:text class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-                            {{ $stat['earned'] }} / {{ $stat['possible'] }} points
-                        </flux:text>
+                                <flux:text class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                                    {{ $stat['earned'] }} / {{ $stat['possible'] }} points
+                                </flux:text>
 
-                        @if (is_array($stat['series']) && count($stat['series']) >= 2)
-                            <flux:chart class="-mx-8 -mb-8 mt-3 h-[3rem]" :value="$stat['series']">
-                                <flux:chart.svg gutter="0">
-                                    <flux:chart.line class="text-accent" />
-                                    <flux:chart.area class="text-accent/20" />
-                                </flux:chart.svg>
-                            </flux:chart>
-                        @endif
-                    </flux:card>
+                                @if (is_array($stat['series']) && count($stat['series']) >= 2)
+                                    <flux:chart class="-mx-8 -mb-8 mt-3 h-[3rem]" :value="$stat['series']">
+                                        <flux:chart.svg gutter="0">
+                                            <flux:chart.line class="text-accent" />
+                                            <flux:chart.area class="text-accent/20" />
+                                        </flux:chart.svg>
+                                    </flux:chart>
+                                @endif
+                            </flux:card>
+                        </a>
+                    @else
+                        <flux:card class="min-w-[12rem] overflow-hidden">
+                            <flux:text>{{ $stat['user_name'] }}</flux:text>
+
+                            <flux:heading size="xl" class="mt-2 tabular-nums">
+                                {{ $stat['accuracy'] }}%
+                            </flux:heading>
+
+                            <flux:text class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                                {{ $stat['earned'] }} / {{ $stat['possible'] }} points
+                            </flux:text>
+
+                            @if (is_array($stat['series']) && count($stat['series']) >= 2)
+                                <flux:chart class="-mx-8 -mb-8 mt-3 h-[3rem]" :value="$stat['series']">
+                                    <flux:chart.svg gutter="0">
+                                        <flux:chart.line class="text-accent" />
+                                        <flux:chart.area class="text-accent/20" />
+                                    </flux:chart.svg>
+                                </flux:chart>
+                            @endif
+                        </flux:card>
+                    @endif
                 @endforeach
             </div>
         @endif

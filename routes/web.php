@@ -172,8 +172,11 @@ Route::get('dashboard', function () {
                         ->values()
                         ->all();
 
+                    $user = $userScores->first()->user;
+
                     return [
-                        'user_name' => $userScores->first()->user?->name ?? '—',
+                        'user' => $user,
+                        'user_name' => $user?->name ?? '--',
                         'earned' => $earned,
                         'possible' => $possible,
                         'accuracy' => $accuracy,
@@ -220,6 +223,7 @@ Route::middleware(['auth'])->group(function () {
     Route::livewire('weeks/{week}', 'weeks.show')->name('weeks.show');
 
     Route::livewire('season-prediction', 'season-prediction')->name('season.prediction');
+    Route::livewire('predictions/{user}', 'predictions.show')->name('predictions.show');
 
     Route::get('current-week', function () {
         $now = now();
@@ -242,7 +246,6 @@ Route::middleware(['auth'])->group(function () {
     })->name('current-week');
 
     Route::livewire('leaderboard', 'leaderboard')->name('leaderboard');
-    Route::livewire('leaderboard/{user}', 'leaderboard.show')->name('leaderboard.show');
 
     Route::middleware(['can:admin'])->prefix('admin')->group(function () {
         Route::livewire('seasons', 'admin.seasons.index')->name('admin.seasons.index');

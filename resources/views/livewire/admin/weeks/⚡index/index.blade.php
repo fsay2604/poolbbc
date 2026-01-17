@@ -51,7 +51,7 @@
                                 <tr>
                                     <td class="px-4 py-3">{{ $week->name ?? __('Week').' '.$week->number }}</td>
                                     <td class="px-4 py-3">
-                                        <flux:button size="sm" :href="route('admin.weeks.outcome', $week)" wire:navigate>
+                                        <flux:button size="sm" :href="route('admin.weeks.outcome', $week)" wire:navigate.hover>
                                             {{ __('Set') }}
                                         </flux:button>
                                     </td>

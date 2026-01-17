@@ -13,7 +13,7 @@
             <a
                 class="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition hover:border-zinc-300 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 dark:border-neutral-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-zinc-500 dark:hover:text-zinc-100 dark:focus-visible:ring-offset-zinc-900"
                 href="{{ route('leaderboard') }}"
-                wire:navigate
+                wire:navigate.hover
             >
                 {{ __('Back to leaderboard') }}
             </a>

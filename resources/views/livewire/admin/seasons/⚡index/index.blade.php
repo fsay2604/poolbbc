@@ -48,7 +48,7 @@
                                     </td>
                                     <td class="px-4 py-3">
                                         @if ($season->is_active)
-                                            <flux:button size="sm" :href="route('admin.seasons.outcome')" wire:navigate>
+                                            <flux:button size="sm" :href="route('admin.seasons.outcome')" wire:navigate.hover>
                                                 {{ __('Set') }}
                                             </flux:button>
                                         @else

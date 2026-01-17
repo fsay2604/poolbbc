@@ -10,7 +10,7 @@
                 @endif
             </div>
 
-            <flux:button :href="route('weeks.index')" wire:navigate>{{ __('Back to Weeks') }}</flux:button>
+            <flux:button :href="route('weeks.index')" wire:navigate.hover>{{ __('Back to Weeks') }}</flux:button>
         </div>
 
         <div class="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-zinc-900">

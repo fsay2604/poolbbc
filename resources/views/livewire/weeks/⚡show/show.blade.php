@@ -5,7 +5,7 @@
                 <flux:heading size="xl" level="1">{{ $week->name ?? __('Week').' '.$week->number }}</flux:heading>
             </div>
 
-            <flux:button :href="route('weeks.index')" wire:navigate>
+            <flux:button :href="route('weeks.index')" wire:navigate.hover>
                 {{ __('All Weeks') }}
             </flux:button>
         </div>

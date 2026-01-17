@@ -10,7 +10,7 @@
                 @endif
             </div>
 
-            <flux:button :href="route('current-week')" variant="primary" wire:navigate>
+            <flux:button :href="route('current-week')" variant="primary" wire:navigate.hover>
                 {{ __('Current Week') }}
             </flux:button>
         </div>
@@ -47,7 +47,7 @@
                                     @endif
                                 </td>
                                 <td class="px-4 py-3 text-right">
-                                    <flux:button size="sm" :href="route('weeks.show', $week)" wire:navigate>
+                                    <flux:button size="sm" :href="route('weeks.show', $week)" wire:navigate.hover>
                                         {{ __('View') }}
                                     </flux:button>
                                 </td>

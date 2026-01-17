@@ -9,7 +9,7 @@
                     <div class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('No active season yet.') }}</div>
                 @endif
             </div>
-            <flux:button :href="route('admin.seasons.index')" wire:navigate>{{ __('Back to Seasons') }}</flux:button>
+            <flux:button :href="route('admin.seasons.index')" wire:navigate.hover>{{ __('Back to Seasons') }}</flux:button>
         </div>
 
         @if ($season)

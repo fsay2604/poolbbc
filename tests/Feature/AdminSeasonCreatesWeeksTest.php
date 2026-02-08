@@ -25,6 +25,8 @@ test('creating a season auto-creates 12 weeks starting the second Sunday of Janu
     expect($week1->starts_at->toDateTimeString())->toBe('2026-01-11 00:00:00');
     expect($week1->auto_lock_at->toDateTimeString())->toBe('2026-01-17 19:00:00');
     expect($week1->ends_at->toDateTimeString())->toBe('2026-01-18 00:00:00');
+    $week1->load('phases');
+    expect($week1->phases->pluck('type')->all())->toBe(['hoh', 'nominees', 'veto', 'evictions']);
 
     $week12 = $season->weeks()->where('number', 12)->firstOrFail();
     expect($week12->starts_at->toDateTimeString())->toBe('2026-03-29 00:00:00');

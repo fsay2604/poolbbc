@@ -22,8 +22,8 @@ it('deactivates evicted houseguests when an outcome is saved', function () {
     $this->actingAs($admin);
 
     Livewire::test('admin.weeks.outcome', ['week' => $week])
-        ->set('form.boss_houseguest_ids.0', $boss->id)
-        ->set('form.evicted_houseguest_ids.0', $evicted->id)
+        ->set('form.phases.0.hoh_ids.0', $boss->id)
+        ->set('form.phases.3.evicted_ids.0', $evicted->id)
         ->call('save')
         ->assertDispatched('outcome-saved');
 

@@ -21,9 +21,6 @@ class Week extends Model
     protected $fillable = [
         'season_id',
         'number',
-        'boss_count',
-        'nominee_count',
-        'evicted_count',
         'name',
         'is_locked',
         'auto_lock_at',
@@ -38,9 +35,6 @@ class Week extends Model
     protected function casts(): array
     {
         return [
-            'boss_count' => 'integer',
-            'nominee_count' => 'integer',
-            'evicted_count' => 'integer',
             'is_locked' => 'boolean',
             'auto_lock_at' => 'datetime',
             'locked_at' => 'datetime',
@@ -57,6 +51,11 @@ class Week extends Model
     public function predictions(): HasMany
     {
         return $this->hasMany(Prediction::class);
+    }
+
+    public function phases(): HasMany
+    {
+        return $this->hasMany(WeekPhase::class)->orderBy('position');
     }
 
     public function outcome(): HasOne

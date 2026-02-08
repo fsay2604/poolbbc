@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Actions\Weeks\WeekPhaseManager;
 use App\Models\Season;
 use App\Models\Week;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -16,6 +17,13 @@ class WeekFactory extends Factory
      * @var class-string<\App\Models\Week>
      */
     protected $model = Week::class;
+
+    public function configure(): static
+    {
+        return $this->afterCreating(function (Week $week): void {
+            app(WeekPhaseManager::class)->ensureDefaultPhases($week);
+        });
+    }
 
     /**
      * Define the model's default state.

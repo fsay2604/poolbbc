@@ -25,14 +25,7 @@ class WeekOutcomeFactory extends Factory
     {
         return [
             'week_id' => Week::factory(),
-            'hoh_houseguest_id' => null,
-            'nominee_1_houseguest_id' => null,
-            'nominee_2_houseguest_id' => null,
-            'veto_winner_houseguest_id' => null,
-            'veto_used' => null,
-            'saved_houseguest_id' => null,
-            'replacement_nominee_houseguest_id' => null,
-            'evicted_houseguest_id' => null,
+            'phase_results' => null,
             'last_admin_edited_by_user_id' => null,
             'last_admin_edited_at' => null,
         ];

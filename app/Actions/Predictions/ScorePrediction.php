@@ -2,65 +2,141 @@
 
 namespace App\Actions\Predictions;
 
+use App\Actions\Weeks\WeekPhaseManager;
 use App\Models\Prediction;
 use App\Models\WeekOutcome;
 
 class ScorePrediction
 {
+    public function __construct(public WeekPhaseManager $weekPhaseManager) {}
+
     /**
      * @return array{points:int, breakdown:array<string, mixed>}
      */
     public function score(Prediction $prediction, WeekOutcome $outcome): array
     {
+        $prediction->week->loadMissing('phases');
+        $phases = $prediction->week->phases;
+
+        $predictedPayload = is_array($prediction->phase_picks) && $prediction->phase_picks !== []
+            ? $prediction->phase_picks
+            : $this->weekPhaseManager->legacyPayloadForModel($prediction, $phases);
+        $actualPayload = is_array($outcome->phase_results) && $outcome->phase_results !== []
+            ? $outcome->phase_results
+            : $this->weekPhaseManager->legacyPayloadForModel($outcome, $phases);
+
+        $predictedByPhaseId = $this->weekPhaseManager->payloadByPhaseId($predictedPayload);
+        $actualByPhaseId = $this->weekPhaseManager->payloadByPhaseId($actualPayload);
+
         $points = 0;
-
-        $bossCount = max(1, (int) ($prediction->week->boss_count ?? 1));
-        $predictedBosses = $this->bossesList($prediction);
-        $actualBosses = $this->bossesList($outcome);
-        $bossPoints = $this->listIntersectionPoints($predictedBosses, $actualBosses);
-        $points += $bossPoints;
-
-        $hohCorrect = $bossCount === 1 ? $bossPoints === 1 : null;
-
-        $predictedNominees = $this->nomineesList($prediction);
-        $actualNominees = $this->nomineesList($outcome);
-
-        $nomineesPoints = $this->listIntersectionPoints($predictedNominees, $actualNominees);
-        $points += $nomineesPoints;
-
-        $vetoWinnerCorrect = $this->idMatches($prediction->veto_winner_houseguest_id, $outcome->veto_winner_houseguest_id);
-        $points += $vetoWinnerCorrect ? 1 : 0;
-
-        $vetoUsedCorrect = $this->boolMatches($prediction->veto_used, $outcome->veto_used);
-        $points += $vetoUsedCorrect ? 1 : 0;
-
+        $phaseScores = [];
+        $bossPoints = 0;
+        $nomineesPoints = 0;
+        $evictedPoints = 0;
+        $hohCorrect = null;
+        $vetoWinnerCorrect = null;
+        $vetoUsedCorrect = null;
         $savedCorrect = null;
         $replacementCorrect = null;
-        if ($outcome->veto_used === true) {
-            $savedCorrect = $this->idMatches($prediction->saved_houseguest_id, $outcome->saved_houseguest_id);
-            $replacementCorrect = $this->idMatches(
-                $prediction->replacement_nominee_houseguest_id,
-                $outcome->replacement_nominee_houseguest_id,
-            );
-
-            $points += $savedCorrect ? 1 : 0;
-            $points += $replacementCorrect ? 1 : 0;
-        }
-
-        $predictedEvicted = $this->evictedList($prediction);
-        $actualEvicted = $this->evictedList($outcome);
-
-        $evictedPoints = $this->listIntersectionPoints($predictedEvicted, $actualEvicted);
-        $points += $evictedPoints;
-
         $evictedCorrect = null;
-        if (count($predictedEvicted) === 1 && count($actualEvicted) === 1) {
-            $evictedCorrect = $predictedEvicted[0] === $actualEvicted[0];
+
+        foreach ($phases as $phase) {
+            $predictedEntry = $predictedByPhaseId[$phase->id] ?? null;
+            $actualEntry = $actualByPhaseId[$phase->id] ?? null;
+            $predictedVetoUsed = $phase->type === WeekPhaseManager::TYPE_VETO
+                ? $this->weekPhaseManager->vetoUsage(is_array($predictedEntry) ? $predictedEntry : null)
+                : null;
+            $actualVetoUsed = $phase->type === WeekPhaseManager::TYPE_VETO
+                ? $this->weekPhaseManager->vetoUsage(is_array($actualEntry) ? $actualEntry : null)
+                : null;
+
+            $details = [];
+            $subtotal = 0;
+
+            foreach ($this->weekPhaseManager->selectionListKeys($phase->type) as $listKey => $_countKey) {
+                $isVetoDependentList = $phase->type === WeekPhaseManager::TYPE_VETO
+                    && $this->weekPhaseManager->isVetoDependentListKey($listKey);
+
+                if ($isVetoDependentList && ! ($predictedVetoUsed === true && $actualVetoUsed === true)) {
+                    $details[$listKey] = 0;
+
+                    continue;
+                }
+
+                $predictedIds = $this->weekPhaseManager->normalizeIdList($predictedEntry[$listKey] ?? []);
+                $actualIds = $this->weekPhaseManager->normalizeIdList($actualEntry[$listKey] ?? []);
+                $listPoints = count(array_intersect($predictedIds, $actualIds));
+
+                $details[$listKey] = $listPoints;
+                $subtotal += $listPoints;
+
+                if ($phase->type === WeekPhaseManager::TYPE_HOH && $listKey === 'hoh_ids') {
+                    $bossPoints += $listPoints;
+
+                    if (count($predictedIds) === 1 && count($actualIds) === 1) {
+                        $hohCorrect = $predictedIds[0] === $actualIds[0];
+                    }
+                }
+
+                if ($phase->type === WeekPhaseManager::TYPE_NOMINEES && $listKey === 'nominee_ids') {
+                    $nomineesPoints += $listPoints;
+                }
+
+                if ($phase->type === WeekPhaseManager::TYPE_VETO && $listKey === 'winner_ids' && $vetoWinnerCorrect === null) {
+                    if (count($predictedIds) === 1 && count($actualIds) === 1) {
+                        $vetoWinnerCorrect = $predictedIds[0] === $actualIds[0];
+                    }
+                }
+
+                if ($phase->type === WeekPhaseManager::TYPE_VETO && $listKey === 'saved_ids' && $savedCorrect === null) {
+                    if (count($predictedIds) <= 1 && count($actualIds) <= 1) {
+                        $savedCorrect = $predictedIds === $actualIds;
+                    }
+                }
+
+                if ($phase->type === WeekPhaseManager::TYPE_VETO && $listKey === 'replacement_ids' && $replacementCorrect === null) {
+                    if (count($predictedIds) <= 1 && count($actualIds) <= 1) {
+                        $replacementCorrect = $predictedIds === $actualIds;
+                    }
+                }
+
+                if ($phase->type === WeekPhaseManager::TYPE_EVICTIONS && $listKey === 'evicted_ids') {
+                    $evictedPoints += $listPoints;
+
+                    if (count($predictedIds) === 1 && count($actualIds) === 1) {
+                        $evictedCorrect = $predictedIds[0] === $actualIds[0];
+                    }
+                }
+            }
+
+            if ($phase->type === WeekPhaseManager::TYPE_VETO) {
+                if ($actualVetoUsed !== null) {
+                    $vetoUsedPoints = $predictedVetoUsed !== null && $predictedVetoUsed === $actualVetoUsed ? 1 : 0;
+                    $details['veto_used'] = $vetoUsedPoints;
+                    $subtotal += $vetoUsedPoints;
+
+                    if ($vetoUsedCorrect === null) {
+                        $vetoUsedCorrect = $predictedVetoUsed !== null && $predictedVetoUsed === $actualVetoUsed;
+                    }
+                }
+            }
+
+            $points += $subtotal;
+
+            $phaseScores[] = [
+                'phase_id' => $phase->id,
+                'position' => $phase->position,
+                'type' => $phase->type,
+                'subtotal' => $subtotal,
+                'details' => $details,
+            ];
         }
 
         return [
             'points' => $points,
             'breakdown' => [
+                'week_total' => $points,
+                'phase_scores' => $phaseScores,
                 'hoh' => $hohCorrect,
                 'boss_points' => $bossPoints,
                 'nominees_points' => $nomineesPoints,
@@ -72,87 +148,5 @@ class ScorePrediction
                 'evicted_points' => $evictedPoints,
             ],
         ];
-    }
-
-    private function idMatches(?int $predictedId, ?int $actualId): bool
-    {
-        return $predictedId !== null && $actualId !== null && $predictedId === $actualId;
-    }
-
-    private function boolMatches(?bool $predicted, ?bool $actual): bool
-    {
-        return $predicted !== null && $actual !== null && $predicted === $actual;
-    }
-
-    /**
-     * @param  list<int>  $predicted
-     * @param  list<int>  $actual
-     */
-    private function listIntersectionPoints(array $predicted, array $actual): int
-    {
-        if ($predicted === [] || $actual === []) {
-            return 0;
-        }
-
-        return count(array_intersect($predicted, $actual));
-    }
-
-    /**
-     * @return list<int>
-     */
-    private function nomineesList(Prediction|WeekOutcome $model): array
-    {
-        $ids = $this->normalizeIdList($model->nominee_houseguest_ids ?? null);
-        if ($ids !== []) {
-            return $ids;
-        }
-
-        return $this->normalizeIdList([
-            $model->nominee_1_houseguest_id ?? null,
-            $model->nominee_2_houseguest_id ?? null,
-        ]);
-    }
-
-    /**
-     * @return list<int>
-     */
-    private function evictedList(Prediction|WeekOutcome $model): array
-    {
-        $ids = $this->normalizeIdList($model->evicted_houseguest_ids ?? null);
-        if ($ids !== []) {
-            return $ids;
-        }
-
-        return $this->normalizeIdList([$model->evicted_houseguest_id ?? null]);
-    }
-
-    /**
-     * @return list<int>
-     */
-    private function bossesList(Prediction|WeekOutcome $model): array
-    {
-        $ids = $this->normalizeIdList($model->boss_houseguest_ids ?? null);
-        if ($ids !== []) {
-            return $ids;
-        }
-
-        return $this->normalizeIdList([$model->hoh_houseguest_id ?? null]);
-    }
-
-    /**
-     * @return list<int>
-     */
-    private function normalizeIdList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            $value = [$value];
-        }
-
-        $ids = array_values(array_filter(array_map(
-            static fn ($id): ?int => is_numeric($id) ? (int) $id : null,
-            $value,
-        )));
-
-        return array_values(array_unique($ids));
     }
 }

@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Actions\Weeks\WeekPhaseManager;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class SaveWeekRequest extends FormRequest
 {
@@ -21,11 +23,20 @@ class SaveWeekRequest extends FormRequest
      */
     public function rules(): array
     {
+        $phaseTypes = app(WeekPhaseManager::class)->phaseTypes();
+
         return [
             'form.number' => ['required', 'integer', 'min:1'],
-            'form.boss_count' => ['required', 'integer', 'min:1', 'max:20'],
-            'form.nominee_count' => ['required', 'integer', 'min:1', 'max:20'],
-            'form.evicted_count' => ['required', 'integer', 'min:1', 'max:20'],
+            'form.phases' => ['required', 'array', 'list', 'min:1'],
+            'form.phases.*.id' => ['nullable', 'integer'],
+            'form.phases.*.position' => ['required', 'integer', 'min:1', 'distinct'],
+            'form.phases.*.type' => ['required', Rule::in($phaseTypes)],
+            'form.phases.*.hoh_count' => ['nullable', 'integer', 'min:0', 'max:20'],
+            'form.phases.*.nominee_count' => ['nullable', 'integer', 'min:0', 'max:20'],
+            'form.phases.*.winner_count' => ['nullable', 'integer', 'min:0', 'max:20'],
+            'form.phases.*.saved_count' => ['nullable', 'integer', 'min:0', 'max:20'],
+            'form.phases.*.replacement_count' => ['nullable', 'integer', 'min:0', 'max:20'],
+            'form.phases.*.evicted_count' => ['nullable', 'integer', 'min:0', 'max:20'],
             'form.name' => ['nullable', 'string', 'max:255'],
             'form.is_locked' => ['required', 'boolean'],
             'form.auto_lock_at' => ['nullable', 'date'],

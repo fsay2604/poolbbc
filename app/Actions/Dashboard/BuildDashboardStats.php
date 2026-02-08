@@ -2,6 +2,7 @@
 
 namespace App\Actions\Dashboard;
 
+use App\Actions\Weeks\WeekPhaseManager;
 use App\Models\Houseguest;
 use App\Models\PredictionScore;
 use App\Models\Season;
@@ -10,6 +11,8 @@ use Illuminate\Support\Facades\Cache;
 
 class BuildDashboardStats
 {
+    public function __construct(public WeekPhaseManager $weekPhaseManager) {}
+
     private int $cacheMinutes = 5;
 
     /**
@@ -147,7 +150,7 @@ class BuildDashboardStats
         if ($season !== null) {
             $weeksWithOutcomes = Week::query()
                 ->where('season_id', $season->id)
-                ->with('outcome')
+                ->with(['outcome', 'phases'])
                 ->get()
                 ->filter(fn (Week $week) => $week->outcome !== null)
                 ->sortBy('number')
@@ -160,31 +163,11 @@ class BuildDashboardStats
                         return [];
                     }
 
-                    $bosses = is_array($outcome->boss_houseguest_ids) && $outcome->boss_houseguest_ids !== []
-                        ? array_values(array_filter($outcome->boss_houseguest_ids))
-                        : array_values(array_filter([$outcome->hoh_houseguest_id]));
-
-                    $nominees = is_array($outcome->nominee_houseguest_ids) && $outcome->nominee_houseguest_ids !== []
-                        ? array_values(array_filter($outcome->nominee_houseguest_ids))
-                        : array_values(array_filter([$outcome->nominee_1_houseguest_id, $outcome->nominee_2_houseguest_id]));
-
-                    $evicted = is_array($outcome->evicted_houseguest_ids) && $outcome->evicted_houseguest_ids !== []
-                        ? array_values(array_filter($outcome->evicted_houseguest_ids))
-                        : array_values(array_filter([$outcome->evicted_houseguest_id]));
-
-                    $maxPoints = 0;
-
-                    $maxPoints += count($bosses);
-                    $maxPoints += count($nominees);
-                    $maxPoints += $outcome->veto_winner_houseguest_id !== null ? 1 : 0;
-                    $maxPoints += $outcome->veto_used !== null ? 1 : 0;
-
-                    if ($outcome->veto_used === true) {
-                        $maxPoints += $outcome->saved_houseguest_id !== null ? 1 : 0;
-                        $maxPoints += $outcome->replacement_nominee_houseguest_id !== null ? 1 : 0;
+                    $maxPoints = $this->weekPhaseManager->maxPoints($outcome->phase_results);
+                    if ($maxPoints === 0) {
+                        $legacyPayload = $this->weekPhaseManager->legacyPayloadForModel($outcome, $week->phases);
+                        $maxPoints = $this->weekPhaseManager->maxPoints($legacyPayload);
                     }
-
-                    $maxPoints += count($evicted);
 
                     return [$week->id => $maxPoints];
                 })

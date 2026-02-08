@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Actions\Predictions\ScoreSeasonPredictions;
 use App\Actions\Predictions\ScoreWeek;
 use App\Actions\Seasons\CreateDefaultWeeks;
+use App\Actions\Weeks\WeekPhaseManager;
 use App\Enums\Occupation;
 use App\Models\Houseguest;
 use App\Models\Prediction;
@@ -60,17 +61,19 @@ class FullSeasonSeeder extends Seeder
             app(ScoreSeasonPredictions::class)->run($season, $admin);
         }
 
+        $phaseManager = app(WeekPhaseManager::class);
+
         $season->weeks()
             ->orderBy('number')
             ->get()
-            ->each(function (Week $week) use ($houseguests, $users, $admin): void {
+            ->each(function (Week $week) use ($houseguests, $users, $admin, $phaseManager): void {
                 $week->forceFill([
-                    'boss_count' => 1,
-                    'nominee_count' => 2,
-                    'evicted_count' => 1,
                     'is_locked' => true,
                     'locked_at' => now(),
                 ])->save();
+
+                $phaseManager->ensureDefaultPhases($week);
+                $week->load('phases');
 
                 $outcome = $this->seedWeekOutcome($week, $houseguests, $admin);
                 $this->seedWeekPredictions($week, $users, $houseguests);
@@ -202,27 +205,34 @@ class FullSeasonSeeder extends Seeder
         $vetoWinnerId = array_shift($ids);
         $vetoUsed = (bool) random_int(0, 1);
 
-        $savedId = null;
-        $replacementId = null;
+        $savedIds = [];
+        $replacementIds = [];
         $evictedId = $nominee1Id;
 
         if ($vetoUsed) {
-            $savedId = $nominee1Id;
+            $savedIds = [$nominee1Id];
             $replacementId = array_shift($ids);
-            $evictedId = $replacementId;
+            if ($replacementId !== null) {
+                $replacementIds = [$replacementId];
+                $evictedId = $replacementId;
+            }
         }
 
         return WeekOutcome::query()->updateOrCreate(
             ['week_id' => $week->id],
             [
-                'hoh_houseguest_id' => $hohId,
-                'nominee_1_houseguest_id' => $nominee1Id,
-                'nominee_2_houseguest_id' => $nominee2Id,
-                'veto_winner_houseguest_id' => $vetoWinnerId,
-                'veto_used' => $vetoUsed,
-                'saved_houseguest_id' => $savedId,
-                'replacement_nominee_houseguest_id' => $replacementId,
-                'evicted_houseguest_id' => $evictedId,
+                'phase_results' => $this->defaultPayload(
+                    $week,
+                    [
+                        'hoh_ids' => $hohId !== null ? [$hohId] : [],
+                        'nominee_ids' => array_values(array_filter([$nominee1Id, $nominee2Id])),
+                        'veto_used' => $vetoUsed,
+                        'winner_ids' => $vetoWinnerId !== null ? [$vetoWinnerId] : [],
+                        'saved_ids' => $savedIds,
+                        'replacement_ids' => $replacementIds,
+                        'evicted_ids' => $evictedId !== null ? [$evictedId] : [],
+                    ],
+                ),
                 'last_admin_edited_by_user_id' => $admin?->id,
                 'last_admin_edited_at' => now(),
             ],
@@ -247,27 +257,34 @@ class FullSeasonSeeder extends Seeder
             $vetoWinnerId = array_shift($selection);
             $vetoUsed = (bool) random_int(0, 1);
 
-            $savedId = null;
-            $replacementId = null;
+            $savedIds = [];
+            $replacementIds = [];
             $evictedId = $nominee1Id;
 
             if ($vetoUsed) {
-                $savedId = $nominee1Id;
+                $savedIds = [$nominee1Id];
                 $replacementId = array_shift($selection);
-                $evictedId = $replacementId;
+                if ($replacementId !== null) {
+                    $replacementIds = [$replacementId];
+                    $evictedId = $replacementId;
+                }
             }
 
             $prediction = Prediction::query()->updateOrCreate(
                 ['week_id' => $week->id, 'user_id' => $user->id],
                 [
-                    'hoh_houseguest_id' => $hohId,
-                    'nominee_1_houseguest_id' => $nominee1Id,
-                    'nominee_2_houseguest_id' => $nominee2Id,
-                    'veto_winner_houseguest_id' => $vetoWinnerId,
-                    'veto_used' => $vetoUsed,
-                    'saved_houseguest_id' => $savedId,
-                    'replacement_nominee_houseguest_id' => $replacementId,
-                    'evicted_houseguest_id' => $evictedId,
+                    'phase_picks' => $this->defaultPayload(
+                        $week,
+                        [
+                            'hoh_ids' => $hohId !== null ? [$hohId] : [],
+                            'nominee_ids' => array_values(array_filter([$nominee1Id, $nominee2Id])),
+                            'veto_used' => $vetoUsed,
+                            'winner_ids' => $vetoWinnerId !== null ? [$vetoWinnerId] : [],
+                            'saved_ids' => $savedIds,
+                            'replacement_ids' => $replacementIds,
+                            'evicted_ids' => $evictedId !== null ? [$evictedId] : [],
+                        ],
+                    ),
                 ],
             );
 
@@ -290,5 +307,44 @@ class FullSeasonSeeder extends Seeder
             fn (int $index): string => $occupations[$index],
             $indexes,
         ));
+    }
+
+    /**
+     * @param  array<string, mixed>  $values
+     * @return list<array<string, mixed>>
+     */
+    private function defaultPayload(Week $week, array $values): array
+    {
+        $phases = $week->phases->keyBy('type');
+
+        return [
+            [
+                'phase_id' => $phases[WeekPhaseManager::TYPE_HOH]->id,
+                'position' => $phases[WeekPhaseManager::TYPE_HOH]->position,
+                'type' => WeekPhaseManager::TYPE_HOH,
+                'hoh_ids' => $values['hoh_ids'] ?? [],
+            ],
+            [
+                'phase_id' => $phases[WeekPhaseManager::TYPE_NOMINEES]->id,
+                'position' => $phases[WeekPhaseManager::TYPE_NOMINEES]->position,
+                'type' => WeekPhaseManager::TYPE_NOMINEES,
+                'nominee_ids' => $values['nominee_ids'] ?? [],
+            ],
+            [
+                'phase_id' => $phases[WeekPhaseManager::TYPE_VETO]->id,
+                'position' => $phases[WeekPhaseManager::TYPE_VETO]->position,
+                'type' => WeekPhaseManager::TYPE_VETO,
+                'veto_used' => (bool) ($values['veto_used'] ?? false),
+                'winner_ids' => $values['winner_ids'] ?? [],
+                'saved_ids' => $values['saved_ids'] ?? [],
+                'replacement_ids' => $values['replacement_ids'] ?? [],
+            ],
+            [
+                'phase_id' => $phases[WeekPhaseManager::TYPE_EVICTIONS]->id,
+                'position' => $phases[WeekPhaseManager::TYPE_EVICTIONS]->position,
+                'type' => WeekPhaseManager::TYPE_EVICTIONS,
+                'evicted_ids' => $values['evicted_ids'] ?? [],
+            ],
+        ];
     }
 }

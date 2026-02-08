@@ -6,9 +6,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class WeekOutcome extends Model
+class WeekPhase extends Model
 {
-    /** @use HasFactory<\Database\Factories\WeekOutcomeFactory> */
+    /** @use HasFactory<\Database\Factories\WeekPhaseFactory> */
     use HasFactory;
 
     /**
@@ -16,9 +16,9 @@ class WeekOutcome extends Model
      */
     protected $fillable = [
         'week_id',
-        'phase_results',
-        'last_admin_edited_by_user_id',
-        'last_admin_edited_at',
+        'position',
+        'type',
+        'config',
     ];
 
     /**
@@ -27,12 +27,8 @@ class WeekOutcome extends Model
     protected function casts(): array
     {
         return [
-            'phase_results' => 'array',
-            'boss_houseguest_ids' => 'array',
-            'nominee_houseguest_ids' => 'array',
-            'evicted_houseguest_ids' => 'array',
-            'veto_used' => 'boolean',
-            'last_admin_edited_at' => 'datetime',
+            'position' => 'integer',
+            'config' => 'array',
         ];
     }
 

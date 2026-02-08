@@ -58,7 +58,7 @@ test('users can view prediction details for another user', function () {
     $this->actingAs($viewer)
         ->get(route('predictions.show', $predictedUser))
         ->assertSuccessful()
-        ->assertSee('Predictions')
+        ->assertSee(__('Predictions'))
         ->assertSee('Alice')
         ->assertSee($weekLabel)
         ->assertSee('Winner')

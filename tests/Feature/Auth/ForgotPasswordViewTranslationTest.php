@@ -3,14 +3,19 @@
 declare(strict_types=1);
 
 test('forgot password page is translated in french', function () {
+    $previousLocale = app()->getLocale();
     app()->setLocale('fr');
 
-    $this->get(route('password.request'))
-        ->assertSuccessful()
-        ->assertSee('Mot de passe oublié')
-        ->assertSee('Saisissez votre e-mail pour recevoir un lien de réinitialisation du mot de passe')
-        ->assertSee('Adresse e-mail')
-        ->assertSee('Envoyer le lien de réinitialisation')
-        ->assertSee('Ou, revenir à')
-        ->assertSee('Se connecter');
+    try {
+        $this->get(route('password.request'))
+            ->assertSuccessful()
+            ->assertSee(__('Forgot password'))
+            ->assertSee(__('Enter your email to receive a password reset link'))
+            ->assertSee(__('Email address'))
+            ->assertSee(__('Email password reset link'))
+            ->assertSee(__('Or, return to'))
+            ->assertSee(__('Log in'));
+    } finally {
+        app()->setLocale($previousLocale);
+    }
 });

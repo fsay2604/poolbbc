@@ -3,17 +3,22 @@
 declare(strict_types=1);
 
 test('login page is translated in french', function () {
+    $previousLocale = app()->getLocale();
     app()->setLocale('fr');
 
-    $this->get(route('login'))
-        ->assertSuccessful()
-        ->assertSee('Connectez-vous à votre compte')
-        ->assertSee('Saisissez votre e-mail et votre mot de passe ci-dessous pour vous connecter')
-        ->assertSee('Adresse e-mail')
-        ->assertSee('Mot de passe')
-        ->assertSee('Mot de passe oublié ?')
-        ->assertSee('Se souvenir de moi')
-        ->assertSee('Se connecter')
-        ->assertSee('Vous n’avez pas de compte ?')
-        ->assertSee('S’inscrire');
+    try {
+        $this->get(route('login'))
+            ->assertSuccessful()
+            ->assertSee(__('Log in to your account'))
+            ->assertSee(__('Enter your email and password below to log in'))
+            ->assertSee(__('Email address'))
+            ->assertSee(__('Password'))
+            ->assertSee(__('Forgot your password?'))
+            ->assertSee(__('Remember me'))
+            ->assertSee(__('Log in'))
+            ->assertSee(__("Don't have an account?"))
+            ->assertSee(__('Sign up'));
+    } finally {
+        app()->setLocale($previousLocale);
+    }
 });

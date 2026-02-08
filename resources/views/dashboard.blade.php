@@ -47,7 +47,7 @@
                                 </flux:heading>
 
                                 <flux:text class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-                                    {{ $stat['earned'] }} / {{ $stat['possible'] }} points
+                                    {{ $stat['earned'] }} / {{ $stat['possible'] }} {{ __('Points') }}
                                 </flux:text>
 
                                 @if (is_array($stat['series']) && count($stat['series']) >= 2)
@@ -69,7 +69,7 @@
                             </flux:heading>
 
                             <flux:text class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-                                {{ $stat['earned'] }} / {{ $stat['possible'] }} points
+                                {{ $stat['earned'] }} / {{ $stat['possible'] }} {{ __('Points') }}
                             </flux:text>
 
                             @if (is_array($stat['series']) && count($stat['series']) >= 2)

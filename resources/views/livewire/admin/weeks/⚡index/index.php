@@ -76,16 +76,32 @@ new class extends Component {
 
         $request = new SaveWeekRequest();
         $validated = $this->validate($request->rules(), $request->messages(), $request->attributes());
+        $normalizedForm = $this->normalizeOptionalDateTimes($validated['form']);
 
         $week = $this->editingId ? Week::query()->findOrFail($this->editingId) : new Week(['season_id' => $this->season->id]);
 
-        $week->fill(array_merge($validated['form'], ['season_id' => $this->season->id]));
+        $week->fill(array_merge($normalizedForm, ['season_id' => $this->season->id]));
         $week->save();
 
         $this->startCreate();
         $this->refresh();
 
         $this->dispatch('week-saved');
+    }
+
+    /**
+     * @param array<string, mixed> $validatedForm
+     * @return array<string, mixed>
+     */
+    private function normalizeOptionalDateTimes(array $validatedForm): array
+    {
+        foreach (['auto_lock_at', 'starts_at', 'ends_at'] as $attribute) {
+            if (($validatedForm[$attribute] ?? null) === '') {
+                $validatedForm[$attribute] = null;
+            }
+        }
+
+        return $validatedForm;
     }
 
     private function refresh(): void

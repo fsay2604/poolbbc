@@ -75,8 +75,6 @@ return [
     'Yes' => 'Oui',
     'No' => 'Non',
 
-    'Boss cannot also be a nominee, veto winner, or evicted.' => 'Le HOH ne peut pas être aussi nominé, gagnant du veto ou éliminé.',
-
     'Back' => 'Retour',
     'Back to Weeks' => 'Retour aux semaines',
     'Back to Seasons' => 'Retour aux saisons',

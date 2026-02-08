@@ -204,23 +204,6 @@ new class extends Component {
         $nominees = $this->padToCount($this->normalizeIdList($validated['form']['nominee_houseguest_ids'] ?? []), $nomineeCount);
         $evicted = $this->padToCount($this->normalizeIdList($validated['form']['evicted_houseguest_ids'] ?? []), $evictedCount);
 
-        $bossIds = array_values(array_filter($bosses));
-        if ($bossIds !== []) {
-            $nomineeIds = array_values(array_filter($nominees));
-            $evictedIds = array_values(array_filter($evicted));
-            $vetoWinnerId = is_numeric($validated['form']['veto_winner_houseguest_id'] ?? null)
-                ? (int) $validated['form']['veto_winner_houseguest_id']
-                : null;
-
-            foreach ($bossIds as $bossId) {
-                if (in_array($bossId, $nomineeIds, true) || in_array($bossId, $evictedIds, true) || ($vetoWinnerId !== null && $vetoWinnerId === $bossId)) {
-                    $this->addError('form.boss_houseguest_ids', __('Boss cannot also be a nominee, veto winner, or evicted.'));
-
-                    return;
-                }
-            }
-        }
-
         if (! ($validated['form']['veto_used'] ?? false)) {
             $validated['form']['saved_houseguest_id'] = null;
             $validated['form']['replacement_nominee_houseguest_id'] = null;
@@ -274,19 +257,6 @@ new class extends Component {
         $bosses = $this->padToCount($this->normalizeIdList($validated['form']['boss_houseguest_ids'] ?? []), $bossCount);
         $nominees = $this->padToCount($this->normalizeIdList($validated['form']['nominee_houseguest_ids'] ?? []), $nomineeCount);
         $evicted = $this->padToCount($this->normalizeIdList($validated['form']['evicted_houseguest_ids'] ?? []), $evictedCount);
-
-        $bossIds = array_values(array_filter($bosses));
-        $vetoWinnerId = (int) $validated['form']['veto_winner_houseguest_id'];
-        $nomineeIds = array_values(array_filter($nominees));
-        $evictedIds = array_values(array_filter($evicted));
-
-        foreach ($bossIds as $bossId) {
-            if (in_array($bossId, $nomineeIds, true) || in_array($bossId, $evictedIds, true) || $vetoWinnerId === $bossId) {
-                $this->addError('form.boss_houseguest_ids', __('Boss cannot also be a nominee, veto winner, or evicted.'));
-
-                return;
-            }
-        }
 
         if (! ($validated['form']['veto_used'] ?? false)) {
             $validated['form']['saved_houseguest_id'] = null;

@@ -12,10 +12,6 @@ return new class extends Migration
      */
     public function up(): void
     {
-        if (DB::getDriverName() === 'sqlite') {
-            return;
-        }
-
         $this->verifyPhaseMigrationOrFail();
 
         Schema::table('weeks', function (Blueprint $table) {
@@ -25,21 +21,26 @@ return new class extends Migration
                 }
             }
 
+            $columnsToDrop = [];
             if (Schema::hasColumn('weeks', 'boss_count')) {
-                $table->dropColumn('boss_count');
+                $columnsToDrop[] = 'boss_count';
             }
 
             if (Schema::hasColumn('weeks', 'nominee_count')) {
-                $table->dropColumn('nominee_count');
+                $columnsToDrop[] = 'nominee_count';
             }
 
             if (Schema::hasColumn('weeks', 'evicted_count')) {
-                $table->dropColumn('evicted_count');
+                $columnsToDrop[] = 'evicted_count';
+            }
+
+            if ($columnsToDrop !== []) {
+                $table->dropColumn($columnsToDrop);
             }
         });
 
         Schema::table('predictions', function (Blueprint $table) {
-            foreach ([
+            $foreignColumns = [
                 'hoh_houseguest_id',
                 'nominee_1_houseguest_id',
                 'nominee_2_houseguest_id',
@@ -47,7 +48,9 @@ return new class extends Migration
                 'saved_houseguest_id',
                 'replacement_nominee_houseguest_id',
                 'evicted_houseguest_id',
-            ] as $column) {
+            ];
+
+            foreach ($foreignColumns as $column) {
                 if (Schema::hasColumn('predictions', $column)) {
                     $table->dropConstrainedForeignId($column);
                 }
@@ -65,7 +68,7 @@ return new class extends Migration
         });
 
         Schema::table('week_outcomes', function (Blueprint $table) {
-            foreach ([
+            $foreignColumns = [
                 'hoh_houseguest_id',
                 'nominee_1_houseguest_id',
                 'nominee_2_houseguest_id',
@@ -73,7 +76,9 @@ return new class extends Migration
                 'saved_houseguest_id',
                 'replacement_nominee_houseguest_id',
                 'evicted_houseguest_id',
-            ] as $column) {
+            ];
+
+            foreach ($foreignColumns as $column) {
                 if (Schema::hasColumn('week_outcomes', $column)) {
                     $table->dropConstrainedForeignId($column);
                 }
@@ -98,17 +103,19 @@ return new class extends Migration
     {
         Schema::table('weeks', function (Blueprint $table) {
             if (! Schema::hasColumn('weeks', 'nominee_count')) {
-                $table->unsignedTinyInteger('nominee_count')->default(2)->index();
+                $table->unsignedTinyInteger('nominee_count')->default(2);
             }
 
             if (! Schema::hasColumn('weeks', 'evicted_count')) {
-                $table->unsignedTinyInteger('evicted_count')->default(1)->index();
+                $table->unsignedTinyInteger('evicted_count')->default(1);
             }
 
             if (! Schema::hasColumn('weeks', 'boss_count')) {
-                $table->unsignedTinyInteger('boss_count')->default(1)->index();
+                $table->unsignedTinyInteger('boss_count')->default(1);
             }
         });
+
+        $this->restoreLegacyWeekIndexes();
 
         Schema::table('predictions', function (Blueprint $table) {
             if (! Schema::hasColumn('predictions', 'hoh_houseguest_id')) {
@@ -277,9 +284,41 @@ return new class extends Migration
         }
     }
 
+    private function restoreLegacyWeekIndexes(): void
+    {
+        Schema::table('weeks', function (Blueprint $table): void {
+            $indexes = [
+                'weeks_nominee_count_index' => 'nominee_count',
+                'weeks_evicted_count_index' => 'evicted_count',
+                'weeks_boss_count_index' => 'boss_count',
+            ];
+
+            foreach ($indexes as $indexName => $columnName) {
+                if (! Schema::hasColumn('weeks', $columnName)) {
+                    continue;
+                }
+
+                if ($this->indexExists('weeks', $indexName)) {
+                    continue;
+                }
+
+                $table->index($columnName, $indexName);
+            }
+        });
+    }
+
     private function indexExists(string $table, string $indexName): bool
     {
         if (DB::getDriverName() === 'sqlite') {
+            $indexes = DB::select("PRAGMA index_list('{$table}')");
+
+            foreach ($indexes as $index) {
+                $name = is_object($index) ? ($index->name ?? null) : null;
+                if (is_string($name) && $name === $indexName) {
+                    return true;
+                }
+            }
+
             return false;
         }
 

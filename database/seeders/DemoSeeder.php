@@ -250,36 +250,46 @@ class DemoSeeder extends Seeder
      */
     private function defaultPayload(Week $week, array $values): array
     {
-        $phases = $week->phases->keyBy('type');
+        $payload = [];
 
-        return [
-            [
-                'phase_id' => $phases[WeekPhaseManager::TYPE_HOH]->id,
-                'position' => $phases[WeekPhaseManager::TYPE_HOH]->position,
-                'type' => WeekPhaseManager::TYPE_HOH,
-                'hoh_ids' => $values['hoh_ids'] ?? [],
-            ],
-            [
-                'phase_id' => $phases[WeekPhaseManager::TYPE_NOMINEES]->id,
-                'position' => $phases[WeekPhaseManager::TYPE_NOMINEES]->position,
-                'type' => WeekPhaseManager::TYPE_NOMINEES,
-                'nominee_ids' => $values['nominee_ids'] ?? [],
-            ],
-            [
-                'phase_id' => $phases[WeekPhaseManager::TYPE_VETO]->id,
-                'position' => $phases[WeekPhaseManager::TYPE_VETO]->position,
-                'type' => WeekPhaseManager::TYPE_VETO,
-                'veto_used' => (bool) ($values['veto_used'] ?? false),
-                'winner_ids' => $values['winner_ids'] ?? [],
-                'saved_ids' => $values['saved_ids'] ?? [],
-                'replacement_ids' => $values['replacement_ids'] ?? [],
-            ],
-            [
-                'phase_id' => $phases[WeekPhaseManager::TYPE_EVICTIONS]->id,
-                'position' => $phases[WeekPhaseManager::TYPE_EVICTIONS]->position,
-                'type' => WeekPhaseManager::TYPE_EVICTIONS,
-                'evicted_ids' => $values['evicted_ids'] ?? [],
-            ],
-        ];
+        foreach ($week->phases->sortBy('position')->values() as $phase) {
+            $entry = [
+                'phase_id' => $phase->id,
+                'position' => $phase->position,
+                'type' => $phase->type,
+            ];
+
+            if ($phase->type === WeekPhaseManager::TYPE_HOH) {
+                $entry['hoh_ids'] = $values['hoh_ids'] ?? [];
+                $payload[] = $entry;
+
+                continue;
+            }
+
+            if ($phase->type === WeekPhaseManager::TYPE_NOMINEES) {
+                $entry['nominee_ids'] = $values['nominee_ids'] ?? [];
+                $payload[] = $entry;
+
+                continue;
+            }
+
+            if ($phase->type === WeekPhaseManager::TYPE_VETO) {
+                $entry['veto_used'] = (bool) ($values['veto_used'] ?? false);
+                $entry['winner_ids'] = $values['winner_ids'] ?? [];
+                $entry['saved_ids'] = $values['saved_ids'] ?? [];
+                $entry['replacement_ids'] = $values['replacement_ids'] ?? [];
+                $payload[] = $entry;
+
+                continue;
+            }
+
+            if ($phase->type === WeekPhaseManager::TYPE_EVICTIONS) {
+                $entry['evicted_ids'] = $values['evicted_ids'] ?? [];
+            }
+
+            $payload[] = $entry;
+        }
+
+        return $payload;
     }
 }

@@ -33,12 +33,12 @@ class ScorePrediction
         $bossPoints = 0;
         $nomineesPoints = 0;
         $evictedPoints = 0;
-        $hohCorrect = null;
-        $vetoWinnerCorrect = null;
-        $vetoUsedCorrect = null;
-        $savedCorrect = null;
-        $replacementCorrect = null;
-        $evictedCorrect = null;
+        $hohCorrectValues = [];
+        $vetoWinnerCorrectValues = [];
+        $vetoUsedCorrectValues = [];
+        $savedCorrectValues = [];
+        $replacementCorrectValues = [];
+        $evictedCorrectValues = [];
 
         foreach ($phases as $phase) {
             $predictedEntry = $predictedByPhaseId[$phase->id] ?? null;
@@ -74,7 +74,7 @@ class ScorePrediction
                     $bossPoints += $listPoints;
 
                     if (count($predictedIds) === 1 && count($actualIds) === 1) {
-                        $hohCorrect = $predictedIds[0] === $actualIds[0];
+                        $hohCorrectValues[] = $predictedIds[0] === $actualIds[0];
                     }
                 }
 
@@ -82,21 +82,21 @@ class ScorePrediction
                     $nomineesPoints += $listPoints;
                 }
 
-                if ($phase->type === WeekPhaseManager::TYPE_VETO && $listKey === 'winner_ids' && $vetoWinnerCorrect === null) {
+                if ($phase->type === WeekPhaseManager::TYPE_VETO && $listKey === 'winner_ids') {
                     if (count($predictedIds) === 1 && count($actualIds) === 1) {
-                        $vetoWinnerCorrect = $predictedIds[0] === $actualIds[0];
+                        $vetoWinnerCorrectValues[] = $predictedIds[0] === $actualIds[0];
                     }
                 }
 
-                if ($phase->type === WeekPhaseManager::TYPE_VETO && $listKey === 'saved_ids' && $savedCorrect === null) {
+                if ($phase->type === WeekPhaseManager::TYPE_VETO && $listKey === 'saved_ids') {
                     if (count($predictedIds) <= 1 && count($actualIds) <= 1) {
-                        $savedCorrect = $predictedIds === $actualIds;
+                        $savedCorrectValues[] = $predictedIds === $actualIds;
                     }
                 }
 
-                if ($phase->type === WeekPhaseManager::TYPE_VETO && $listKey === 'replacement_ids' && $replacementCorrect === null) {
+                if ($phase->type === WeekPhaseManager::TYPE_VETO && $listKey === 'replacement_ids') {
                     if (count($predictedIds) <= 1 && count($actualIds) <= 1) {
-                        $replacementCorrect = $predictedIds === $actualIds;
+                        $replacementCorrectValues[] = $predictedIds === $actualIds;
                     }
                 }
 
@@ -104,7 +104,7 @@ class ScorePrediction
                     $evictedPoints += $listPoints;
 
                     if (count($predictedIds) === 1 && count($actualIds) === 1) {
-                        $evictedCorrect = $predictedIds[0] === $actualIds[0];
+                        $evictedCorrectValues[] = $predictedIds[0] === $actualIds[0];
                     }
                 }
             }
@@ -114,10 +114,7 @@ class ScorePrediction
                     $vetoUsedPoints = $predictedVetoUsed !== null && $predictedVetoUsed === $actualVetoUsed ? 1 : 0;
                     $details['veto_used'] = $vetoUsedPoints;
                     $subtotal += $vetoUsedPoints;
-
-                    if ($vetoUsedCorrect === null) {
-                        $vetoUsedCorrect = $predictedVetoUsed !== null && $predictedVetoUsed === $actualVetoUsed;
-                    }
+                    $vetoUsedCorrectValues[] = $predictedVetoUsed !== null && $predictedVetoUsed === $actualVetoUsed;
                 }
             }
 
@@ -137,16 +134,28 @@ class ScorePrediction
             'breakdown' => [
                 'week_total' => $points,
                 'phase_scores' => $phaseScores,
-                'hoh' => $hohCorrect,
+                'hoh' => $this->aggregateBooleanCorrectness($hohCorrectValues),
                 'boss_points' => $bossPoints,
                 'nominees_points' => $nomineesPoints,
-                'veto_winner' => $vetoWinnerCorrect,
-                'veto_used' => $vetoUsedCorrect,
-                'saved' => $savedCorrect,
-                'replacement' => $replacementCorrect,
-                'evicted' => $evictedCorrect,
+                'veto_winner' => $this->aggregateBooleanCorrectness($vetoWinnerCorrectValues),
+                'veto_used' => $this->aggregateBooleanCorrectness($vetoUsedCorrectValues),
+                'saved' => $this->aggregateBooleanCorrectness($savedCorrectValues),
+                'replacement' => $this->aggregateBooleanCorrectness($replacementCorrectValues),
+                'evicted' => $this->aggregateBooleanCorrectness($evictedCorrectValues),
                 'evicted_points' => $evictedPoints,
             ],
         ];
+    }
+
+    /**
+     * @param  list<bool>  $values
+     */
+    private function aggregateBooleanCorrectness(array $values): ?bool
+    {
+        if ($values === []) {
+            return null;
+        }
+
+        return ! in_array(false, $values, true);
     }
 }

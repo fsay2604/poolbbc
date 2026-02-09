@@ -475,58 +475,80 @@ class WeekPhaseManager
      */
     public function legacyPayloadForModel(mixed $model, iterable $phases): array
     {
-        $phasesByType = collect($phases)->keyBy('type');
+        $orderedPhases = collect($phases)
+            ->sortBy('position')
+            ->values();
         $payload = [];
+        $typesWithLegacyValues = [];
 
-        $hohPhase = $phasesByType->get(self::TYPE_HOH);
-        if ($hohPhase !== null) {
-            $payload[] = [
-                'phase_id' => $hohPhase->id,
-                'position' => $hohPhase->position,
-                'type' => self::TYPE_HOH,
-                'hoh_ids' => $this->legacyList($model->boss_houseguest_ids ?? null, [$model->hoh_houseguest_id ?? null]),
+        foreach ($orderedPhases as $phase) {
+            if (! is_string($phase->type)) {
+                continue;
+            }
+
+            $useLegacyValues = ! in_array($phase->type, $typesWithLegacyValues, true);
+            if ($useLegacyValues) {
+                $typesWithLegacyValues[] = $phase->type;
+            }
+
+            $entry = [
+                'phase_id' => (int) $phase->id,
+                'position' => (int) $phase->position,
+                'type' => (string) $phase->type,
             ];
-        }
 
-        $nomineesPhase = $phasesByType->get(self::TYPE_NOMINEES);
-        if ($nomineesPhase !== null) {
-            $payload[] = [
-                'phase_id' => $nomineesPhase->id,
-                'position' => $nomineesPhase->position,
-                'type' => self::TYPE_NOMINEES,
-                'nominee_ids' => $this->legacyList(
-                    $model->nominee_houseguest_ids ?? null,
-                    [
-                        $model->nominee_1_houseguest_id ?? null,
-                        $model->nominee_2_houseguest_id ?? null,
-                    ],
-                ),
-            ];
-        }
+            if ($phase->type === self::TYPE_HOH) {
+                $entry['hoh_ids'] = $useLegacyValues
+                    ? $this->legacyList($model->boss_houseguest_ids ?? null, [$model->hoh_houseguest_id ?? null])
+                    : [];
 
-        $vetoPhase = $phasesByType->get(self::TYPE_VETO);
-        if ($vetoPhase !== null) {
-            $vetoUsed = $this->toBoolOrNull($model->veto_used ?? null);
+                $payload[] = $entry;
 
-            $payload[] = [
-                'phase_id' => $vetoPhase->id,
-                'position' => $vetoPhase->position,
-                'type' => self::TYPE_VETO,
-                'veto_used' => $vetoUsed,
-                'winner_ids' => $this->legacyList(null, [$model->veto_winner_houseguest_id ?? null]),
-                'saved_ids' => $vetoUsed === true ? $this->legacyList(null, [$model->saved_houseguest_id ?? null]) : [],
-                'replacement_ids' => $vetoUsed === true ? $this->legacyList(null, [$model->replacement_nominee_houseguest_id ?? null]) : [],
-            ];
-        }
+                continue;
+            }
 
-        $evictionsPhase = $phasesByType->get(self::TYPE_EVICTIONS);
-        if ($evictionsPhase !== null) {
-            $payload[] = [
-                'phase_id' => $evictionsPhase->id,
-                'position' => $evictionsPhase->position,
-                'type' => self::TYPE_EVICTIONS,
-                'evicted_ids' => $this->legacyList($model->evicted_houseguest_ids ?? null, [$model->evicted_houseguest_id ?? null]),
-            ];
+            if ($phase->type === self::TYPE_NOMINEES) {
+                $entry['nominee_ids'] = $useLegacyValues
+                    ? $this->legacyList(
+                        $model->nominee_houseguest_ids ?? null,
+                        [
+                            $model->nominee_1_houseguest_id ?? null,
+                            $model->nominee_2_houseguest_id ?? null,
+                        ],
+                    )
+                    : [];
+
+                $payload[] = $entry;
+
+                continue;
+            }
+
+            if ($phase->type === self::TYPE_VETO) {
+                $vetoUsed = $useLegacyValues ? $this->toBoolOrNull($model->veto_used ?? null) : false;
+
+                $entry['veto_used'] = $vetoUsed;
+                $entry['winner_ids'] = $useLegacyValues
+                    ? $this->legacyList(null, [$model->veto_winner_houseguest_id ?? null])
+                    : [];
+                $entry['saved_ids'] = $vetoUsed === true
+                    ? $this->legacyList(null, [$model->saved_houseguest_id ?? null])
+                    : [];
+                $entry['replacement_ids'] = $vetoUsed === true
+                    ? $this->legacyList(null, [$model->replacement_nominee_houseguest_id ?? null])
+                    : [];
+
+                $payload[] = $entry;
+
+                continue;
+            }
+
+            if ($phase->type === self::TYPE_EVICTIONS) {
+                $entry['evicted_ids'] = $useLegacyValues
+                    ? $this->legacyList($model->evicted_houseguest_ids ?? null, [$model->evicted_houseguest_id ?? null])
+                    : [];
+            }
+
+            $payload[] = $entry;
         }
 
         return $payload;

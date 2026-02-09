@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Schema;
 
 class Week extends Model
 {
@@ -81,5 +82,20 @@ class Week extends Model
     public function scopeForActiveSeason(Builder $query): Builder
     {
         return $query->whereHas('season', fn (Builder $q) => $q->where('is_active', true));
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (self $week): void {
+            foreach (['boss_count', 'nominee_count', 'evicted_count'] as $column) {
+                if (Schema::hasColumn($week->getTable(), $column)) {
+                    continue;
+                }
+
+                if (array_key_exists($column, $week->getAttributes())) {
+                    unset($week->{$column});
+                }
+            }
+        });
     }
 }

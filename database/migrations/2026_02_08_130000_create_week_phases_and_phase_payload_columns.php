@@ -82,7 +82,7 @@ return new class extends Migration
                 continue;
             }
 
-            DB::table('week_phases')->insert([
+            DB::table('week_phases')->insertOrIgnore([
                 [
                     'week_id' => $week->id,
                     'position' => 1,
@@ -132,6 +132,11 @@ return new class extends Migration
     private function backfillPredictionPayloads(): void
     {
         $columns = ['id', 'week_id'];
+        $hasPhasePicksColumn = Schema::hasColumn('predictions', 'phase_picks');
+        if ($hasPhasePicksColumn) {
+            $columns[] = 'phase_picks';
+        }
+
         $legacyColumns = [
             'hoh_houseguest_id',
             'boss_houseguest_ids',
@@ -152,9 +157,18 @@ return new class extends Migration
             }
         }
 
-        $predictions = DB::table('predictions')->select($columns)->get();
+        $predictionsQuery = DB::table('predictions')->select($columns);
+        if ($hasPhasePicksColumn) {
+            $predictionsQuery->whereNull('phase_picks');
+        }
+
+        $predictions = $predictionsQuery->get();
 
         foreach ($predictions as $prediction) {
+            if ($hasPhasePicksColumn && $this->legacyValue($prediction, 'phase_picks') !== null) {
+                continue;
+            }
+
             $phasePayload = $this->buildLegacyPayload(
                 (int) $prediction->week_id,
                 [
@@ -183,6 +197,11 @@ return new class extends Migration
     private function backfillOutcomePayloads(): void
     {
         $columns = ['id', 'week_id'];
+        $hasPhaseResultsColumn = Schema::hasColumn('week_outcomes', 'phase_results');
+        if ($hasPhaseResultsColumn) {
+            $columns[] = 'phase_results';
+        }
+
         $legacyColumns = [
             'hoh_houseguest_id',
             'boss_houseguest_ids',
@@ -203,9 +222,18 @@ return new class extends Migration
             }
         }
 
-        $outcomes = DB::table('week_outcomes')->select($columns)->get();
+        $outcomesQuery = DB::table('week_outcomes')->select($columns);
+        if ($hasPhaseResultsColumn) {
+            $outcomesQuery->whereNull('phase_results');
+        }
+
+        $outcomes = $outcomesQuery->get();
 
         foreach ($outcomes as $outcome) {
+            if ($hasPhaseResultsColumn && $this->legacyValue($outcome, 'phase_results') !== null) {
+                continue;
+            }
+
             $phasePayload = $this->buildLegacyPayload(
                 (int) $outcome->week_id,
                 [
@@ -240,64 +268,79 @@ return new class extends Migration
         $phases = DB::table('week_phases')
             ->where('week_id', $weekId)
             ->orderBy('position')
-            ->get()
-            ->keyBy('type');
+            ->get();
 
         $payload = [];
+        $typesWithLegacyValues = [];
 
-        $hohPhase = $phases->get(WeekPhaseManager::TYPE_HOH);
-        if ($hohPhase !== null) {
-            $payload[] = [
-                'phase_id' => (int) $hohPhase->id,
-                'position' => (int) $hohPhase->position,
-                'type' => WeekPhaseManager::TYPE_HOH,
-                'hoh_ids' => $this->fallbackList($legacy['boss_houseguest_ids'] ?? null, $legacy['hoh_houseguest_id'] ?? null),
+        foreach ($phases as $phase) {
+            if (! is_string($phase->type)) {
+                continue;
+            }
+
+            $useLegacyValues = ! in_array($phase->type, $typesWithLegacyValues, true);
+            if ($useLegacyValues) {
+                $typesWithLegacyValues[] = $phase->type;
+            }
+
+            $entry = [
+                'phase_id' => (int) $phase->id,
+                'position' => (int) $phase->position,
+                'type' => $phase->type,
             ];
-        }
 
-        $nomineesPhase = $phases->get(WeekPhaseManager::TYPE_NOMINEES);
-        if ($nomineesPhase !== null) {
-            $payload[] = [
-                'phase_id' => (int) $nomineesPhase->id,
-                'position' => (int) $nomineesPhase->position,
-                'type' => WeekPhaseManager::TYPE_NOMINEES,
-                'nominee_ids' => $this->fallbackList(
-                    $legacy['nominee_houseguest_ids'] ?? null,
-                    [
-                        $legacy['nominee_1_houseguest_id'] ?? null,
-                        $legacy['nominee_2_houseguest_id'] ?? null,
-                    ]
-                ),
-            ];
-        }
+            if ($phase->type === WeekPhaseManager::TYPE_HOH) {
+                $entry['hoh_ids'] = $useLegacyValues
+                    ? $this->fallbackList($legacy['boss_houseguest_ids'] ?? null, $legacy['hoh_houseguest_id'] ?? null)
+                    : [];
 
-        $vetoPhase = $phases->get(WeekPhaseManager::TYPE_VETO);
-        if ($vetoPhase !== null) {
-            $vetoUsed = $this->isTruthy($legacy['veto_used'] ?? null);
+                $payload[] = $entry;
 
-            $payload[] = [
-                'phase_id' => (int) $vetoPhase->id,
-                'position' => (int) $vetoPhase->position,
-                'type' => WeekPhaseManager::TYPE_VETO,
-                'veto_used' => $vetoUsed,
-                'winner_ids' => $this->fallbackList(null, $legacy['veto_winner_houseguest_id'] ?? null),
-                'saved_ids' => $vetoUsed
+                continue;
+            }
+
+            if ($phase->type === WeekPhaseManager::TYPE_NOMINEES) {
+                $entry['nominee_ids'] = $useLegacyValues
+                    ? $this->fallbackList(
+                        $legacy['nominee_houseguest_ids'] ?? null,
+                        [
+                            $legacy['nominee_1_houseguest_id'] ?? null,
+                            $legacy['nominee_2_houseguest_id'] ?? null,
+                        ]
+                    )
+                    : [];
+
+                $payload[] = $entry;
+
+                continue;
+            }
+
+            if ($phase->type === WeekPhaseManager::TYPE_VETO) {
+                $vetoUsed = $useLegacyValues ? $this->isTruthy($legacy['veto_used'] ?? null) : false;
+
+                $entry['veto_used'] = $vetoUsed;
+                $entry['winner_ids'] = $useLegacyValues
+                    ? $this->fallbackList(null, $legacy['veto_winner_houseguest_id'] ?? null)
+                    : [];
+                $entry['saved_ids'] = $vetoUsed
                     ? $this->fallbackList(null, $legacy['saved_houseguest_id'] ?? null)
-                    : [],
-                'replacement_ids' => $vetoUsed
+                    : [];
+                $entry['replacement_ids'] = $vetoUsed
                     ? $this->fallbackList(null, $legacy['replacement_nominee_houseguest_id'] ?? null)
-                    : [],
-            ];
-        }
+                    : [];
 
-        $evictionsPhase = $phases->get(WeekPhaseManager::TYPE_EVICTIONS);
-        if ($evictionsPhase !== null) {
-            $payload[] = [
-                'phase_id' => (int) $evictionsPhase->id,
-                'position' => (int) $evictionsPhase->position,
-                'type' => WeekPhaseManager::TYPE_EVICTIONS,
-                'evicted_ids' => $this->fallbackList($legacy['evicted_houseguest_ids'] ?? null, $legacy['evicted_houseguest_id'] ?? null),
-            ];
+                $payload[] = $entry;
+
+                continue;
+            }
+
+            if ($phase->type === WeekPhaseManager::TYPE_EVICTIONS) {
+                $entry['evicted_ids'] = $useLegacyValues
+                    ? $this->fallbackList($legacy['evicted_houseguest_ids'] ?? null, $legacy['evicted_houseguest_id'] ?? null)
+                    : [];
+            }
+
+            $payload[] = $entry;
         }
 
         return $payload;

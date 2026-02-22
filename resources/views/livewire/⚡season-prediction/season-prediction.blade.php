@@ -101,11 +101,16 @@
                     </div>
                 </div>
 
-                <div class="flex items-center gap-4">
-                    <flux:button variant="primary" type="submit" :disabled="! $season || $this->isLocked">{{ __('Save') }}</flux:button>
-                    <flux:button variant="danger" type="button" wire:click="confirm" :disabled="! $season || $this->isLocked">{{ __('Confirm & Lock') }}</flux:button>
-                    <x-action-message on="season-prediction-saved" class="text-sm">{{ __('Saved.') }}</x-action-message>
-                    <x-action-message on="season-prediction-confirmed" class="text-sm">{{ __('Confirmed.') }}</x-action-message>
+                <div class="grid gap-2">
+                    <div class="flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                        <flux:button variant="primary" type="submit" :disabled="! $season || $this->isLocked" class="w-full sm:w-auto">{{ __('Save') }}</flux:button>
+                        <flux:button variant="danger" type="button" wire:click="confirm" :disabled="! $season || $this->isLocked" class="w-full sm:w-auto">{{ __('Confirm & Lock') }}</flux:button>
+                    </div>
+
+                    <div class="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
+                        <x-action-message on="season-prediction-saved" class="text-sm">{{ __('Saved.') }}</x-action-message>
+                        <x-action-message on="season-prediction-confirmed" class="text-sm">{{ __('Confirmed.') }}</x-action-message>
+                    </div>
                 </div>
             </form>
         </div>

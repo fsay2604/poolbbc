@@ -7,7 +7,7 @@ use App\Models\Season;
 use App\Models\User;
 use App\Models\Week;
 
-test('weeks table shows whether current user predictions are confirmed', function () {
+test('weeks table does not show prediction confirmation status', function () {
     $user = User::factory()->create();
     $season = Season::factory()->create(['is_active' => true]);
 
@@ -20,7 +20,8 @@ test('weeks table shows whether current user predictions are confirmed', functio
     $this->actingAs($user)
         ->get('/weeks')
         ->assertSuccessful()
-        ->assertSee('Statut de confirmation')
-        ->assertSee('Confirmé')
-        ->assertSee('En attente');
+        ->assertSee(__('Status'))
+        ->assertDontSee(__('Confirmation status'))
+        ->assertDontSee(__('Confirmed'))
+        ->assertDontSee(__('Pending'));
 });

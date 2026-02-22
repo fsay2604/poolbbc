@@ -1,11 +1,11 @@
-<section class="w-full">
-    <div class="flex w-full flex-1 flex-col gap-6">
-        <div class="flex items-start justify-between gap-4">
-            <div class="grid gap-1">
+<section class="min-w-0 w-full">
+    <div class="flex min-w-0 w-full flex-1 flex-col gap-6">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+            <div class="min-w-0 grid gap-1">
                 <flux:heading size="xl" level="1">{{ $week->name ?? __('Week').' '.$week->number }}</flux:heading>
             </div>
 
-            <flux:button :href="route('weeks.index')" wire:navigate.hover>
+            <flux:button :href="route('weeks.index')" wire:navigate.hover class="w-full sm:w-auto">
                 {{ __('All Weeks') }}
             </flux:button>
         </div>
@@ -28,101 +28,76 @@
             </div>
         </div>
 
-        <div class="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-zinc-900">
-            <form wire:submit="save" class="grid gap-6">
-                <div class="grid gap-6">
-                    <div class="grid gap-3">
-                        <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ __('HOH') }}</div>
-                        <div class="grid gap-4 md:grid-cols-3">
-                            @for ($i = 0; $i < ($week->boss_count ?? 1); $i++)
-                                <flux:select wire:model.live="form.boss_houseguest_ids.{{ $i }}" :label="($week->boss_count ?? 1) > 1 ? __('HOH (Boss) #').($i + 1) : __('HOH (Boss)')" :disabled="$this->isLocked">
-                                    <option value="">—</option>
-                                    @foreach ($houseguests as $hg)
-                                        <option value="{{ $hg->id }}">{{ $hg->name }}</option>
-                                    @endforeach
-                                </flux:select>
-                            @endfor
+        <form wire:submit="save" class="grid gap-6">
+            <div class="grid gap-4">
+                @foreach ($form['phases'] as $phaseIndex => $phase)
+                    <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700" wire:key="week-phase-form-{{ $phase['phase_id'] }}">
+                        <div class="mb-3 text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                            {{ __('Phase') }} {{ $phase['position'] }} · {{ $this->phaseTypeLabel($phase['type']) }}
+                        </div>
+
+                        @if (($phase['type'] ?? null) === 'veto')
+                            <div class="mb-3">
+                                <flux:switch
+                                    wire:model.live="form.phases.{{ $phaseIndex }}.veto_used"
+                                    :label="__('Veto used?')"
+                                    :disabled="$this->isLocked"
+                                />
+                            </div>
+                        @endif
+
+                        <div class="grid gap-4 md:grid-cols-2">
+                            @foreach ($this->selectionLabels($phase['type']) as $listKey => $label)
+                                @php($values = is_array($phase[$listKey] ?? null) ? $phase[$listKey] : [])
+                                @php($isVetoDependentList = ($phase['type'] ?? null) === 'veto' && in_array($listKey, ['saved_ids', 'replacement_ids'], true))
+                                @php($showVetoDependentList = ! $isVetoDependentList || ($phase['veto_used'] ?? false))
+
+                                <div
+                                    wire:key="week-phase-list-{{ $phase['phase_id'] }}-{{ $listKey }}"
+                                    @class(['hidden' => ! $showVetoDependentList])
+                                >
+                                    @if ($values === [])
+                                        <div class="text-sm text-zinc-500 dark:text-zinc-400">{{ $label }}: {{ __('None') }}</div>
+                                    @else
+                                        <div class="grid gap-4">
+                                            @foreach ($values as $listIndex => $value)
+                                                <flux:select
+                                                    wire:model.live="form.phases.{{ $phaseIndex }}.{{ $listKey }}.{{ $listIndex }}"
+                                                    :label="count($values) > 1 ? $label.' #'.($listIndex + 1) : $label"
+                                                    :disabled="$this->isLocked"
+                                                >
+                                                    <option value="">-</option>
+                                                    @foreach ($houseguests as $hg)
+                                                        <option value="{{ $hg->id }}">{{ $hg->name }}</option>
+                                                    @endforeach
+                                                </flux:select>
+                                            @endforeach
+                                        </div>
+                                    @endif
+                                </div>
+                            @endforeach
                         </div>
                     </div>
+                @endforeach
+            </div>
 
-                    <div class="grid gap-3">
-                        <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ __('Nominees') }}</div>
-                        <div class="grid gap-4 md:grid-cols-3">
-                            @for ($i = 0; $i < ($week->nominee_count ?? 2); $i++)
-                                <flux:select wire:model.live="form.nominee_houseguest_ids.{{ $i }}" :label="__('Nominee #').($i + 1).' ('.__('In danger').')'" :disabled="$this->isLocked">
-                                    <option value="">—</option>
-                                    @foreach ($houseguests as $hg)
-                                        <option value="{{ $hg->id }}">{{ $hg->name }}</option>
-                                    @endforeach
-                                </flux:select>
-                            @endfor
-                        </div>
-                    </div>
-
-                    <div class="grid gap-3">
-                        <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ __('Veto') }}</div>
-                        <div class="grid gap-4 md:grid-cols-3">
-                            <flux:select wire:model="form.veto_winner_houseguest_id" :label="__('Veto Winner')" :disabled="$this->isLocked">
-                                <option value="">—</option>
-                                @foreach ($houseguests as $hg)
-                                    <option value="{{ $hg->id }}">{{ $hg->name }}</option>
-                                @endforeach
-                            </flux:select>
-
-                            <div class="hidden md:block md:col-span-2"></div>
-
-                            <flux:select wire:model.live="form.veto_used" :label="__('Will the veto be used?')" :disabled="$this->isLocked">
-                                <option value="">—</option>
-                                <option value="1">{{ __('Yes') }}</option>
-                                <option value="0">{{ __('No') }}</option>
-                            </flux:select>
-
-                            @if (($form['veto_used'] ?? null) === '1')
-                                <flux:select wire:model="form.saved_houseguest_id" :label="__('If used: Who will be saved?')" :disabled="$this->isLocked">
-                                    <option value="">—</option>
-                                    @foreach ($houseguests as $hg)
-                                        <option value="{{ $hg->id }}">{{ $hg->name }}</option>
-                                    @endforeach
-                                </flux:select>
-
-                                <flux:select wire:model="form.replacement_nominee_houseguest_id" :label="__('If used: Replacement nominee')" :disabled="$this->isLocked">
-                                    <option value="">—</option>
-                                    @foreach ($houseguests as $hg)
-                                        <option value="{{ $hg->id }}">{{ $hg->name }}</option>
-                                    @endforeach
-                                </flux:select>
-                            @endif
-                        </div>
-                    </div>
-
-                    <div class="grid gap-3">
-                        <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ __('Evicted') }}</div>
-                        <div class="grid gap-4 md:grid-cols-3">
-                            @for ($i = 0; $i < ($week->evicted_count ?? 1); $i++)
-                                <flux:select wire:model.live="form.evicted_houseguest_ids.{{ $i }}" :label="($week->evicted_count ?? 1) > 1 ? __('Evicted #').($i + 1) : __('Evicted')" :disabled="$this->isLocked">
-                                    <option value="">—</option>
-                                    @foreach ($houseguests as $hg)
-                                        <option value="{{ $hg->id }}">{{ $hg->name }}</option>
-                                    @endforeach
-                                </flux:select>
-                            @endfor
-                        </div>
-                    </div>
-                </div>
-
-                <div class="flex items-center gap-4">
-                    <flux:button variant="primary" type="submit" :disabled="$this->isLocked">
+            <div class="grid gap-2">
+                <div class="flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                    <flux:button variant="primary" type="submit" :disabled="$this->isLocked" class="w-full sm:w-auto">
                         {{ __('Save') }}
                     </flux:button>
 
-                    <flux:button variant="danger" type="button" wire:click="confirm" :disabled="$this->isLocked">
+                    <flux:button variant="danger" type="button" wire:click="confirm" :disabled="$this->isLocked" class="w-full sm:w-auto">
                         {{ __('Confirm & Lock') }}
                     </flux:button>
+                </div>
 
+                <div class="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:gap-6">
                     <x-action-message on="prediction-saved" class="text-sm">{{ __('Saved.') }}</x-action-message>
                     <x-action-message on="prediction-confirmed" class="text-sm">{{ __('Confirmed.') }}</x-action-message>
                 </div>
-            </form>
-        </div>
+            </div>
+        </form>
+        
     </div>
 </section>

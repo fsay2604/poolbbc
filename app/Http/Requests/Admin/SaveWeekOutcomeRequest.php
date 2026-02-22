@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Actions\Weeks\WeekPhaseManager;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -12,11 +13,10 @@ class SaveWeekOutcomeRequest extends FormRequest
      */
     private array $houseguestIds = [];
 
-    private int $bossCount = 1;
-
-    private int $nomineeCount = 1;
-
-    private int $evictedCount = 1;
+    /**
+     * @var list<array{phase_id:int, type:string, lists:array<string, int>}>
+     */
+    private array $phaseDefinitions = [];
 
     /**
      * Determine if the user is authorized to make this request.
@@ -34,25 +34,29 @@ class SaveWeekOutcomeRequest extends FormRequest
     public function rules(): array
     {
         $rules = [
-            'form.boss_houseguest_ids' => ['array'],
-            'form.nominee_houseguest_ids' => ['array'],
-            'form.evicted_houseguest_ids' => ['array'],
-            'form.veto_winner_houseguest_id' => ['nullable', Rule::in($this->houseguestIds)],
-            'form.veto_used' => ['nullable', 'boolean'],
-            'form.saved_houseguest_id' => ['nullable', Rule::in($this->houseguestIds)],
-            'form.replacement_nominee_houseguest_id' => ['nullable', Rule::in($this->houseguestIds)],
+            'form.phases' => ['required', 'array', 'list', 'size:'.count($this->phaseDefinitions)],
         ];
 
-        for ($i = 0; $i < $this->bossCount; $i++) {
-            $rules["form.boss_houseguest_ids.$i"] = ['nullable', Rule::in($this->houseguestIds), 'distinct'];
-        }
+        foreach ($this->phaseDefinitions as $index => $phaseDefinition) {
+            $isVetoPhase = $phaseDefinition['type'] === WeekPhaseManager::TYPE_VETO;
+            $rules["form.phases.$index.phase_id"] = ['required', 'integer', Rule::in([$phaseDefinition['phase_id']])];
+            $rules["form.phases.$index.type"] = ['required', Rule::in([$phaseDefinition['type']])];
 
-        for ($i = 0; $i < $this->nomineeCount; $i++) {
-            $rules["form.nominee_houseguest_ids.$i"] = ['nullable', Rule::in($this->houseguestIds), 'distinct'];
-        }
+            if ($isVetoPhase) {
+                $rules["form.phases.$index.veto_used"] = ['required', 'boolean'];
+            }
 
-        for ($i = 0; $i < $this->evictedCount; $i++) {
-            $rules["form.evicted_houseguest_ids.$i"] = ['nullable', Rule::in($this->houseguestIds), 'distinct'];
+            foreach ($phaseDefinition['lists'] as $listKey => $count) {
+                $rules["form.phases.$index.$listKey"] = ['present', 'array', 'list', 'size:'.$count];
+
+                for ($listIndex = 0; $listIndex < $count; $listIndex++) {
+                    $rules["form.phases.$index.$listKey.$listIndex"] = [
+                        'nullable',
+                        Rule::in($this->houseguestIds),
+                        'distinct',
+                    ];
+                }
+            }
         }
 
         return $rules;
@@ -60,13 +64,12 @@ class SaveWeekOutcomeRequest extends FormRequest
 
     /**
      * @param  list<int>  $houseguestIds
+     * @param  list<array{phase_id:int, type:string, lists:array<string, int>}>  $phaseDefinitions
      */
-    public function setContext(array $houseguestIds, int $bossCount, int $nomineeCount, int $evictedCount): self
+    public function setContext(array $houseguestIds, array $phaseDefinitions): self
     {
         $this->houseguestIds = $houseguestIds;
-        $this->bossCount = max(1, $bossCount);
-        $this->nomineeCount = max(1, $nomineeCount);
-        $this->evictedCount = max(1, $evictedCount);
+        $this->phaseDefinitions = $phaseDefinitions;
 
         return $this;
     }

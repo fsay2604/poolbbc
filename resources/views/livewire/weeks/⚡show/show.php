@@ -1,12 +1,11 @@
 <?php
 
+use App\Actions\Weeks\WeekPhaseManager;
 use App\Http\Requests\Weeks\ConfirmWeekPredictionRequest;
 use App\Http\Requests\Weeks\SaveWeekPredictionRequest;
 use App\Models\Houseguest;
 use App\Models\Prediction;
-use App\Models\Season;
 use App\Models\Week;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
@@ -18,77 +17,36 @@ new class extends Component {
 
     /** @var array<string, mixed> */
     public array $form = [
-        'boss_houseguest_ids' => [],
-        'nominee_houseguest_ids' => [],
-        'veto_winner_houseguest_id' => null,
-        'veto_used' => null,
-        'saved_houseguest_id' => null,
-        'replacement_nominee_houseguest_id' => null,
-        'evicted_houseguest_ids' => [],
+        'phases' => [],
     ];
 
     public ?Prediction $prediction = null;
 
     public function mount(Week $week): void
     {
-        $this->week = $week->loadMissing('season');
-
-        $bossCount = $this->bossCount();
-        $nomineeCount = $this->nomineeCount();
-        $evictedCount = $this->evictedCount();
+        $this->week = $week->loadMissing('season', 'phases');
+        $this->phaseManager()->ensureDefaultPhases($this->week);
+        $this->week->load('phases');
 
         $this->prediction = Prediction::query()
             ->where('week_id', $this->week->id)
             ->where('user_id', Auth::id())
             ->first();
 
-        $selectedHouseguestIds = [];
         $isLocked = ($this->prediction?->isConfirmed() ?? false) || $this->week->isLocked();
-
-        if ($this->prediction) {
-            $bosses = $this->normalizeIdList($this->prediction->boss_houseguest_ids);
-            if (count($bosses) === 0) {
-                $bosses = $this->normalizeIdList([$this->prediction->hoh_houseguest_id]);
-            }
-
-            $nominees = $this->normalizeIdList($this->prediction->nominee_houseguest_ids);
-            if (count($nominees) === 0) {
-                $nominees = $this->normalizeIdList([
-                    $this->prediction->nominee_1_houseguest_id,
-                    $this->prediction->nominee_2_houseguest_id,
-                ]);
-            }
-
-            $evicted = $this->normalizeIdList($this->prediction->evicted_houseguest_ids);
-            if (count($evicted) === 0) {
-                $evicted = $this->normalizeIdList([$this->prediction->evicted_houseguest_id]);
-            }
-
-            if ($isLocked) {
-                $selectedHouseguestIds = array_values(array_unique(array_merge(
-                    $bosses,
-                    $nominees,
-                    $evicted,
-                    $this->normalizeIdList([$this->prediction->veto_winner_houseguest_id]),
-                    $this->normalizeIdList([$this->prediction->saved_houseguest_id]),
-                    $this->normalizeIdList([$this->prediction->replacement_nominee_houseguest_id]),
-                )));
-            }
-
-            $this->form = [
-                'boss_houseguest_ids' => $this->padToCount($bosses, $bossCount),
-                'nominee_houseguest_ids' => $this->padToCount($nominees, $nomineeCount),
-                'veto_winner_houseguest_id' => $this->prediction->veto_winner_houseguest_id,
-                'veto_used' => $this->normalizeVetoUsedSelectValue($this->prediction->veto_used),
-                'saved_houseguest_id' => $this->prediction->saved_houseguest_id,
-                'replacement_nominee_houseguest_id' => $this->prediction->replacement_nominee_houseguest_id,
-                'evicted_houseguest_ids' => $this->padToCount($evicted, $evictedCount),
-            ];
-        } else {
-            $this->form['boss_houseguest_ids'] = $this->padToCount([], $bossCount);
-            $this->form['nominee_houseguest_ids'] = $this->padToCount([], $nomineeCount);
-            $this->form['evicted_houseguest_ids'] = $this->padToCount([], $evictedCount);
+        $existingPayload = $this->prediction?->phase_picks;
+        if ($this->prediction !== null && (! is_array($existingPayload) || $existingPayload === [])) {
+            $existingPayload = $this->phaseManager()->legacyPayloadForModel($this->prediction, $this->week->phases);
         }
+
+        $selectedHouseguestIds = $isLocked
+            ? $this->phaseManager()->selectedHouseguestIds($existingPayload)
+            : [];
+
+        $this->form['phases'] = $this->phaseManager()->buildSelectionRows(
+            $this->week->phases,
+            $existingPayload
+        );
 
         $this->houseguests = Houseguest::query()
             ->where('season_id', $this->week->season_id)
@@ -102,57 +60,6 @@ new class extends Component {
             ->get();
     }
 
-    private function bossCount(): int
-    {
-        return max(1, (int) ($this->week->boss_count ?? 1));
-    }
-
-    private function nomineeCount(): int
-    {
-        return max(1, (int) ($this->week->nominee_count ?? 2));
-    }
-
-    private function evictedCount(): int
-    {
-        return max(1, (int) ($this->week->evicted_count ?? 1));
-    }
-
-    /**
-     * @param  mixed  $value
-     * @return list<int>
-     */
-    private function normalizeIdList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            $value = [$value];
-        }
-
-        $ids = array_values(array_filter(array_map(
-            static fn ($id): ?int => is_numeric($id) ? (int) $id : null,
-            $value,
-        )));
-
-        $ids = array_values(array_unique($ids));
-        sort($ids);
-
-        return $ids;
-    }
-
-    /**
-     * @param  list<int>  $ids
-     * @return list<?int>
-     */
-    private function padToCount(array $ids, int $count): array
-    {
-        $padded = array_slice(array_values($ids), 0, $count);
-
-        while (count($padded) < $count) {
-            $padded[] = null;
-        }
-
-        return $padded;
-    }
-
     public function getIsLockedProperty(): bool
     {
         $confirmed = $this->prediction?->isConfirmed() ?? false;
@@ -160,23 +67,22 @@ new class extends Component {
         return $confirmed || $this->week->isLocked();
     }
 
-    public function updatedFormVetoUsed(mixed $value): void
+    public function updated(string $name, mixed $value): void
     {
-        $this->form['veto_used'] = $this->normalizeVetoUsedSelectValue($value);
-
-        if ($this->form['veto_used'] !== '1') {
-            $this->form['saved_houseguest_id'] = null;
-            $this->form['replacement_nominee_houseguest_id'] = null;
+        if (preg_match('/^form\.phases\.(\d+)\.veto_used$/', $name, $matches) !== 1) {
+            return;
         }
-    }
 
-    private function normalizeVetoUsedSelectValue(mixed $value): ?string
-    {
-        return match (true) {
-            $value === true, $value === 1, $value === '1' => '1',
-            $value === false, $value === 0, $value === '0' => '0',
-            default => null,
-        };
+        $phaseIndex = (int) $matches[1];
+        if (! isset($this->form['phases'][$phaseIndex])) {
+            return;
+        }
+
+        if (($this->form['phases'][$phaseIndex]['type'] ?? null) !== WeekPhaseManager::TYPE_VETO) {
+            return;
+        }
+
+        $this->form['phases'][$phaseIndex]['veto_used'] = $this->phaseManager()->normalizeVetoUsedValue($value);
     }
 
     public function save(): void
@@ -185,49 +91,27 @@ new class extends Component {
             abort(403);
         }
 
-        $houseguestIds = $this->houseguests->pluck('id')->all();
+        $this->normalizeVetoSwitchValues();
 
-        $bossCount = $this->bossCount();
-        $nomineeCount = $this->nomineeCount();
-        $evictedCount = $this->evictedCount();
+        $houseguestIds = $this->houseguests->pluck('id')->all();
+        $phaseDefinitions = $this->phaseManager()->phaseDefinitionsForValidation($this->week->phases);
 
         $request = (new SaveWeekPredictionRequest())->setContext(
             $houseguestIds,
-            $bossCount,
-            $nomineeCount,
-            $evictedCount,
-            $this->form['veto_used'] ?? null,
+            $phaseDefinitions,
         );
         $validated = $this->validate($request->rules(), $request->messages(), $request->attributes());
 
-        $bosses = $this->padToCount($this->normalizeIdList($validated['form']['boss_houseguest_ids'] ?? []), $bossCount);
-        $nominees = $this->padToCount($this->normalizeIdList($validated['form']['nominee_houseguest_ids'] ?? []), $nomineeCount);
-        $evicted = $this->padToCount($this->normalizeIdList($validated['form']['evicted_houseguest_ids'] ?? []), $evictedCount);
-
-        if (! ($validated['form']['veto_used'] ?? false)) {
-            $validated['form']['saved_houseguest_id'] = null;
-            $validated['form']['replacement_nominee_houseguest_id'] = null;
-        }
-
-        $data = array_merge(
-            $validated['form'],
-            [
-                'boss_houseguest_ids' => $bosses,
-                'hoh_houseguest_id' => $bosses[0] ?? null,
-                'nominee_houseguest_ids' => $nominees,
-                'evicted_houseguest_ids' => $evicted,
-                'nominee_1_houseguest_id' => $nominees[0] ?? null,
-                'nominee_2_houseguest_id' => $nominees[1] ?? null,
-                'evicted_houseguest_id' => $evicted[0] ?? null,
-            ],
-        );
+        $payload = $this->phaseManager()->normalizeSelectionRows($validated['form']['phases'] ?? [], $this->week->phases);
 
         $this->prediction = Prediction::query()->updateOrCreate(
             [
                 'week_id' => $this->week->id,
                 'user_id' => Auth::id(),
             ],
-            $data,
+            [
+                'phase_picks' => $payload,
+            ],
         );
 
         $this->dispatch('prediction-saved');
@@ -239,56 +123,64 @@ new class extends Component {
             abort(403);
         }
 
-        $houseguestIds = $this->houseguests->pluck('id')->all();
+        $this->normalizeVetoSwitchValues();
 
-        $bossCount = $this->bossCount();
-        $nomineeCount = $this->nomineeCount();
-        $evictedCount = $this->evictedCount();
+        $houseguestIds = $this->houseguests->pluck('id')->all();
+        $phaseDefinitions = $this->phaseManager()->phaseDefinitionsForValidation($this->week->phases);
 
         $request = (new ConfirmWeekPredictionRequest())->setContext(
             $houseguestIds,
-            $bossCount,
-            $nomineeCount,
-            $evictedCount,
-            $this->form['veto_used'] ?? null,
+            $phaseDefinitions,
         );
         $validated = $this->validate($request->rules(), $request->messages(), $request->attributes());
 
-        $bosses = $this->padToCount($this->normalizeIdList($validated['form']['boss_houseguest_ids'] ?? []), $bossCount);
-        $nominees = $this->padToCount($this->normalizeIdList($validated['form']['nominee_houseguest_ids'] ?? []), $nomineeCount);
-        $evicted = $this->padToCount($this->normalizeIdList($validated['form']['evicted_houseguest_ids'] ?? []), $evictedCount);
-
-        if (! ($validated['form']['veto_used'] ?? false)) {
-            $validated['form']['saved_houseguest_id'] = null;
-            $validated['form']['replacement_nominee_houseguest_id'] = null;
-        }
-
-        $data = array_merge(
-            $validated['form'],
-            [
-                'boss_houseguest_ids' => $bosses,
-                'hoh_houseguest_id' => $bosses[0] ?? null,
-                'nominee_houseguest_ids' => $nominees,
-                'evicted_houseguest_ids' => $evicted,
-                'nominee_1_houseguest_id' => $nominees[0] ?? null,
-                'nominee_2_houseguest_id' => $nominees[1] ?? null,
-                'evicted_houseguest_id' => $evicted[0] ?? null,
-            ],
-        );
+        $payload = $this->phaseManager()->normalizeSelectionRows($validated['form']['phases'] ?? [], $this->week->phases);
 
         $prediction = Prediction::query()->updateOrCreate(
             [
                 'week_id' => $this->week->id,
                 'user_id' => Auth::id(),
             ],
-            $data,
+            [
+                'phase_picks' => $payload,
+            ],
         );
 
         $prediction->confirm();
         $prediction->save();
 
         $this->prediction = $prediction;
-
         $this->dispatch('prediction-confirmed');
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function selectionLabels(string $type): array
+    {
+        return $this->phaseManager()->selectionLabels($type);
+    }
+
+    public function phaseTypeLabel(string $type): string
+    {
+        return $this->phaseManager()->phaseTypeLabel($type);
+    }
+
+    private function normalizeVetoSwitchValues(): void
+    {
+        foreach ($this->form['phases'] as $index => $phase) {
+            if (($phase['type'] ?? null) !== WeekPhaseManager::TYPE_VETO) {
+                continue;
+            }
+
+            $this->form['phases'][$index]['veto_used'] = $this->phaseManager()->normalizeVetoUsedValue(
+                $phase['veto_used'] ?? false
+            );
+        }
+    }
+
+    private function phaseManager(): WeekPhaseManager
+    {
+        return app(WeekPhaseManager::class);
     }
 };

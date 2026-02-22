@@ -2,17 +2,25 @@
 
 namespace App\Actions\Seasons;
 
+use App\Actions\Weeks\WeekPhaseManager;
 use App\Models\Houseguest;
 use App\Models\Season;
 use App\Models\Week;
 
 class CalculateSeasonOutcomeFromWeekOutcomes
 {
+    public WeekPhaseManager $weekPhaseManager;
+
+    public function __construct(?WeekPhaseManager $weekPhaseManager = null)
+    {
+        $this->weekPhaseManager = $weekPhaseManager ?? app(WeekPhaseManager::class);
+    }
+
     public function execute(Season $season): void
     {
         $weeks = Week::query()
             ->where('season_id', $season->id)
-            ->with('outcome')
+            ->with(['outcome', 'phases'])
             ->orderBy('number')
             ->get();
 
@@ -34,7 +42,10 @@ class CalculateSeasonOutcomeFromWeekOutcomes
                 continue;
             }
 
-            $evictedIds = $this->normalizeEvictedIds($outcome->evicted_houseguest_ids, $outcome->evicted_houseguest_id);
+            $evictedIds = $this->weekPhaseManager->evictedIds($outcome->phase_results);
+            if ($evictedIds === []) {
+                $evictedIds = $this->normalizeEvictedIds($outcome->evicted_houseguest_ids ?? null, $outcome->evicted_houseguest_id ?? null);
+            }
 
             if ($week->number === 1 && $firstEvictedHouseguestId === null && $evictedIds !== []) {
                 $firstEvictedHouseguestId = $evictedIds[0];

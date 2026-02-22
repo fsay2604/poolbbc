@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Weeks\WeekPhaseManager;
 use App\Models\Houseguest;
 use App\Models\Prediction;
 use App\Models\Season;
@@ -42,7 +43,7 @@ new class extends Component
         }
 
         $this->weeks = Week::query()
-            ->with('outcome')
+            ->with(['outcome', 'phases'])
             ->where('season_id', $this->season->id)
             ->orderBy('number')
             ->get();
@@ -84,114 +85,57 @@ new class extends Component
     }
 
     /**
-     * @return list<int>
+     * @param  array<int, array<string, mixed>>|null  $payload
      */
-    public function bossIds(?Prediction $prediction): array
+    public function payloadEntry(?array $payload, int $phaseId): ?array
     {
-        if (! $prediction) {
-            return [];
+        if (! is_array($payload)) {
+            return null;
         }
 
-        $ids = is_array($prediction->boss_houseguest_ids) ? $prediction->boss_houseguest_ids : [];
+        foreach ($payload as $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
 
-        if ($ids === [] && $prediction->hoh_houseguest_id !== null) {
-            $ids = [$prediction->hoh_houseguest_id];
+            if (! is_numeric($entry['phase_id'] ?? null)) {
+                continue;
+            }
+
+            if ((int) $entry['phase_id'] === $phaseId) {
+                return $entry;
+            }
         }
 
-        return $this->normalizeIdList($ids);
+        return null;
+    }
+
+    public function modelPhaseEntry(Prediction|WeekOutcome|null $model, Week $week, int $phaseId): ?array
+    {
+        if ($model === null) {
+            return null;
+        }
+
+        $payload = $model instanceof Prediction ? $model->phase_picks : $model->phase_results;
+        if (! is_array($payload) || $payload === []) {
+            $payload = $this->phaseManager()->legacyPayloadForModel($model, $week->phases);
+        }
+
+        return $this->payloadEntry($payload, $phaseId);
     }
 
     /**
      * @return list<int>
      */
-    public function nomineeIds(?Prediction $prediction): array
+    public function payloadIds(?array $entry, string $listKey): array
     {
-        if (! $prediction) {
+        if (! is_array($entry)) {
             return [];
         }
 
-        $ids = is_array($prediction->nominee_houseguest_ids) ? $prediction->nominee_houseguest_ids : [];
-
-        if ($ids === []) {
-            $ids = [
-                $prediction->nominee_1_houseguest_id,
-                $prediction->nominee_2_houseguest_id,
-            ];
-        }
-
-        return $this->normalizeIdList($ids);
-    }
-
-    /**
-     * @return list<int>
-     */
-    public function evictedIds(?Prediction $prediction): array
-    {
-        if (! $prediction) {
-            return [];
-        }
-
-        $ids = is_array($prediction->evicted_houseguest_ids) ? $prediction->evicted_houseguest_ids : [];
-
-        if ($ids === [] && $prediction->evicted_houseguest_id !== null) {
-            $ids = [$prediction->evicted_houseguest_id];
-        }
-
-        return $this->normalizeIdList($ids);
-    }
-
-    /**
-     * @return list<int>
-     */
-    public function outcomeBossIds(?WeekOutcome $outcome): array
-    {
-        if (! $outcome) {
-            return [];
-        }
-
-        $ids = is_array($outcome->boss_houseguest_ids) ? $outcome->boss_houseguest_ids : [];
-
-        if ($ids === [] && $outcome->hoh_houseguest_id !== null) {
-            $ids = [$outcome->hoh_houseguest_id];
-        }
-
-        return $this->normalizeIdList($ids);
-    }
-
-    /**
-     * @return list<int>
-     */
-    public function outcomeNomineeIds(?WeekOutcome $outcome): array
-    {
-        if (! $outcome) {
-            return [];
-        }
-
-        $ids = is_array($outcome->nominee_houseguest_ids) ? $outcome->nominee_houseguest_ids : [];
-
-        if ($ids === []) {
-            $ids = [
-                $outcome->nominee_1_houseguest_id,
-                $outcome->nominee_2_houseguest_id,
-            ];
-        }
-
-        return $this->normalizeIdList($ids);
-    }
-
-    /**
-     * @return list<int>
-     */
-    public function outcomeEvictedIds(?WeekOutcome $outcome): array
-    {
-        if (! $outcome) {
-            return [];
-        }
-
-        $ids = is_array($outcome->evicted_houseguest_ids) ? $outcome->evicted_houseguest_ids : [];
-
-        if ($ids === [] && $outcome->evicted_houseguest_id !== null) {
-            $ids = [$outcome->evicted_houseguest_id];
+        $ids = $entry[$listKey] ?? [];
+        if (! is_array($ids)) {
+            $ids = [];
         }
 
         return $this->normalizeIdList($ids);
@@ -209,15 +153,6 @@ new class extends Component
         return in_array($predictedId, $actualIds, true);
     }
 
-    public function isCorrectBoolean(?bool $predictedValue, ?bool $actualValue): bool
-    {
-        if ($predictedValue === null || $actualValue === null) {
-            return false;
-        }
-
-        return $predictedValue === $actualValue;
-    }
-
     public function houseguestName(?int $id): string
     {
         if ($id === null) {
@@ -229,15 +164,34 @@ new class extends Component
         return $houseguest?->name ?? '--';
     }
 
-    /**
-     * @param  list<int>  $ids
-     * @return list<string>
-     */
-    public function houseguestNames(array $ids): array
+    public function phaseTypeLabel(string $type): string
     {
-        return array_values(array_map(
-            fn (int $id): string => $this->houseguestName($id),
-            $ids,
-        ));
+        return $this->phaseManager()->phaseTypeLabel($type);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function selectionLabels(string $type): array
+    {
+        return $this->phaseManager()->selectionLabels($type);
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $entry
+     */
+    public function isVetoUsed(?array $entry): bool
+    {
+        return $this->phaseManager()->isVetoUsed($entry);
+    }
+
+    public function isVetoDependentListKey(string $listKey): bool
+    {
+        return $this->phaseManager()->isVetoDependentListKey($listKey);
+    }
+
+    private function phaseManager(): WeekPhaseManager
+    {
+        return app(WeekPhaseManager::class);
     }
 };

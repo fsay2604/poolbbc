@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Schema;
 
 class Week extends Model
 {
@@ -21,9 +22,6 @@ class Week extends Model
     protected $fillable = [
         'season_id',
         'number',
-        'boss_count',
-        'nominee_count',
-        'evicted_count',
         'name',
         'is_locked',
         'auto_lock_at',
@@ -38,9 +36,6 @@ class Week extends Model
     protected function casts(): array
     {
         return [
-            'boss_count' => 'integer',
-            'nominee_count' => 'integer',
-            'evicted_count' => 'integer',
             'is_locked' => 'boolean',
             'auto_lock_at' => 'datetime',
             'locked_at' => 'datetime',
@@ -57,6 +52,11 @@ class Week extends Model
     public function predictions(): HasMany
     {
         return $this->hasMany(Prediction::class);
+    }
+
+    public function phases(): HasMany
+    {
+        return $this->hasMany(WeekPhase::class)->orderBy('position');
     }
 
     public function outcome(): HasOne
@@ -82,5 +82,20 @@ class Week extends Model
     public function scopeForActiveSeason(Builder $query): Builder
     {
         return $query->whereHas('season', fn (Builder $q) => $q->where('is_active', true));
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (self $week): void {
+            foreach (['boss_count', 'nominee_count', 'evicted_count'] as $column) {
+                if (Schema::hasColumn($week->getTable(), $column)) {
+                    continue;
+                }
+
+                if (array_key_exists($column, $week->getAttributes())) {
+                    unset($week->{$column});
+                }
+            }
+        });
     }
 }

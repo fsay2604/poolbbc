@@ -4,10 +4,12 @@ namespace Database\Seeders;
 
 use App\Actions\Predictions\ScoreWeek;
 use App\Actions\Seasons\CreateDefaultWeeks;
+use App\Actions\Weeks\WeekPhaseManager;
 use App\Models\Houseguest;
 use App\Models\Prediction;
 use App\Models\Season;
 use App\Models\User;
+use App\Models\Week;
 use App\Models\WeekOutcome;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Seeder;
@@ -91,6 +93,13 @@ class DemoSeeder extends Seeder
         $week1 = $season->weeks()->where('number', 1)->firstOrFail();
         $week2 = $season->weeks()->where('number', 2)->firstOrFail();
 
+        $phaseManager = app(WeekPhaseManager::class);
+        $phaseManager->ensureDefaultPhases($week1);
+        $phaseManager->ensureDefaultPhases($week2);
+
+        $week1->load('phases');
+        $week2->load('phases');
+
         // Week 1 outcome (veto used)
         $w1Boss = $houseguests[0];
         $w1Nom1 = $houseguests[1];
@@ -103,20 +112,24 @@ class DemoSeeder extends Seeder
         WeekOutcome::query()->updateOrCreate(
             ['week_id' => $week1->id],
             [
-                'hoh_houseguest_id' => $w1Boss->id,
-                'nominee_1_houseguest_id' => $w1Nom1->id,
-                'nominee_2_houseguest_id' => $w1Nom2->id,
-                'veto_winner_houseguest_id' => $w1VetoWinner->id,
-                'veto_used' => true,
-                'saved_houseguest_id' => $w1Saved->id,
-                'replacement_nominee_houseguest_id' => $w1Replacement->id,
-                'evicted_houseguest_id' => $w1Evicted->id,
+                'phase_results' => $this->defaultPayload(
+                    $week1,
+                    [
+                        'hoh_ids' => [$w1Boss->id],
+                        'nominee_ids' => [$w1Nom1->id, $w1Nom2->id],
+                        'veto_used' => true,
+                        'winner_ids' => [$w1VetoWinner->id],
+                        'saved_ids' => [$w1Saved->id],
+                        'replacement_ids' => [$w1Replacement->id],
+                        'evicted_ids' => [$w1Evicted->id],
+                    ],
+                ),
                 'last_admin_edited_by_user_id' => $admin->id,
                 'last_admin_edited_at' => now(),
             ],
         );
 
-        // Week 2 outcome (veto NOT used)
+        // Week 2 outcome (no veto usage)
         $w2Boss = $houseguests[5];
         $w2Nom1 = $houseguests[6];
         $w2Nom2 = $houseguests[7];
@@ -126,14 +139,18 @@ class DemoSeeder extends Seeder
         WeekOutcome::query()->updateOrCreate(
             ['week_id' => $week2->id],
             [
-                'hoh_houseguest_id' => $w2Boss->id,
-                'nominee_1_houseguest_id' => $w2Nom1->id,
-                'nominee_2_houseguest_id' => $w2Nom2->id,
-                'veto_winner_houseguest_id' => $w2VetoWinner->id,
-                'veto_used' => false,
-                'saved_houseguest_id' => null,
-                'replacement_nominee_houseguest_id' => null,
-                'evicted_houseguest_id' => $w2Evicted->id,
+                'phase_results' => $this->defaultPayload(
+                    $week2,
+                    [
+                        'hoh_ids' => [$w2Boss->id],
+                        'nominee_ids' => [$w2Nom1->id, $w2Nom2->id],
+                        'veto_used' => false,
+                        'winner_ids' => [$w2VetoWinner->id],
+                        'saved_ids' => [],
+                        'replacement_ids' => [],
+                        'evicted_ids' => [$w2Evicted->id],
+                    ],
+                ),
                 'last_admin_edited_by_user_id' => $admin->id,
                 'last_admin_edited_at' => now(),
             ],
@@ -143,14 +160,18 @@ class DemoSeeder extends Seeder
         $prediction1w1 = Prediction::query()->updateOrCreate(
             ['week_id' => $week1->id, 'user_id' => $user1->id],
             [
-                'hoh_houseguest_id' => $w1Boss->id,
-                'nominee_1_houseguest_id' => $w1Nom1->id,
-                'nominee_2_houseguest_id' => $w1Nom2->id,
-                'veto_winner_houseguest_id' => $w1VetoWinner->id,
-                'veto_used' => true,
-                'saved_houseguest_id' => $w1Saved->id,
-                'replacement_nominee_houseguest_id' => $w1Replacement->id,
-                'evicted_houseguest_id' => $w1Evicted->id,
+                'phase_picks' => $this->defaultPayload(
+                    $week1,
+                    [
+                        'hoh_ids' => [$w1Boss->id],
+                        'nominee_ids' => [$w1Nom1->id, $w1Nom2->id],
+                        'veto_used' => true,
+                        'winner_ids' => [$w1VetoWinner->id],
+                        'saved_ids' => [$w1Saved->id],
+                        'replacement_ids' => [$w1Replacement->id],
+                        'evicted_ids' => [$w1Evicted->id],
+                    ],
+                ),
             ],
         );
         $prediction1w1->confirm();
@@ -159,14 +180,18 @@ class DemoSeeder extends Seeder
         $prediction2w1 = Prediction::query()->updateOrCreate(
             ['week_id' => $week1->id, 'user_id' => $user2->id],
             [
-                'hoh_houseguest_id' => $w1Boss->id,
-                'nominee_1_houseguest_id' => $w1Nom1->id,
-                'nominee_2_houseguest_id' => $houseguests[9]->id,
-                'veto_winner_houseguest_id' => $houseguests[10]->id,
-                'veto_used' => false,
-                'saved_houseguest_id' => null,
-                'replacement_nominee_houseguest_id' => null,
-                'evicted_houseguest_id' => $w1Nom2->id,
+                'phase_picks' => $this->defaultPayload(
+                    $week1,
+                    [
+                        'hoh_ids' => [$w1Boss->id],
+                        'nominee_ids' => [$w1Nom1->id, $houseguests[9]->id],
+                        'veto_used' => false,
+                        'winner_ids' => [$houseguests[10]->id],
+                        'saved_ids' => [],
+                        'replacement_ids' => [],
+                        'evicted_ids' => [$w1Nom2->id],
+                    ],
+                ),
             ],
         );
         $prediction2w1->confirm();
@@ -175,14 +200,18 @@ class DemoSeeder extends Seeder
         $prediction1w2 = Prediction::query()->updateOrCreate(
             ['week_id' => $week2->id, 'user_id' => $user1->id],
             [
-                'hoh_houseguest_id' => $w2Boss->id,
-                'nominee_1_houseguest_id' => $w2Nom1->id,
-                'nominee_2_houseguest_id' => $w2Nom2->id,
-                'veto_winner_houseguest_id' => $houseguests[11]->id,
-                'veto_used' => false,
-                'saved_houseguest_id' => null,
-                'replacement_nominee_houseguest_id' => null,
-                'evicted_houseguest_id' => $w2Evicted->id,
+                'phase_picks' => $this->defaultPayload(
+                    $week2,
+                    [
+                        'hoh_ids' => [$w2Boss->id],
+                        'nominee_ids' => [$w2Nom1->id, $w2Nom2->id],
+                        'veto_used' => false,
+                        'winner_ids' => [$houseguests[11]->id],
+                        'saved_ids' => [],
+                        'replacement_ids' => [],
+                        'evicted_ids' => [$w2Evicted->id],
+                    ],
+                ),
             ],
         );
         $prediction1w2->confirm();
@@ -191,24 +220,76 @@ class DemoSeeder extends Seeder
         $prediction2w2 = Prediction::query()->updateOrCreate(
             ['week_id' => $week2->id, 'user_id' => $user2->id],
             [
-                'hoh_houseguest_id' => $houseguests[12]->id,
-                'nominee_1_houseguest_id' => $w2Nom1->id,
-                'nominee_2_houseguest_id' => $houseguests[13]->id,
-                'veto_winner_houseguest_id' => $w2VetoWinner->id,
-                'veto_used' => false,
-                'saved_houseguest_id' => null,
-                'replacement_nominee_houseguest_id' => null,
-                'evicted_houseguest_id' => $w2Nom2->id,
+                'phase_picks' => $this->defaultPayload(
+                    $week2,
+                    [
+                        'hoh_ids' => [$houseguests[12]->id],
+                        'nominee_ids' => [$w2Nom1->id, $houseguests[13]->id],
+                        'veto_used' => false,
+                        'winner_ids' => [$w2VetoWinner->id],
+                        'saved_ids' => [],
+                        'replacement_ids' => [],
+                        'evicted_ids' => [$w2Nom2->id],
+                    ],
+                ),
             ],
         );
         $prediction2w2->confirm();
         $prediction2w2->save();
 
-        // Calculate scores for week 1 & 2
         $week1->loadMissing('outcome');
         $week2->loadMissing('outcome');
 
         app(ScoreWeek::class)->run($week1, $admin);
         app(ScoreWeek::class)->run($week2, $admin);
+    }
+
+    /**
+     * @param  array<string, mixed>  $values
+     * @return list<array<string, mixed>>
+     */
+    private function defaultPayload(Week $week, array $values): array
+    {
+        $payload = [];
+
+        foreach ($week->phases->sortBy('position')->values() as $phase) {
+            $entry = [
+                'phase_id' => $phase->id,
+                'position' => $phase->position,
+                'type' => $phase->type,
+            ];
+
+            if ($phase->type === WeekPhaseManager::TYPE_HOH) {
+                $entry['hoh_ids'] = $values['hoh_ids'] ?? [];
+                $payload[] = $entry;
+
+                continue;
+            }
+
+            if ($phase->type === WeekPhaseManager::TYPE_NOMINEES) {
+                $entry['nominee_ids'] = $values['nominee_ids'] ?? [];
+                $payload[] = $entry;
+
+                continue;
+            }
+
+            if ($phase->type === WeekPhaseManager::TYPE_VETO) {
+                $entry['veto_used'] = (bool) ($values['veto_used'] ?? false);
+                $entry['winner_ids'] = $values['winner_ids'] ?? [];
+                $entry['saved_ids'] = $values['saved_ids'] ?? [];
+                $entry['replacement_ids'] = $values['replacement_ids'] ?? [];
+                $payload[] = $entry;
+
+                continue;
+            }
+
+            if ($phase->type === WeekPhaseManager::TYPE_EVICTIONS) {
+                $entry['evicted_ids'] = $values['evicted_ids'] ?? [];
+            }
+
+            $payload[] = $entry;
+        }
+
+        return $payload;
     }
 }

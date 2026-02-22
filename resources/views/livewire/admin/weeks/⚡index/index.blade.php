@@ -13,13 +13,59 @@
             <div class="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-zinc-900">
                 <form wire:submit="save" class="grid gap-4">
                     <flux:input wire:model="form.number" :label="__('Week #')" type="number" min="1" required />
-
-                    <div class="grid gap-4 md:grid-cols-3">
-                        <flux:input wire:model="form.boss_count" :label="__('Bosses')" type="number" min="1" max="20" required />
-                        <flux:input wire:model="form.nominee_count" :label="__('Nominees')" type="number" min="1" max="20" required />
-                        <flux:input wire:model="form.evicted_count" :label="__('Evicted')" type="number" min="1" max="20" required />
-                    </div>
                     <flux:input wire:model="form.name" :label="__('Name (optional)')" />
+
+                    <div class="grid gap-3">
+                        <div class="flex items-center justify-between gap-3">
+                            <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ __('Phases') }}</div>
+                            <flux:button type="button" size="sm" wire:click="addPhase">{{ __('Add Phase') }}</flux:button>
+                        </div>
+
+                        <div class="grid gap-3">
+                            @foreach ($form['phases'] as $index => $phase)
+                                <div class="rounded-lg border border-neutral-200 p-4 dark:border-neutral-700" wire:key="admin-week-phase-{{ $index }}">
+                                    <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                        <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                                            {{ __('Phase') }} {{ $phase['position'] ?? ($index + 1) }} · {{ $this->phaseTypeLabel($phase['type'] ?? 'hoh') }}
+                                        </div>
+                                        <flux:button type="button" size="xs" variant="danger" wire:click="removePhase({{ $index }})">
+                                            {{ __('Remove Phase') }}
+                                        </flux:button>
+                                    </div>
+
+                                    <div class="grid gap-4 md:grid-cols-2">
+                                        <flux:input wire:model="form.phases.{{ $index }}.position" :label="__('Order')" type="number" min="1" />
+                                        <flux:select wire:model.live="form.phases.{{ $index }}.type" :label="__('Phase Type')">
+                                            <option value="hoh">{{ __('Head of Household') }}</option>
+                                            <option value="nominees">{{ __('Nominees') }}</option>
+                                            <option value="veto">{{ __('Veto') }}</option>
+                                            <option value="evictions">{{ __('Evictions') }}</option>
+                                        </flux:select>
+                                    </div>
+
+                                    <div class="mt-4 grid gap-4 md:grid-cols-2">
+                                        @if (($phase['type'] ?? null) === 'hoh')
+                                            <flux:input wire:model="form.phases.{{ $index }}.hoh_count" :label="__('Head of Household Count')" type="number" min="0" max="20" />
+                                        @endif
+
+                                        @if (($phase['type'] ?? null) === 'nominees')
+                                            <flux:input wire:model="form.phases.{{ $index }}.nominee_count" :label="__('Nominee Count')" type="number" min="0" max="20" />
+                                        @endif
+
+                                        @if (($phase['type'] ?? null) === 'veto')
+                                            <flux:input wire:model="form.phases.{{ $index }}.winner_count" :label="__('Veto Winner Count')" type="number" min="0" max="20" />
+                                            <flux:input wire:model="form.phases.{{ $index }}.saved_count" :label="__('Saved Count')" type="number" min="0" max="20" />
+                                            <flux:input wire:model="form.phases.{{ $index }}.replacement_count" :label="__('Replacement Count')" type="number" min="0" max="20" />
+                                        @endif
+
+                                        @if (($phase['type'] ?? null) === 'evictions')
+                                            <flux:input wire:model="form.phases.{{ $index }}.evicted_count" :label="__('Evicted Count')" type="number" min="0" max="20" />
+                                        @endif
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
 
                     <flux:switch wire:model="form.is_locked" :label="__('Locked')" />
                     <flux:input wire:model="form.auto_lock_at" :label="__('Auto lock at (optional)')" type="datetime-local" />
@@ -49,7 +95,18 @@
                         <tbody class="divide-y divide-neutral-200 dark:divide-neutral-800">
                             @foreach ($weeks as $week)
                                 <tr>
-                                    <td class="px-4 py-3">{{ $week->name ?? __('Week').' '.$week->number }}</td>
+                                    <td class="px-4 py-3">
+                                        <div class="grid gap-1">
+                                            <span>{{ $week->name ?? __('Week').' '.$week->number }}</span>
+                                            <div class="flex flex-wrap gap-1 text-xs text-zinc-500 dark:text-zinc-400">
+                                                @foreach ($week->phases as $phase)
+                                                    <span class="rounded-full bg-zinc-100 px-2 py-0.5 dark:bg-zinc-800">
+                                                        {{ __('Phase') }} {{ $phase->position }} · {{ $this->phaseTypeLabel($phase->type) }}
+                                                    </span>
+                                                @endforeach
+                                            </div>
+                                        </div>
+                                    </td>
                                     <td class="px-4 py-3">
                                         <flux:button size="sm" :href="route('admin.weeks.outcome', $week)" wire:navigate.hover>
                                             {{ __('Set') }}

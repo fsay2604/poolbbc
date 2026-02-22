@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use App\Actions\Weeks\WeekPhaseManager;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Schema;
 
 class Prediction extends Model
 {
@@ -19,17 +21,7 @@ class Prediction extends Model
     protected $fillable = [
         'week_id',
         'user_id',
-        'hoh_houseguest_id',
-        'boss_houseguest_ids',
-        'nominee_1_houseguest_id',
-        'nominee_2_houseguest_id',
-        'nominee_houseguest_ids',
-        'veto_winner_houseguest_id',
-        'veto_used',
-        'saved_houseguest_id',
-        'replacement_nominee_houseguest_id',
-        'evicted_houseguest_id',
-        'evicted_houseguest_ids',
+        'phase_picks',
         'confirmed_at',
         'last_admin_edited_by_user_id',
         'last_admin_edited_at',
@@ -42,10 +34,11 @@ class Prediction extends Model
     protected function casts(): array
     {
         return [
-            'veto_used' => 'boolean',
+            'phase_picks' => 'array',
             'boss_houseguest_ids' => 'array',
             'nominee_houseguest_ids' => 'array',
             'evicted_houseguest_ids' => 'array',
+            'veto_used' => 'boolean',
             'confirmed_at' => 'datetime',
             'last_admin_edited_at' => 'datetime',
         ];
@@ -59,41 +52,6 @@ class Prediction extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
-    }
-
-    public function hoh(): BelongsTo
-    {
-        return $this->belongsTo(Houseguest::class, 'hoh_houseguest_id');
-    }
-
-    public function nominee1(): BelongsTo
-    {
-        return $this->belongsTo(Houseguest::class, 'nominee_1_houseguest_id');
-    }
-
-    public function nominee2(): BelongsTo
-    {
-        return $this->belongsTo(Houseguest::class, 'nominee_2_houseguest_id');
-    }
-
-    public function vetoWinner(): BelongsTo
-    {
-        return $this->belongsTo(Houseguest::class, 'veto_winner_houseguest_id');
-    }
-
-    public function savedHouseguest(): BelongsTo
-    {
-        return $this->belongsTo(Houseguest::class, 'saved_houseguest_id');
-    }
-
-    public function replacementNominee(): BelongsTo
-    {
-        return $this->belongsTo(Houseguest::class, 'replacement_nominee_houseguest_id');
-    }
-
-    public function evicted(): BelongsTo
-    {
-        return $this->belongsTo(Houseguest::class, 'evicted_houseguest_id');
     }
 
     public function score(): HasOne
@@ -111,5 +69,80 @@ class Prediction extends Model
         $now ??= now();
 
         $this->confirmed_at = $now;
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (self $prediction): void {
+            $prediction->hydratePhasePayloadFromLegacyAttributesIfNeeded();
+            $prediction->removeMissingLegacyColumnsFromAttributes();
+        });
+    }
+
+    private function hydratePhasePayloadFromLegacyAttributesIfNeeded(): void
+    {
+        if (is_array($this->phase_picks) && $this->phase_picks !== []) {
+            return;
+        }
+
+        $legacyColumns = $this->legacyColumns();
+        $attributes = $this->getAttributes();
+        $hasLegacyAttributes = false;
+
+        foreach ($legacyColumns as $column) {
+            if (array_key_exists($column, $attributes)) {
+                $hasLegacyAttributes = true;
+
+                break;
+            }
+        }
+
+        if (! $hasLegacyAttributes || ! is_numeric($this->week_id)) {
+            return;
+        }
+
+        $week = $this->relationLoaded('week')
+            ? $this->getRelation('week')
+            : Week::query()->with('phases')->find((int) $this->week_id);
+
+        if (! $week instanceof Week) {
+            return;
+        }
+
+        $payload = app(WeekPhaseManager::class)->legacyPayloadForModel($this, $week->phases);
+        $this->phase_picks = $payload;
+    }
+
+    private function removeMissingLegacyColumnsFromAttributes(): void
+    {
+        foreach ($this->legacyColumns() as $column) {
+            if (Schema::hasColumn($this->getTable(), $column)) {
+                continue;
+            }
+
+            if (array_key_exists($column, $this->getAttributes())) {
+                unset($this->{$column});
+            }
+        }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function legacyColumns(): array
+    {
+        return [
+            'hoh_houseguest_id',
+            'boss_houseguest_ids',
+            'nominee_1_houseguest_id',
+            'nominee_2_houseguest_id',
+            'nominee_houseguest_ids',
+            'veto_winner_houseguest_id',
+            'veto_used',
+            'saved_houseguest_id',
+            'replacement_nominee_houseguest_id',
+            'evicted_houseguest_id',
+            'evicted_houseguest_ids',
+        ];
     }
 }

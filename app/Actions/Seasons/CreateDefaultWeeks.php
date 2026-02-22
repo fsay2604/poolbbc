@@ -2,11 +2,14 @@
 
 namespace App\Actions\Seasons;
 
+use App\Actions\Weeks\WeekPhaseManager;
 use App\Models\Season;
 use Illuminate\Support\Carbon;
 
 class CreateDefaultWeeks
 {
+    public function __construct(public WeekPhaseManager $weekPhaseManager) {}
+
     public function run(Season $season): void
     {
         if ($season->weeks()->exists()) {
@@ -38,6 +41,10 @@ class CreateDefaultWeeks
             ];
         }
 
-        $season->weeks()->createMany($weeks);
+        $createdWeeks = $season->weeks()->createMany($weeks);
+
+        foreach ($createdWeeks as $week) {
+            $this->weekPhaseManager->ensureDefaultPhases($week);
+        }
     }
 }

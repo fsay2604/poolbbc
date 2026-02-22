@@ -1,13 +1,14 @@
 <?php
 
+use App\Actions\Dashboard\BuildDashboardStats;
+use App\Actions\Predictions\RecalculateAllScores;
+use App\Actions\Weeks\WeekPhaseManager;
 use App\Http\Requests\Admin\SaveWeekOutcomeRequest;
 use App\Models\Houseguest;
 use App\Models\Week;
 use App\Models\WeekOutcome;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
-use App\Actions\Dashboard\BuildDashboardStats;
-use App\Actions\Predictions\RecalculateAllScores;
 use Livewire\Component;
 
 new class extends Component {
@@ -20,70 +21,29 @@ new class extends Component {
 
     /** @var array<string, mixed> */
     public array $form = [
-        'boss_houseguest_ids' => [],
-        'nominee_houseguest_ids' => [],
-        'veto_winner_houseguest_id' => null,
-        'veto_used' => null,
-        'saved_houseguest_id' => null,
-        'replacement_nominee_houseguest_id' => null,
-        'evicted_houseguest_ids' => [],
+        'phases' => [],
     ];
 
     public function mount(Week $week): void
     {
         Gate::authorize('admin');
 
-        $this->week = $week->loadMissing('season', 'outcome');
+        $this->week = $week->loadMissing('season', 'phases', 'outcome');
+        $this->phaseManager()->ensureDefaultPhases($this->week);
+        $this->week->load('phases', 'outcome');
+
         $this->outcome = $this->week->outcome;
-
-        $bossCount = $this->bossCount();
-        $nomineeCount = $this->nomineeCount();
-        $evictedCount = $this->evictedCount();
-
-        $selectedHouseguestIds = [];
-
-        if ($this->outcome) {
-            $bosses = $this->normalizeIdList($this->outcome->boss_houseguest_ids);
-            if (count($bosses) === 0) {
-                $bosses = $this->normalizeIdList([$this->outcome->hoh_houseguest_id]);
-            }
-
-            $nominees = $this->normalizeIdList($this->outcome->nominee_houseguest_ids);
-            if (count($nominees) === 0) {
-                $nominees = $this->normalizeIdList([
-                    $this->outcome->nominee_1_houseguest_id,
-                    $this->outcome->nominee_2_houseguest_id,
-                ]);
-            }
-
-            $evicted = $this->normalizeIdList($this->outcome->evicted_houseguest_ids);
-            if (count($evicted) === 0) {
-                $evicted = $this->normalizeIdList([$this->outcome->evicted_houseguest_id]);
-            }
-
-            $selectedHouseguestIds = array_values(array_unique(array_merge(
-                $bosses,
-                $nominees,
-                $evicted,
-                $this->normalizeIdList([$this->outcome->veto_winner_houseguest_id]),
-                $this->normalizeIdList([$this->outcome->saved_houseguest_id]),
-                $this->normalizeIdList([$this->outcome->replacement_nominee_houseguest_id]),
-            )));
-
-            $this->form = [
-                'boss_houseguest_ids' => $this->padToCount($bosses, $bossCount),
-                'nominee_houseguest_ids' => $this->padToCount($nominees, $nomineeCount),
-                'veto_winner_houseguest_id' => $this->outcome->veto_winner_houseguest_id,
-                'veto_used' => $this->normalizeVetoUsedSelectValue($this->outcome->veto_used),
-                'saved_houseguest_id' => $this->outcome->saved_houseguest_id,
-                'replacement_nominee_houseguest_id' => $this->outcome->replacement_nominee_houseguest_id,
-                'evicted_houseguest_ids' => $this->padToCount($evicted, $evictedCount),
-            ];
-        } else {
-            $this->form['boss_houseguest_ids'] = $this->padToCount([], $bossCount);
-            $this->form['nominee_houseguest_ids'] = $this->padToCount([], $nomineeCount);
-            $this->form['evicted_houseguest_ids'] = $this->padToCount([], $evictedCount);
+        $existingPayload = $this->outcome?->phase_results;
+        if ($this->outcome !== null && (! is_array($existingPayload) || $existingPayload === [])) {
+            $existingPayload = $this->phaseManager()->legacyPayloadForModel($this->outcome, $this->week->phases);
         }
+
+        $this->form['phases'] = $this->phaseManager()->buildSelectionRows(
+            $this->week->phases,
+            $existingPayload
+        );
+
+        $selectedHouseguestIds = $this->phaseManager()->selectedHouseguestIds($existingPayload);
 
         $this->houseguests = Houseguest::query()
             ->where('season_id', $this->week->season_id)
@@ -97,123 +57,30 @@ new class extends Component {
             ->get();
     }
 
-    private function bossCount(): int
-    {
-        return max(1, (int) ($this->week->boss_count ?? 1));
-    }
-
-    private function nomineeCount(): int
-    {
-        return max(1, (int) ($this->week->nominee_count ?? 2));
-    }
-
-    private function evictedCount(): int
-    {
-        return max(1, (int) ($this->week->evicted_count ?? 1));
-    }
-
-    /**
-     * @param  mixed  $value
-     * @return list<int>
-     */
-    private function normalizeIdList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            $value = [$value];
-        }
-
-        $ids = array_values(array_filter(array_map(
-            static fn ($id): ?int => is_numeric($id) ? (int) $id : null,
-            $value,
-        )));
-
-        $ids = array_values(array_unique($ids));
-        sort($ids);
-
-        return $ids;
-    }
-
-    /**
-     * @param  list<int>  $ids
-     * @return list<?int>
-     */
-    private function padToCount(array $ids, int $count): array
-    {
-        $padded = array_slice(array_values($ids), 0, $count);
-
-        while (count($padded) < $count) {
-            $padded[] = null;
-        }
-
-        return $padded;
-    }
-
-    public function updatedFormVetoUsed(mixed $value): void
-    {
-        $this->form['veto_used'] = $this->normalizeVetoUsedSelectValue($value);
-
-        if ($this->form['veto_used'] !== '1') {
-            $this->form['saved_houseguest_id'] = null;
-            $this->form['replacement_nominee_houseguest_id'] = null;
-        }
-    }
-
-    private function normalizeVetoUsedSelectValue(mixed $value): ?string
-    {
-        return match (true) {
-            $value === true, $value === 1, $value === '1' => '1',
-            $value === false, $value === 0, $value === '0' => '0',
-            default => null,
-        };
-    }
-
     public function save(): void
     {
         Gate::authorize('admin');
 
+        $this->normalizeVetoSwitchValues();
+
         $houseguestIds = $this->houseguests->pluck('id')->all();
+        $phaseDefinitions = $this->phaseManager()->phaseDefinitionsForValidation($this->week->phases);
 
-        $bossCount = $this->bossCount();
-        $nomineeCount = $this->nomineeCount();
-        $evictedCount = $this->evictedCount();
-
-        $request = (new SaveWeekOutcomeRequest())->setContext($houseguestIds, $bossCount, $nomineeCount, $evictedCount);
+        $request = (new SaveWeekOutcomeRequest())->setContext($houseguestIds, $phaseDefinitions);
         $validated = $this->validate($request->rules(), $request->messages(), $request->attributes());
 
-        $bosses = $this->padToCount($this->normalizeIdList($validated['form']['boss_houseguest_ids'] ?? []), $bossCount);
-        $nominees = $this->padToCount($this->normalizeIdList($validated['form']['nominee_houseguest_ids'] ?? []), $nomineeCount);
-        $evicted = $this->padToCount($this->normalizeIdList($validated['form']['evicted_houseguest_ids'] ?? []), $evictedCount);
-
-        if (! ($validated['form']['veto_used'] ?? false)) {
-            $validated['form']['saved_houseguest_id'] = null;
-            $validated['form']['replacement_nominee_houseguest_id'] = null;
-        }
-
-        $data = array_merge(
-            $validated['form'],
-            [
-                'boss_houseguest_ids' => $bosses,
-                'hoh_houseguest_id' => $bosses[0] ?? null,
-                'nominee_houseguest_ids' => $nominees,
-                'evicted_houseguest_ids' => $evicted,
-                'nominee_1_houseguest_id' => $nominees[0] ?? null,
-                'nominee_2_houseguest_id' => $nominees[1] ?? null,
-                'evicted_houseguest_id' => $evicted[0] ?? null,
-            ],
-        );
+        $payload = $this->phaseManager()->normalizeSelectionRows($validated['form']['phases'] ?? [], $this->week->phases);
 
         $outcome = WeekOutcome::query()->updateOrCreate(
             ['week_id' => $this->week->id],
-            array_merge(
-                $data,
-                [
-                    'last_admin_edited_by_user_id' => Auth::id(),
-                    'last_admin_edited_at' => now(),
-                ],
-            ),
+            [
+                'phase_results' => $payload,
+                'last_admin_edited_by_user_id' => Auth::id(),
+                'last_admin_edited_at' => now(),
+            ],
         );
 
-        $evictedIds = array_values(array_filter($this->normalizeIdList($evicted)));
+        $evictedIds = $this->phaseManager()->evictedIds($payload);
         if ($evictedIds !== []) {
             Houseguest::query()
                 ->where('season_id', $this->week->season_id)
@@ -232,5 +99,54 @@ new class extends Component {
 
         $this->outcome = $outcome;
         $this->dispatch('outcome-saved');
+    }
+
+    public function updated(string $name, mixed $value): void
+    {
+        if (preg_match('/^form\.phases\.(\d+)\.veto_used$/', $name, $matches) !== 1) {
+            return;
+        }
+
+        $phaseIndex = (int) $matches[1];
+        if (! isset($this->form['phases'][$phaseIndex])) {
+            return;
+        }
+
+        if (($this->form['phases'][$phaseIndex]['type'] ?? null) !== WeekPhaseManager::TYPE_VETO) {
+            return;
+        }
+
+        $this->form['phases'][$phaseIndex]['veto_used'] = $this->phaseManager()->normalizeVetoUsedValue($value);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function selectionLabels(string $type): array
+    {
+        return $this->phaseManager()->selectionLabels($type);
+    }
+
+    public function phaseTypeLabel(string $type): string
+    {
+        return $this->phaseManager()->phaseTypeLabel($type);
+    }
+
+    private function normalizeVetoSwitchValues(): void
+    {
+        foreach ($this->form['phases'] as $index => $phase) {
+            if (($phase['type'] ?? null) !== WeekPhaseManager::TYPE_VETO) {
+                continue;
+            }
+
+            $this->form['phases'][$index]['veto_used'] = $this->phaseManager()->normalizeVetoUsedValue(
+                $phase['veto_used'] ?? false
+            );
+        }
+    }
+
+    private function phaseManager(): WeekPhaseManager
+    {
+        return app(WeekPhaseManager::class);
     }
 };

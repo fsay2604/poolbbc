@@ -22,7 +22,7 @@
                         <tr>
                             <th class="px-4 py-3 text-left font-medium">{{ __('Week') }}</th>
                             <th class="px-4 py-3 text-left font-medium">{{ __('Status') }}</th>
-                            <th class="px-4 py-3 text-left font-medium">{{ __('Confirmation status') }}</th>
+                            {{-- <th class="px-4 py-3 text-left font-medium">{{ __('Confirmation status') }}</th> --}}
                             <th class="px-4 py-3"></th>
                         </tr>
                     </thead>
@@ -37,7 +37,7 @@
                                         <span class="text-green-600">{{ __('Open') }}</span>
                                     @endif
                                 </td>
-                                <td class="px-4 py-3">
+                                {{-- <td class="px-4 py-3">
                                     @php($prediction = $week->relationLoaded('predictions') ? $week->predictions->first() : null)
 
                                     @if ($prediction?->isConfirmed())
@@ -45,7 +45,7 @@
                                     @else
                                         <span class="text-zinc-500 dark:text-zinc-400">{{ __('Pending') }}</span>
                                     @endif
-                                </td>
+                                </td> --}}
                                 <td class="px-4 py-3 text-right">
                                     <flux:button size="sm" :href="route('weeks.show', $week)" wire:navigate.hover>
                                         {{ __('View') }}

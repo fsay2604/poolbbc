@@ -1,5 +1,15 @@
 <x-layouts.app :title="__('Dashboard')">
     <div class="flex w-full flex-1 flex-col gap-6">
+        <flux:card class="bg-accent/5">
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <flux:heading size="lg">Vos pools privés Big Brother</flux:heading>
+                    <flux:text class="mt-1">Créez un pool, invitez vos proches, repêchez vos célébrités et suivez le classement.</flux:text>
+                </div>
+                <flux:button :href="route('pools.index')" variant="primary" icon="user-group" wire:navigate.hover>Accéder à mes pools</flux:button>
+            </div>
+        </flux:card>
+
         <div class="grid gap-1">
             <flux:heading size="xl" level="1">{{ __('Houseguests') }}</flux:heading>
             @if ($season)

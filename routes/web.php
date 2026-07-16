@@ -65,6 +65,12 @@ Route::middleware(['auth'])->group(function () {
 
     Route::livewire('leaderboard', 'leaderboard')->name('leaderboard');
 
+    Route::livewire('pools', 'pools.index')->name('pools.index');
+    Route::livewire('pools/{pool}', 'pools.show')->name('pools.show');
+    Route::livewire('pools/{pool}/draft', 'pools.draft')->name('pools.draft');
+    Route::livewire('pools/{pool}/events', 'pools.events')->name('pools.events');
+    Route::livewire('pools/{pool}/leaderboard', 'pools.leaderboard')->name('pools.leaderboard');
+
     Route::middleware(['can:admin'])->prefix('admin')->group(function () {
         Route::livewire('seasons', 'admin.seasons.index')->name('admin.seasons.index');
         Route::livewire('season-outcome', 'admin.seasons.outcome')->name('admin.seasons.outcome');

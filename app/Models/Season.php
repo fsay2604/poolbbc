@@ -46,4 +46,9 @@ class Season extends Model
     {
         return $this->hasMany(Houseguest::class);
     }
+
+    public function pools(): HasMany
+    {
+        return $this->hasMany(Pool::class);
+    }
 }

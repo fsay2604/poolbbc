@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\DraftMode;
+use App\Enums\PoolCompetitionMode;
 use App\Enums\PoolStatus;
 use App\Models\Season;
 use App\Models\User;
@@ -29,10 +30,22 @@ class PoolFactory extends Factory
             'invite_code' => Str::upper(fake()->unique()->bothify('????####')),
             'timezone' => 'America/Toronto',
             'status' => PoolStatus::Registration,
+            'competition_mode' => PoolCompetitionMode::Hybrid,
+            'scoring_config' => \App\Models\Pool::defaultScoringConfig(),
             'max_members' => 12,
             'picks_per_member' => 2,
             'draft_mode' => DraftMode::Snake,
             'exclusive_draft' => true,
         ];
+    }
+
+    public function predictionOnly(): static
+    {
+        return $this->state(fn (): array => ['competition_mode' => PoolCompetitionMode::PredictionOnly]);
+    }
+
+    public function rosterOnly(): static
+    {
+        return $this->state(fn (): array => ['competition_mode' => PoolCompetitionMode::RosterOnly]);
     }
 }

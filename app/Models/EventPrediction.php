@@ -46,4 +46,27 @@ class EventPrediction extends Model
     {
         return $this->belongsToMany(EventOption::class, 'event_prediction_selections')->withTimestamps();
     }
+
+    protected static function booted(): void
+    {
+        $rejectReadOnlyPoolMutation = function (self $prediction): void {
+            $eventIds = collect([$prediction->event_id, $prediction->getRawOriginal('event_id')])
+                ->filter()
+                ->unique()
+                ->all();
+            $poolIds = Event::query()
+                ->whereKey($eventIds)
+                ->pluck('pool_id')
+                ->map(fn ($poolId): int => (int) $poolId)
+                ->unique()
+                ->values()
+                ->all();
+
+            Pool::assertAcceptsMutations(...$poolIds);
+        };
+
+        static::creating($rejectReadOnlyPoolMutation);
+        static::updating($rejectReadOnlyPoolMutation);
+        static::deleting($rejectReadOnlyPoolMutation);
+    }
 }

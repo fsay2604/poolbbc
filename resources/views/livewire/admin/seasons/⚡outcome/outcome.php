@@ -1,15 +1,18 @@
 <?php
 
+use App\Actions\Audit\RecordAuditLog;
 use App\Actions\Dashboard\BuildDashboardStats;
 use App\Actions\Predictions\RecalculateAllScores;
 use App\Http\Requests\Admin\SaveSeasonOutcomeRequest;
 use App\Models\Houseguest;
 use App\Models\Season;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Component;
 
-new class extends Component {
+new class extends Component
+{
     public ?Season $season = null;
 
     /** @var \Illuminate\Support\Collection<int, \App\Models\Houseguest> */
@@ -70,7 +73,7 @@ new class extends Component {
         ];
     }
 
-    public function save(): void
+    public function save(RecordAuditLog $recordAuditLog): void
     {
         Gate::authorize('admin');
 
@@ -78,10 +81,12 @@ new class extends Component {
 
         $houseguestIds = $this->houseguests->pluck('id')->all();
 
-        $request = (new SaveSeasonOutcomeRequest())->setHouseguestIds($houseguestIds);
+        $request = (new SaveSeasonOutcomeRequest)->setHouseguestIds($houseguestIds);
         $validated = $this->validate($request->rules(), $request->messages(), $request->attributes());
 
-        $this->season->forceFill([
+        $admin = Auth::user();
+        abort_if($admin === null, 403);
+        $outcome = [
             'winner_houseguest_id' => $validated['form']['winner_houseguest_id'],
             'first_evicted_houseguest_id' => $validated['form']['first_evicted_houseguest_id'],
             'top_6_houseguest_ids' => [
@@ -92,13 +97,22 @@ new class extends Component {
                 $validated['form']['top_6_5_houseguest_id'],
                 $validated['form']['top_6_6_houseguest_id'],
             ],
-        ])->save();
+        ];
+        $this->season = DB::transaction(function () use ($admin, $outcome, $recordAuditLog): Season {
+            $season = Season::query()->lockForUpdate()->findOrFail($this->season->id);
+            $attributes = array_keys($outcome);
+            $before = $season->only($attributes);
+            $season->forceFill($outcome)->save();
+            $recordAuditLog->handle(null, $admin, 'season.outcome_updated', $season, [
+                'before' => $before,
+                'after' => $season->only($attributes),
+            ]);
 
-        $admin = Auth::user();
-        abort_if($admin === null, 403);
+            return $season->fresh();
+        });
 
         app(RecalculateAllScores::class)->run(
-            season: $this->season->refresh(),
+            season: $this->season,
             admin: $admin,
             updateSeasonOutcome: false,
         );

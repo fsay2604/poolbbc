@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Predictions\PredictionVisibility;
 use App\Actions\Weeks\WeekPhaseManager;
 use App\Models\Houseguest;
 use App\Models\Prediction;
@@ -54,17 +55,12 @@ new class extends Component
             ->get()
             ->keyBy('id');
 
-        $this->predictions = Prediction::query()
-            ->with('score')
-            ->where('user_id', $this->user->id)
-            ->whereIn('week_id', $this->weeks->pluck('id'))
-            ->get()
-            ->keyBy('week_id');
+        $viewer = auth()->user();
+        abort_if($viewer === null, 403);
 
-        $this->seasonPrediction = SeasonPrediction::query()
-            ->where('season_id', $this->season->id)
-            ->where('user_id', $this->user->id)
-            ->first();
+        $visibility = app(PredictionVisibility::class);
+        $this->predictions = $visibility->weeklyFor($viewer, $this->user, $this->weeks);
+        $this->seasonPrediction = $visibility->seasonFor($viewer, $this->user, $this->season);
     }
 
     /**

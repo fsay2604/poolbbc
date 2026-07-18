@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Predictions\StoreWeekPrediction;
 use App\Actions\Weeks\WeekPhaseManager;
 use App\Http\Requests\Weeks\ConfirmWeekPredictionRequest;
 use App\Http\Requests\Weeks\SaveWeekPredictionRequest;
@@ -9,7 +10,8 @@ use App\Models\Week;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
-new class extends Component {
+new class extends Component
+{
     public Week $week;
 
     /** @var \Illuminate\Support\Collection<int, \App\Models\Houseguest> */
@@ -33,15 +35,13 @@ new class extends Component {
             ->where('user_id', Auth::id())
             ->first();
 
-        $isLocked = ($this->prediction?->isConfirmed() ?? false) || $this->week->isLocked();
+        $isLocked = $this->week->isLocked();
         $existingPayload = $this->prediction?->phase_picks;
         if ($this->prediction !== null && (! is_array($existingPayload) || $existingPayload === [])) {
             $existingPayload = $this->phaseManager()->legacyPayloadForModel($this->prediction, $this->week->phases);
         }
 
-        $selectedHouseguestIds = $isLocked
-            ? $this->phaseManager()->selectedHouseguestIds($existingPayload)
-            : [];
+        $selectedHouseguestIds = $this->phaseManager()->selectedHouseguestIds($existingPayload);
 
         $this->form['phases'] = $this->phaseManager()->buildSelectionRows(
             $this->week->phases,
@@ -51,7 +51,7 @@ new class extends Component {
         $this->houseguests = Houseguest::query()
             ->where('season_id', $this->week->season_id)
             ->when(
-                $isLocked && $selectedHouseguestIds !== [],
+                $selectedHouseguestIds !== [],
                 fn ($q) => $q->where(fn ($q) => $q->where('is_active', true)->orWhereIn('id', $selectedHouseguestIds)),
                 fn ($q) => $q->where('is_active', true),
             )
@@ -62,9 +62,7 @@ new class extends Component {
 
     public function getIsLockedProperty(): bool
     {
-        $confirmed = $this->prediction?->isConfirmed() ?? false;
-
-        return $confirmed || $this->week->isLocked();
+        return $this->week->isLocked();
     }
 
     public function updated(string $name, mixed $value): void
@@ -85,7 +83,7 @@ new class extends Component {
         $this->form['phases'][$phaseIndex]['veto_used'] = $this->phaseManager()->normalizeVetoUsedValue($value);
     }
 
-    public function save(): void
+    public function save(StoreWeekPrediction $storeWeekPrediction): void
     {
         if ($this->isLocked) {
             abort(403);
@@ -96,7 +94,7 @@ new class extends Component {
         $houseguestIds = $this->houseguests->pluck('id')->all();
         $phaseDefinitions = $this->phaseManager()->phaseDefinitionsForValidation($this->week->phases);
 
-        $request = (new SaveWeekPredictionRequest())->setContext(
+        $request = (new SaveWeekPredictionRequest)->setContext(
             $houseguestIds,
             $phaseDefinitions,
         );
@@ -104,20 +102,14 @@ new class extends Component {
 
         $payload = $this->phaseManager()->normalizeSelectionRows($validated['form']['phases'] ?? [], $this->week->phases);
 
-        $this->prediction = Prediction::query()->updateOrCreate(
-            [
-                'week_id' => $this->week->id,
-                'user_id' => Auth::id(),
-            ],
-            [
-                'phase_picks' => $payload,
-            ],
-        );
+        $user = Auth::user();
+        abort_if($user === null, 403);
+        $this->prediction = $storeWeekPrediction->handle($this->week, $user, $payload, false);
 
         $this->dispatch('prediction-saved');
     }
 
-    public function confirm(): void
+    public function confirm(StoreWeekPrediction $storeWeekPrediction): void
     {
         if ($this->isLocked) {
             abort(403);
@@ -128,7 +120,7 @@ new class extends Component {
         $houseguestIds = $this->houseguests->pluck('id')->all();
         $phaseDefinitions = $this->phaseManager()->phaseDefinitionsForValidation($this->week->phases);
 
-        $request = (new ConfirmWeekPredictionRequest())->setContext(
+        $request = (new ConfirmWeekPredictionRequest)->setContext(
             $houseguestIds,
             $phaseDefinitions,
         );
@@ -136,20 +128,9 @@ new class extends Component {
 
         $payload = $this->phaseManager()->normalizeSelectionRows($validated['form']['phases'] ?? [], $this->week->phases);
 
-        $prediction = Prediction::query()->updateOrCreate(
-            [
-                'week_id' => $this->week->id,
-                'user_id' => Auth::id(),
-            ],
-            [
-                'phase_picks' => $payload,
-            ],
-        );
-
-        $prediction->confirm();
-        $prediction->save();
-
-        $this->prediction = $prediction;
+        $user = Auth::user();
+        abort_if($user === null, 403);
+        $this->prediction = $storeWeekPrediction->handle($this->week, $user, $payload, true);
         $this->dispatch('prediction-confirmed');
     }
 

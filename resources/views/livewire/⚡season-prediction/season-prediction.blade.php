@@ -17,15 +17,15 @@
             <div class="flex flex-col gap-2">
                 <div class="text-sm">
                     @if ($this->isLocked)
-                        <span class="text-zinc-500 dark:text-zinc-400">{{ __('Locked (confirmed).') }}</span>
+                        <span class="text-zinc-500 dark:text-zinc-400">{{ __('Locked because the deadline has passed.') }}</span>
                     @else
-                        <span class="text-green-600">{{ __('Open — you can edit until you confirm.') }}</span>
+                        <span class="text-green-600">{{ __('Open — submitted predictions remain editable until the deadline.') }}</span>
                     @endif
                 </div>
 
                 @if ($prediction?->confirmed_at)
                     <div class="text-sm text-zinc-500 dark:text-zinc-400">
-                        {{ __('Confirmed at:') }} {{ $prediction->confirmed_at->format('Y-m-d H:i') }}
+                        {{ __('Submitted at:') }} {{ $prediction->confirmed_at->format('Y-m-d H:i') }}
                     </div>
                 @endif
             </div>
@@ -104,7 +104,7 @@
                 <div class="grid gap-2">
                     <div class="flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center">
                         <flux:button variant="primary" type="submit" :disabled="! $season || $this->isLocked" class="w-full sm:w-auto">{{ __('Save') }}</flux:button>
-                        <flux:button variant="danger" type="button" wire:click="confirm" :disabled="! $season || $this->isLocked" class="w-full sm:w-auto">{{ __('Confirm & Lock') }}</flux:button>
+                        <flux:button variant="danger" type="button" wire:click="confirm" :disabled="! $season || $this->isLocked" class="w-full sm:w-auto">{{ $prediction?->confirmed_at ? __('Update submission') : __('Submit prediction') }}</flux:button>
                     </div>
 
                     <div class="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 
 class SeasonPrediction extends Model
@@ -53,6 +54,11 @@ class SeasonPrediction extends Model
     public function firstEvicted(): BelongsTo
     {
         return $this->belongsTo(Houseguest::class, 'first_evicted_houseguest_id');
+    }
+
+    public function score(): HasOne
+    {
+        return $this->hasOne(SeasonPredictionScore::class);
     }
 
     public function isConfirmed(): bool

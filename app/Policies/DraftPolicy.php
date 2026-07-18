@@ -21,7 +21,8 @@ class DraftPolicy
      */
     public function view(User $user, Draft $draft): bool
     {
-        return $user->is_admin || $draft->pool->members()->whereBelongsTo($user)->where('status', 'active')->exists();
+        return $draft->pool->usesDraft()
+            && $draft->pool->members()->whereBelongsTo($user)->where('status', 'active')->exists();
     }
 
     /**
@@ -37,7 +38,7 @@ class DraftPolicy
      */
     public function update(User $user, Draft $draft): bool
     {
-        return $user->is_admin || $draft->pool->isManagedBy($user);
+        return $draft->pool->isManagedBy($user);
     }
 
     /**

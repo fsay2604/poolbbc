@@ -4,6 +4,7 @@ namespace App\Http\Requests\Events;
 
 use App\Enums\AnswerSource;
 use App\Enums\EventMode;
+use App\Enums\ResultPublicationMode;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -37,12 +38,15 @@ class CreateEventRequest extends FormRequest
             'eventForm.prediction_max_selections' => ['required', 'integer', 'between:1,20', 'gte:eventForm.prediction_min_selections'],
             'eventForm.result_min_selections' => ['required', 'integer', 'between:0,20'],
             'eventForm.result_max_selections' => ['required', 'integer', 'between:1,20', 'gte:eventForm.result_min_selections'],
+            'eventForm.result_publication_mode' => ['required', Rule::enum(ResultPublicationMode::class)],
             'eventForm.owner_points' => ['required', 'integer', 'between:-100,100'],
             'eventForm.prediction_points' => ['required', 'integer', 'between:-100,100'],
             'eventForm.exact_bonus' => ['required', 'integer', 'between:-100,100'],
             'eventForm.wrong_penalty' => ['required', 'integer', 'between:-100,0'],
             'eventForm.allow_negative' => ['required', 'boolean'],
             'eventForm.allow_none' => ['required', 'boolean'],
+            'eventForm.include_inactive_houseguests' => ['required', 'boolean'],
+            'eventForm.save_as_template' => ['required', 'boolean'],
             'customOptionsText' => ['nullable', 'string', 'max:2000'],
         ];
     }

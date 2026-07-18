@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use LogicException;
 
 class EventResult extends Model
 {
@@ -17,7 +18,41 @@ class EventResult extends Model
         'event_id', 'created_by', 'supersedes_id', 'version', 'status', 'correction_reason', 'published_at',
     ];
 
-    protected $attributes = ['status' => 'published'];
+    protected $attributes = ['status' => 'draft'];
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $result): void {
+            $poolIds = Event::query()
+                ->whereKey($result->event_id)
+                ->pluck('pool_id')
+                ->map(fn ($poolId): int => (int) $poolId)
+                ->all();
+
+            Pool::assertAcceptsMutations(...$poolIds);
+        });
+
+        static::updating(function (self $result): void {
+            $dirtyAttributes = array_keys($result->getDirty());
+            $allowedAttributes = ['status', 'published_at', 'updated_at'];
+            $isPublication = $result->getRawOriginal('status') === 'draft'
+                && $result->status === 'published'
+                && $result->published_at !== null
+                && array_diff($dirtyAttributes, $allowedAttributes) === [];
+            $isDraftAmendment = $result->getRawOriginal('status') === 'draft'
+                && $result->status === 'draft'
+                && $result->published_at === null
+                && array_diff($dirtyAttributes, ['correction_reason', 'updated_at']) === [];
+
+            if (! $isPublication && ! $isDraftAmendment) {
+                throw new LogicException('Published event results are immutable; create a correction version instead.');
+            }
+        });
+
+        static::deleting(function (): never {
+            throw new LogicException('Event result history cannot be removed.');
+        });
+    }
 
     protected function casts(): array
     {

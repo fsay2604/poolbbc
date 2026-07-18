@@ -33,6 +33,8 @@ test('creating a season auto-creates 12 weeks starting the second Sunday of Janu
     Livewire::test('admin.seasons.index')
         ->set('form.name', 'Season 2026')
         ->set('form.is_active', true)
+        ->set('form.prediction_opens_at', '2026-01-04T12:00')
+        ->set('form.prediction_locks_at', '2026-01-10T19:00')
         ->call('save')
         ->assertHasNoErrors();
 

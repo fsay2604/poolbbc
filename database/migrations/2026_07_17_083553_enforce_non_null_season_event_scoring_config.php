@@ -1,0 +1,33 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        if (DB::table('season_events')->whereNull('scoring_config')->exists()) {
+            throw new RuntimeException('Season event scoring snapshots must be backfilled before enforcing the non-null constraint.');
+        }
+
+        Schema::table('season_events', function (Blueprint $table) {
+            $table->json('scoring_config')->nullable(false)->change();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::table('season_events', function (Blueprint $table) {
+            $table->json('scoring_config')->nullable()->change();
+        });
+    }
+};

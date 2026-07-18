@@ -34,4 +34,22 @@ class PoolInvitation extends Model
     {
         return $this->belongsTo(User::class, 'accepted_by');
     }
+
+    protected static function booted(): void
+    {
+        $rejectReadOnlyPoolMutation = function (self $invitation): void {
+            $poolIds = collect([$invitation->pool_id, $invitation->getRawOriginal('pool_id')])
+                ->filter()
+                ->map(fn ($poolId): int => (int) $poolId)
+                ->unique()
+                ->values()
+                ->all();
+
+            Pool::assertAcceptsMutations(...$poolIds);
+        };
+
+        static::creating($rejectReadOnlyPoolMutation);
+        static::updating($rejectReadOnlyPoolMutation);
+        static::deleting($rejectReadOnlyPoolMutation);
+    }
 }

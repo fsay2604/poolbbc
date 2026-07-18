@@ -10,7 +10,10 @@ use App\Models\User;
 use App\Models\Week;
 
 test('users can view prediction details for another user', function () {
-    $season = Season::factory()->create(['is_active' => true]);
+    $season = Season::factory()->create([
+        'is_active' => true,
+        'prediction_locks_at' => now()->subMinute(),
+    ]);
 
     $houseguests = Houseguest::factory()
         ->for($season)
@@ -27,7 +30,7 @@ test('users can view prediction details for another user', function () {
         )
         ->create(['is_active' => true]);
 
-    $week = Week::factory()->for($season)->create(['number' => 1]);
+    $week = Week::factory()->for($season)->create(['number' => 1, 'is_locked' => true]);
 
     $predictedUser = User::factory()->create(['name' => 'Alice']);
     $viewer = User::factory()->create();
@@ -43,6 +46,7 @@ test('users can view prediction details for another user', function () {
         'saved_houseguest_id' => $houseguests[6]->id,
         'replacement_nominee_houseguest_id' => $houseguests[7]->id,
         'evicted_houseguest_id' => $houseguests[7]->id,
+        'confirmed_at' => now(),
     ]);
 
     SeasonPrediction::factory()->create([
@@ -51,6 +55,7 @@ test('users can view prediction details for another user', function () {
         'winner_houseguest_id' => $houseguests[0]->id,
         'first_evicted_houseguest_id' => $houseguests[1]->id,
         'top_6_houseguest_ids' => $houseguests->take(6)->pluck('id')->all(),
+        'confirmed_at' => now(),
     ]);
 
     $weekLabel = __('Week').' '.$week->number;

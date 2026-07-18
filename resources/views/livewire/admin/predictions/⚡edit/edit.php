@@ -8,7 +8,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Component;
 
-new class extends Component {
+new class extends Component
+{
     public Prediction $prediction;
 
     /** @var \Illuminate\Support\Collection<int, \App\Models\Houseguest> */
@@ -23,6 +24,7 @@ new class extends Component {
     public function mount(Prediction $prediction): void
     {
         Gate::authorize('admin');
+        Gate::authorize('view', $prediction);
 
         $this->prediction = $prediction->loadMissing('user', 'week.season', 'week.phases');
         $this->phaseManager()->ensureDefaultPhases($this->prediction->week);
@@ -51,13 +53,14 @@ new class extends Component {
     public function save(): void
     {
         Gate::authorize('admin');
+        Gate::authorize('update', $this->prediction);
 
         $this->normalizeVetoSwitchValues();
 
         $houseguestIds = $this->houseguests->pluck('id')->all();
         $phaseDefinitions = $this->phaseManager()->phaseDefinitionsForValidation($this->prediction->week->phases);
 
-        $request = (new UpdatePredictionRequest())->setContext($houseguestIds, $phaseDefinitions);
+        $request = (new UpdatePredictionRequest)->setContext($houseguestIds, $phaseDefinitions);
         $validated = $this->validate($request->rules(), $request->messages(), $request->attributes());
 
         $payload = $this->phaseManager()->normalizeSelectionRows($validated['form']['phases'] ?? [], $this->prediction->week->phases);

@@ -3,8 +3,10 @@
 namespace App\Actions\Scoring;
 
 use App\Enums\EventMode;
+use App\Enums\PredictionStatus;
 use App\Models\Event;
 use Illuminate\Support\Collection;
+use Illuminate\Validation\ValidationException;
 
 class PreviewEventScore
 {
@@ -13,12 +15,27 @@ class PreviewEventScore
      */
     public function handle(Event $event, array $optionIds): Collection
     {
-        $event->load(['predictions.options']);
+        $optionIds = array_values(array_unique(array_map('intval', $optionIds)));
         $resultOptions = $event->options()->whereKey($optionIds)->get();
+        if ($resultOptions->count() !== count($optionIds)
+            || count($optionIds) < $event->result_min_selections
+            || count($optionIds) > $event->result_max_selections) {
+            throw ValidationException::withMessages(['result' => __('The official result selection is invalid.')]);
+        }
+
+        if (count($optionIds) > 1 && $resultOptions->contains('is_none', true)) {
+            throw ValidationException::withMessages([
+                'result' => __('The explicit none option cannot be combined with another answer.'),
+            ]);
+        }
+
+        $event->load(['predictions' => fn ($query) => $query
+            ->whereIn('status', [PredictionStatus::Submitted->value, PredictionStatus::Locked->value])
+            ->with('options')]);
         $resultOptionIds = $resultOptions->pluck('id')->sort()->values();
         $resultHouseguestIds = $resultOptions->pluck('houseguest_id')->filter();
 
-        return $event->pool->activeMembers()
+        return $event->pool->competitionMembers()
             ->with(['user', 'draftPicks'])
             ->get()
             ->map(function ($member) use ($event, $resultOptionIds, $resultHouseguestIds): array {

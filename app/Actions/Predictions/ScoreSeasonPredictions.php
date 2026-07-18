@@ -6,23 +6,42 @@ use App\Models\Season;
 use App\Models\SeasonPrediction;
 use App\Models\SeasonPredictionScore;
 use App\Models\User;
+use App\Support\LegacyFlowAuthority;
 use Illuminate\Support\Carbon;
+use Illuminate\Validation\ValidationException;
 
 class ScoreSeasonPredictions
 {
-    public function __construct(public ScoreSeasonPrediction $scoreSeasonPrediction) {}
+    public function __construct(
+        public ScoreSeasonPrediction $scoreSeasonPrediction,
+        private LegacyFlowAuthority $legacyFlowAuthority,
+    ) {}
 
     public function run(Season $season, ?User $admin = null, ?Carbon $now = null): void
     {
+        if ($this->legacyFlowAuthority->cutoverEnabled()) {
+            throw ValidationException::withMessages([
+                'scoring' => __('Legacy season scoring is read-only after canonical cutover.'),
+            ]);
+        }
+
         $now ??= now();
 
+        SeasonPredictionScore::query()
+            ->where('season_id', $season->id)
+            ->whereHas('seasonPrediction', fn ($query) => $query->whereNull('confirmed_at'))
+            ->delete();
+
         if (! $this->isReadyToScore($season)) {
+            SeasonPredictionScore::query()->where('season_id', $season->id)->delete();
+
             return;
         }
 
         SeasonPrediction::query()
             ->with('user')
             ->where('season_id', $season->id)
+            ->whereNotNull('confirmed_at')
             ->whereHas('user')
             ->each(function (SeasonPrediction $prediction) use ($season, $now): void {
                 $scored = $this->scoreSeasonPrediction->score($prediction, $season);

@@ -30,4 +30,22 @@ class Round extends Model
     {
         return $this->hasMany(Event::class)->orderBy('position');
     }
+
+    protected static function booted(): void
+    {
+        $rejectReadOnlyPoolMutation = function (self $round): void {
+            $poolIds = collect([$round->pool_id, $round->getRawOriginal('pool_id')])
+                ->filter()
+                ->map(fn ($poolId): int => (int) $poolId)
+                ->unique()
+                ->values()
+                ->all();
+
+            Pool::assertAcceptsMutations(...$poolIds);
+        };
+
+        static::creating($rejectReadOnlyPoolMutation);
+        static::updating($rejectReadOnlyPoolMutation);
+        static::deleting($rejectReadOnlyPoolMutation);
+    }
 }

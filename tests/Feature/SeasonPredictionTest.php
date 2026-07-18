@@ -36,7 +36,7 @@ test('user can save a draft season prediction', function () {
     expect($prediction->confirmed_at)->toBeNull();
 });
 
-test('user can confirm and lock season predictions', function () {
+test('user can submit and continue editing season predictions until the deadline', function () {
     $user = User::factory()->create();
     $season = Season::factory()->create(['is_active' => true]);
 
@@ -76,7 +76,7 @@ test('user can confirm and lock season predictions', function () {
 
     Livewire::test('season-prediction')
         ->call('save')
-        ->assertStatus(403);
+        ->assertHasNoErrors();
 });
 
 test('user cannot pick the same winner and first evicted when confirming', function () {
@@ -162,9 +162,12 @@ test('user cannot confirm when required fields are missing', function () {
         ]);
 });
 
-test('locked season predictions keep inactive selections visible', function () {
+test('deadline-locked season predictions keep inactive selections visible', function () {
     $user = User::factory()->create();
-    $season = Season::factory()->create(['is_active' => true]);
+    $season = Season::factory()->create([
+        'is_active' => true,
+        'prediction_locks_at' => now()->subMinute(),
+    ]);
 
     $inactiveSelected = Houseguest::factory()->for($season)->create([
         'is_active' => false,

@@ -2,8 +2,10 @@
 
 namespace App\Actions\Drafts;
 
+use App\Actions\Audit\RecordAuditLog;
 use App\Enums\DraftMode;
 use App\Enums\DraftStatus;
+use App\Enums\PoolMemberStatus;
 use App\Enums\PoolStatus;
 use App\Models\Draft;
 use App\Models\DraftPick;
@@ -14,17 +16,23 @@ use Illuminate\Validation\ValidationException;
 
 class MakeDraftPick
 {
+    public function __construct(private RecordAuditLog $recordAuditLog) {}
+
     public function handle(Draft $draft, PoolMember $member, Houseguest $houseguest): DraftPick
     {
         return DB::transaction(function () use ($draft, $member, $houseguest): DraftPick {
             $draft = Draft::query()->lockForUpdate()->findOrFail($draft->id);
             $pool = $draft->pool()->with('season')->lockForUpdate()->firstOrFail();
+            $member = PoolMember::query()->lockForUpdate()->findOrFail($member->id);
+            $houseguest = Houseguest::query()->lockForUpdate()->findOrFail($houseguest->id);
 
             if ($draft->status !== DraftStatus::Active) {
                 throw ValidationException::withMessages(['houseguest' => __('The draft is not active.')]);
             }
 
-            if ($draft->current_pool_member_id !== $member->id || $member->pool_id !== $pool->id) {
+            if ($draft->current_pool_member_id !== $member->id
+                || $member->pool_id !== $pool->id
+                || $member->status !== PoolMemberStatus::Active) {
                 throw ValidationException::withMessages(['houseguest' => __('It is not your turn to draft.')]);
             }
 
@@ -56,6 +64,10 @@ class MakeDraftPick
             $totalPicks = $memberCount * $pool->picks_per_member;
 
             if ($nextPickNumber > $totalPicks) {
+                $before = [
+                    'draft' => ['status' => $draft->status->value],
+                    'pool' => ['status' => $pool->status->value],
+                ];
                 $draft->update([
                     'status' => DraftStatus::Completed,
                     'current_pool_member_id' => null,
@@ -63,6 +75,13 @@ class MakeDraftPick
                     'completed_at' => now(),
                 ]);
                 $pool->update(['status' => PoolStatus::Active]);
+                $this->recordAuditLog->handle($pool, $member->user()->firstOrFail(), 'draft.completed', $draft, [
+                    'before' => $before,
+                    'after' => [
+                        'draft' => ['status' => $draft->status->value],
+                        'pool' => ['status' => $pool->status->value],
+                    ],
+                ]);
 
                 return $pick;
             }

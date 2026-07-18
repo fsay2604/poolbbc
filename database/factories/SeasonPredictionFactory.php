@@ -37,4 +37,9 @@ class SeasonPredictionFactory extends Factory
             'confirmed_at' => null,
         ];
     }
+
+    public function submitted(): static
+    {
+        return $this->state(fn (): array => ['confirmed_at' => now()]);
+    }
 }

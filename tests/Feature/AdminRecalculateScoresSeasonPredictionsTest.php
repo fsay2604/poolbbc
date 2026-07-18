@@ -15,12 +15,21 @@ test('admin recalculate also scores season predictions', function () {
     $season = Season::factory()->create(['is_active' => true]);
 
     $week16 = Week::factory()->for($season)->create(['number' => 16]);
-    WeekOutcome::factory()->for($week16)->create();
 
     $houseguests = Houseguest::factory()
         ->for($season)
         ->count(8)
         ->create(['is_active' => true]);
+
+    $evictionPhase = $week16->phases()->where('type', 'evictions')->firstOrFail();
+    WeekOutcome::factory()->for($week16)->create([
+        'phase_results' => [[
+            'phase_id' => $evictionPhase->id,
+            'position' => $evictionPhase->position,
+            'type' => 'evictions',
+            'evicted_ids' => [$houseguests[1]->id],
+        ]],
+    ]);
 
     $season->forceFill([
         'winner_houseguest_id' => $houseguests[0]->id,
@@ -30,7 +39,7 @@ test('admin recalculate also scores season predictions', function () {
 
     $user = User::factory()->create();
 
-    $prediction = SeasonPrediction::factory()->create([
+    $prediction = SeasonPrediction::factory()->submitted()->create([
         'season_id' => $season->id,
         'user_id' => $user->id,
         'winner_houseguest_id' => $houseguests[0]->id,

@@ -34,4 +34,9 @@ class PredictionFactory extends Factory
             'admin_edit_count' => 0,
         ];
     }
+
+    public function submitted(): static
+    {
+        return $this->state(fn (): array => ['confirmed_at' => now()]);
+    }
 }

@@ -101,14 +101,14 @@ class WeeklyPredictionPhasesIndependentTest extends TestCase
         $season = Season::factory()->create(['is_active' => true]);
         $week = Week::factory()->for($season)->create([
             'is_locked' => false,
-            'auto_lock_at' => Carbon::parse('2026-01-10 19:00:00'),
+            'auto_lock_at' => Carbon::parse('2026-01-03 19:00:00'),
         ]);
 
         $boss = Houseguest::factory()->for($season)->create(['is_active' => true]);
         $other = Houseguest::factory()->for($season)->create(['is_active' => true]);
         $hg3 = Houseguest::factory()->for($season)->create(['is_active' => true]);
 
-        $prediction = Prediction::factory()->for($week)->for($user)->create([
+        $prediction = Prediction::factory()->submitted()->for($week)->for($user)->create([
             'phase_picks' => [
                 [
                     'phase_id' => $week->phases()->where('type', 'hoh')->value('id'),

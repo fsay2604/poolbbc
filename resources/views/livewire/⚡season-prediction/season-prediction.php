@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Predictions\StoreSeasonPrediction;
 use App\Http\Requests\SeasonPrediction\ConfirmSeasonPredictionRequest;
 use App\Http\Requests\SeasonPrediction\SaveSeasonPredictionRequest;
 use App\Models\Houseguest;
@@ -8,7 +9,8 @@ use App\Models\SeasonPrediction;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
-new class extends Component {
+new class extends Component
+{
     public ?Season $season = null;
 
     /** @var \Illuminate\Support\Collection<int, \App\Models\Houseguest> */
@@ -44,7 +46,7 @@ new class extends Component {
             ->first();
 
         $selectedHouseguestIds = [];
-        $isLocked = $this->prediction?->isConfirmed() ?? false;
+        $isLocked = $this->season->predictionsAreLocked();
 
         if ($this->prediction) {
             $top6 = $this->prediction->top_6_houseguest_ids ?? [];
@@ -83,10 +85,10 @@ new class extends Component {
 
     public function getIsLockedProperty(): bool
     {
-        return $this->prediction?->isConfirmed() ?? false;
+        return $this->season === null || ! $this->season->predictionsAreOpen();
     }
 
-    public function save(): void
+    public function save(StoreSeasonPrediction $storeSeasonPrediction): void
     {
         abort_if($this->season === null, 422);
 
@@ -95,7 +97,7 @@ new class extends Component {
         }
 
         $houseguestIds = $this->houseguests->pluck('id')->all();
-        $request = (new SaveSeasonPredictionRequest())->setHouseguestIds($houseguestIds);
+        $request = (new SaveSeasonPredictionRequest)->setHouseguestIds($houseguestIds);
         $validated = $this->validate($request->rules(), $request->messages(), $request->attributes());
 
         $top6 = [
@@ -107,22 +109,18 @@ new class extends Component {
             $validated['form']['top_6_6_houseguest_id'],
         ];
 
-        $this->prediction = SeasonPrediction::query()->updateOrCreate(
-            [
-                'season_id' => $this->season->id,
-                'user_id' => Auth::id(),
-            ],
-            [
-                'winner_houseguest_id' => $validated['form']['winner_houseguest_id'],
-                'first_evicted_houseguest_id' => $validated['form']['first_evicted_houseguest_id'],
-                'top_6_houseguest_ids' => $top6,
-            ],
-        );
+        $user = Auth::user();
+        abort_if($user === null, 403);
+        $this->prediction = $storeSeasonPrediction->handle($this->season, $user, [
+            'winner_houseguest_id' => $validated['form']['winner_houseguest_id'],
+            'first_evicted_houseguest_id' => $validated['form']['first_evicted_houseguest_id'],
+            'top_6_houseguest_ids' => $top6,
+        ], false);
 
         $this->dispatch('season-prediction-saved');
     }
 
-    public function confirm(): void
+    public function confirm(StoreSeasonPrediction $storeSeasonPrediction): void
     {
         abort_if($this->season === null, 422);
 
@@ -131,7 +129,7 @@ new class extends Component {
         }
 
         $houseguestIds = $this->houseguests->pluck('id')->all();
-        $request = (new ConfirmSeasonPredictionRequest())->setHouseguestIds($houseguestIds);
+        $request = (new ConfirmSeasonPredictionRequest)->setHouseguestIds($houseguestIds);
         $validated = $this->validate($request->rules(), $request->messages(), $request->attributes());
 
         $top6 = [
@@ -143,22 +141,13 @@ new class extends Component {
             $validated['form']['top_6_6_houseguest_id'],
         ];
 
-        $prediction = SeasonPrediction::query()->updateOrCreate(
-            [
-                'season_id' => $this->season->id,
-                'user_id' => Auth::id(),
-            ],
-            [
-                'winner_houseguest_id' => $validated['form']['winner_houseguest_id'],
-                'first_evicted_houseguest_id' => $validated['form']['first_evicted_houseguest_id'],
-                'top_6_houseguest_ids' => $top6,
-            ],
-        );
-
-        $prediction->confirm();
-        $prediction->save();
-
-        $this->prediction = $prediction;
+        $user = Auth::user();
+        abort_if($user === null, 403);
+        $this->prediction = $storeSeasonPrediction->handle($this->season, $user, [
+            'winner_houseguest_id' => $validated['form']['winner_houseguest_id'],
+            'first_evicted_houseguest_id' => $validated['form']['first_evicted_houseguest_id'],
+            'top_6_houseguest_ids' => $top6,
+        ], true);
 
         $this->dispatch('season-prediction-confirmed');
     }

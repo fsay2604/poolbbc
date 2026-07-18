@@ -47,41 +47,30 @@ class CalculateSeasonOutcomeFromWeekOutcomes
                 $evictedIds = $this->normalizeEvictedIds($outcome->evicted_houseguest_ids ?? null, $outcome->evicted_houseguest_id ?? null);
             }
 
-            if ($week->number === 1 && $firstEvictedHouseguestId === null && $evictedIds !== []) {
+            if ($firstEvictedHouseguestId === null && $evictedIds !== []) {
                 $firstEvictedHouseguestId = $evictedIds[0];
             }
 
-            if ($evictedIds !== []) {
-                $remainingHouseguestIds = array_values(array_diff($remainingHouseguestIds, $evictedIds));
+            foreach ($evictedIds as $evictedId) {
+                $remainingHouseguestIds = array_values(array_diff($remainingHouseguestIds, [$evictedId]));
+
+                if ($top6HouseguestIds === null && count($remainingHouseguestIds) === 6) {
+                    $top6HouseguestIds = $remainingHouseguestIds;
+                }
+
+                if ($winnerHouseguestId === null && count($remainingHouseguestIds) === 1) {
+                    $winnerHouseguestId = $remainingHouseguestIds[0];
+                }
             }
-
-            if ($top6HouseguestIds === null && count($remainingHouseguestIds) === 6) {
-                $top6HouseguestIds = $remainingHouseguestIds;
-            }
-
-            if ($winnerHouseguestId === null && count($remainingHouseguestIds) === 1) {
-                $winnerHouseguestId = $remainingHouseguestIds[0];
-            }
         }
 
-        $shouldSave = false;
+        $season->fill([
+            'first_evicted_houseguest_id' => $firstEvictedHouseguestId,
+            'top_6_houseguest_ids' => $top6HouseguestIds,
+            'winner_houseguest_id' => $winnerHouseguestId,
+        ]);
 
-        if ($firstEvictedHouseguestId !== null && $season->first_evicted_houseguest_id !== $firstEvictedHouseguestId) {
-            $season->first_evicted_houseguest_id = $firstEvictedHouseguestId;
-            $shouldSave = true;
-        }
-
-        if ($top6HouseguestIds !== null && $season->top_6_houseguest_ids !== $top6HouseguestIds) {
-            $season->top_6_houseguest_ids = $top6HouseguestIds;
-            $shouldSave = true;
-        }
-
-        if ($winnerHouseguestId !== null && $season->winner_houseguest_id !== $winnerHouseguestId) {
-            $season->winner_houseguest_id = $winnerHouseguestId;
-            $shouldSave = true;
-        }
-
-        if ($shouldSave) {
+        if ($season->isDirty()) {
             $season->save();
         }
     }

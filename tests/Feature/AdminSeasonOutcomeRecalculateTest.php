@@ -30,7 +30,7 @@ test('saving the season outcome recalculates season prediction scores', function
 
     $user = User::factory()->create();
 
-    $prediction = SeasonPrediction::factory()->create([
+    $prediction = SeasonPrediction::factory()->submitted()->create([
         'season_id' => $season->id,
         'user_id' => $user->id,
         'winner_houseguest_id' => $houseguests[0]->id,

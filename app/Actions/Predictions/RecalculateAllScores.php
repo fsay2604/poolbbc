@@ -6,6 +6,8 @@ use App\Actions\Seasons\CalculateSeasonOutcomeFromWeekOutcomes;
 use App\Models\Season;
 use App\Models\User;
 use App\Models\Week;
+use App\Support\LegacyFlowAuthority;
+use Illuminate\Validation\ValidationException;
 
 class RecalculateAllScores
 {
@@ -13,10 +15,17 @@ class RecalculateAllScores
         public ScoreWeek $scoreWeek,
         public ScoreSeasonPredictions $scoreSeasonPredictions,
         public CalculateSeasonOutcomeFromWeekOutcomes $calculateSeasonOutcomeFromWeekOutcomes,
+        private LegacyFlowAuthority $legacyFlowAuthority,
     ) {}
 
     public function run(?Season $season = null, ?User $admin = null, bool $updateSeasonOutcome = true): void
     {
+        if ($this->legacyFlowAuthority->cutoverEnabled()) {
+            throw ValidationException::withMessages([
+                'scoring' => __('Legacy score recalculation is read-only after canonical cutover.'),
+            ]);
+        }
+
         $season ??= Season::query()->where('is_active', true)->first();
 
         if (! $season) {

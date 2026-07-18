@@ -17,6 +17,11 @@
                         <flux:input wire:model="form.ends_on" :label="__('Ends on')" type="date" />
                     </div>
 
+                    <div class="grid gap-4 md:grid-cols-2">
+                        <flux:input wire:model="form.prediction_opens_at" :label="__('Predictions open at')" type="datetime-local" />
+                        <flux:input wire:model="form.prediction_locks_at" :label="__('Predictions lock at')" type="datetime-local" required />
+                    </div>
+
                     <div class="flex items-center gap-4">
                         <flux:button variant="primary" type="submit">{{ __('Save') }}</flux:button>
                         <x-action-message on="season-saved" class="text-sm">{{ __('Saved.') }}</x-action-message>
@@ -40,7 +45,7 @@
                                 <tr>
                                     <td class="px-4 py-3">{{ $season->name }}</td>
                                     <td class="px-4 py-3">
-                                        @if ($season->is_active)
+                                        @if ($season->is_active && ! config('legacy-flow.cutover_enabled') && ! config('legacy-flow.canonical_is_authoritative'))
                                             <span class="text-green-600">{{ __('Yes') }}</span>
                                         @else
                                             <span class="text-zinc-500 dark:text-zinc-400">{{ __('No') }}</span>

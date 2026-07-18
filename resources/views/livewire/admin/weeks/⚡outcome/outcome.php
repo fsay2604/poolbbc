@@ -1,7 +1,7 @@
 <?php
 
 use App\Actions\Dashboard\BuildDashboardStats;
-use App\Actions\Predictions\RecalculateAllScores;
+use App\Actions\Weeks\RecordWeekOutcome;
 use App\Actions\Weeks\WeekPhaseManager;
 use App\Http\Requests\Admin\SaveWeekOutcomeRequest;
 use App\Models\Houseguest;
@@ -11,13 +11,16 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Component;
 
-new class extends Component {
+new class extends Component
+{
     public Week $week;
 
     /** @var \Illuminate\Support\Collection<int, \App\Models\Houseguest> */
     public $houseguests;
 
     public ?WeekOutcome $outcome = null;
+
+    public string $correctionReason = '';
 
     /** @var array<string, mixed> */
     public array $form = [
@@ -57,7 +60,7 @@ new class extends Component {
             ->get();
     }
 
-    public function save(): void
+    public function save(RecordWeekOutcome $recordWeekOutcome): void
     {
         Gate::authorize('admin');
 
@@ -66,38 +69,19 @@ new class extends Component {
         $houseguestIds = $this->houseguests->pluck('id')->all();
         $phaseDefinitions = $this->phaseManager()->phaseDefinitionsForValidation($this->week->phases);
 
-        $request = (new SaveWeekOutcomeRequest())->setContext($houseguestIds, $phaseDefinitions);
+        $request = (new SaveWeekOutcomeRequest)->setContext($houseguestIds, $phaseDefinitions);
         $validated = $this->validate($request->rules(), $request->messages(), $request->attributes());
 
         $payload = $this->phaseManager()->normalizeSelectionRows($validated['form']['phases'] ?? [], $this->week->phases);
 
-        $outcome = WeekOutcome::query()->updateOrCreate(
-            ['week_id' => $this->week->id],
-            [
-                'phase_results' => $payload,
-                'last_admin_edited_by_user_id' => Auth::id(),
-                'last_admin_edited_at' => now(),
-            ],
-        );
-
-        $evictedIds = $this->phaseManager()->evictedIds($payload);
-        if ($evictedIds !== []) {
-            Houseguest::query()
-                ->where('season_id', $this->week->season_id)
-                ->whereIn('id', $evictedIds)
-                ->update(['is_active' => false]);
-        }
-
-        if ($this->week->season) {
-            $admin = Auth::user();
-            abort_if($admin === null, 403);
-
-            app(RecalculateAllScores::class)->run(season: $this->week->season->refresh(), admin: $admin);
-        }
+        $admin = Auth::user();
+        abort_if($admin === null, 403);
+        $outcome = $recordWeekOutcome->handle($this->week, $admin, $payload, $this->correctionReason);
 
         app(BuildDashboardStats::class)->forget($this->week->season);
 
         $this->outcome = $outcome;
+        $this->correctionReason = '';
         $this->dispatch('outcome-saved');
     }
 

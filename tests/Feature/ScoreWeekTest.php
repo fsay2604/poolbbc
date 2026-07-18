@@ -73,7 +73,7 @@ it('calculates and stores weekly scores when an outcome exists', function () {
     $replacement = Houseguest::factory()->for($season)->create();
     $evicted = Houseguest::factory()->for($season)->create();
 
-    $prediction = Prediction::factory()
+    $prediction = Prediction::factory()->submitted()
         ->for($week)
         ->for($user)
         ->create([
@@ -125,7 +125,7 @@ it('does not create scores if a week has no outcome', function () {
     $admin = User::factory()->admin()->create();
     $user = User::factory()->create();
 
-    $prediction = Prediction::factory()->for($week)->for($user)->create();
+    $prediction = Prediction::factory()->submitted()->for($week)->for($user)->create();
 
     app(ScoreWeek::class)->run($week, $admin);
 
@@ -177,7 +177,7 @@ it('scores dynamic nominees and evicted counts using json arrays', function () {
     $evicted1 = Houseguest::factory()->for($season)->create();
     $evicted2 = Houseguest::factory()->for($season)->create();
 
-    $prediction = Prediction::factory()
+    $prediction = Prediction::factory()->submitted()
         ->for($week)
         ->for($user)
         ->create([
@@ -239,7 +239,7 @@ it('scores dynamic bosses using json arrays', function () {
     $boss1 = Houseguest::factory()->for($season)->create();
     $boss2 = Houseguest::factory()->for($season)->create();
 
-    $prediction = Prediction::factory()
+    $prediction = Prediction::factory()->submitted()
         ->for($week)
         ->for($user)
         ->create([
@@ -330,7 +330,7 @@ it('aggregates repeated veto correctness across all veto phases', function () {
 
     $phasesByPosition = $week->phases->keyBy('position');
 
-    $prediction = Prediction::factory()
+    $prediction = Prediction::factory()->submitted()
         ->for($week)
         ->for($user)
         ->create([

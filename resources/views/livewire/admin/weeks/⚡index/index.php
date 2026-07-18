@@ -7,9 +7,11 @@ use App\Models\Season;
 use App\Models\Week;
 use App\Models\WeekOutcome;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 
-new class extends Component {
+new class extends Component
+{
     public ?Season $season = null;
 
     /** @var \Illuminate\Support\Collection<int, \App\Models\Week> */
@@ -131,16 +133,23 @@ new class extends Component {
         Gate::authorize('admin');
         abort_if($this->season === null, 422);
 
-        $request = new SaveWeekRequest();
+        $request = new SaveWeekRequest;
         $validated = $this->validate($request->rules(), $request->messages(), $request->attributes());
         $normalizedForm = $this->normalizeOptionalDateTimes($validated['form']);
+        $normalizedPhases = $this->phaseManager()->normalizeWeekFormRows($normalizedForm['phases'] ?? []);
 
         $week = $this->editingId ? Week::query()->with('phases')->findOrFail($this->editingId) : new Week(['season_id' => $this->season->id]);
 
+        if ($week->exists
+            && ($week->predictions()->exists() || $week->outcome()->exists())
+            && $this->phaseDefinitionsDiffer($week, $normalizedPhases)) {
+            throw ValidationException::withMessages([
+                'form.phases' => __('Phase definitions cannot be changed after the first response.'),
+            ]);
+        }
+
         $week->fill(array_merge($normalizedForm, ['season_id' => $this->season->id]));
         $week->save();
-
-        $normalizedPhases = $this->phaseManager()->normalizeWeekFormRows($normalizedForm['phases'] ?? []);
 
         $existingPhases = $week->phases()->get()->keyBy('id');
         $keptPhaseIds = [];
@@ -156,6 +165,7 @@ new class extends Component {
                 ])->save();
 
                 $keptPhaseIds[] = $phase->id;
+
                 continue;
             }
 
@@ -171,10 +181,6 @@ new class extends Component {
             ->when($keptPhaseIds !== [], fn ($q) => $q->whereNotIn('id', $keptPhaseIds))
             ->delete();
 
-        $week->refresh()->load('phases');
-
-        $this->reconcileWeekPayloads($week);
-
         $this->startCreate();
         $this->refresh();
 
@@ -187,7 +193,7 @@ new class extends Component {
     }
 
     /**
-     * @param array{position:int, type:string, config:array<string, int>} $definition
+     * @param  array{position:int, type:string, config:array<string, int>}  $definition
      * @return array<string, mixed>
      */
     private function phaseFormRowFromDefinition(array $definition): array
@@ -212,7 +218,7 @@ new class extends Component {
     }
 
     /**
-     * @param array<string, mixed> $validatedForm
+     * @param  array<string, mixed>  $validatedForm
      * @return array<string, mixed>
      */
     private function normalizeOptionalDateTimes(array $validatedForm): array
@@ -253,6 +259,22 @@ new class extends Component {
             $outcome->phase_results = $this->phaseManager()->reconcilePayload($phases, $payload);
             $outcome->save();
         }
+    }
+
+    /** @param list<array{id:?int, position:int, type:string, config:array<string, int>}> $incoming */
+    private function phaseDefinitionsDiffer(Week $week, array $incoming): bool
+    {
+        $current = $week->phases
+            ->map(fn ($phase): array => [
+                'id' => $phase->id,
+                'position' => $phase->position,
+                'type' => $phase->type,
+                'config' => $phase->config,
+            ])
+            ->values()
+            ->all();
+
+        return $current !== $incoming;
     }
 
     private function refresh(): void

@@ -2,6 +2,10 @@
 
 use App\Actions\Audit\RecordAuditLog;
 use App\Actions\Events\CreateEvent;
+use App\Actions\Events\ReorderRoundEvents;
+use App\Actions\Events\SynchronizeEventLifecycle;
+use App\Actions\Events\UpdatePoolEventRules;
+use App\Actions\Pools\ListUserPools;
 use App\Actions\Predictions\SubmitEventPrediction;
 use App\Actions\Scoring\PreviewEventScore;
 use App\Actions\Scoring\PublishEventResult;
@@ -9,22 +13,31 @@ use App\Enums\EventStatus;
 use App\Http\Requests\Events\CreateEventRequest;
 use App\Http\Requests\Pools\CreateRoundRequest;
 use App\Models\Event;
+use App\Models\EventPrediction;
 use App\Models\EventType;
 use App\Models\Pool;
+use App\Models\PoolEvent;
+use App\Models\PoolEventPrediction;
+use App\Models\Round;
+use App\Models\SeasonEvent;
+use App\Models\SeasonRound;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
+use Livewire\Attributes\Computed;
 use Livewire\Component;
 
 new class extends Component
 {
     public Pool $pool;
 
-    public $rounds;
-
     public $eventTypes;
 
-    public bool $canManage = false;
+    public $availablePools;
+
+    public $activeMembers;
 
     /** @var array<string, mixed> */
     public array $roundForm = ['name' => '', 'starts_at' => null, 'ends_at' => null];
@@ -35,8 +48,11 @@ new class extends Component
         'mode' => 'prediction', 'answer_source' => 'houseguests', 'opens_at' => null, 'locks_at' => null,
         'prediction_min_selections' => 1, 'prediction_max_selections' => 1,
         'result_min_selections' => 1, 'result_max_selections' => 1,
+        'result_publication_mode' => 'immediate',
         'owner_points' => 5, 'prediction_points' => 2, 'exact_bonus' => 0,
         'wrong_penalty' => 0, 'allow_negative' => false, 'allow_none' => false,
+        'include_inactive_houseguests' => false,
+        'save_as_template' => false,
     ];
 
     public string $customOptionsText = '';
@@ -53,16 +69,36 @@ new class extends Component
     /** @var array<int, array<int, array{name:string,points:int}>> */
     public array $scorePreviews = [];
 
+    /** @var array<int, string> */
+    public array $resultPreviewFingerprints = [];
+
+    /** @var list<int> */
+    public array $editingDraftResultIds = [];
+
+    /** @var array<int, array<string, mixed>> */
+    public array $officialRuleForms = [];
+
+    /** @var array<int, list<int>> */
+    public array $localRespondedMemberIds = [];
+
+    /** @var array<int, list<int>> */
+    public array $officialRespondedMemberIds = [];
+
+    /** @var list<int> */
+    public array $reorderableRoundIds = [];
+
+    public bool $showCancellationModal = false;
+
+    public ?int $cancellingEventId = null;
+
+    public string $cancellationReason = '';
+
     public function mount(Pool $pool): void
     {
         Gate::authorize('view', $pool);
         $this->pool = $pool->load('season');
-        $this->canManage = Gate::allows('update', $pool);
-        $this->eventTypes = EventType::query()
-            ->where(fn ($query) => $query->whereNull('pool_id')->orWhere('pool_id', $pool->id))
-            ->orderByDesc('is_standard')
-            ->orderBy('name')
-            ->get();
+        $this->availablePools = app(ListUserPools::class)->handle(auth()->user());
+        $this->refreshEventTypes();
         $this->eventForm['locks_at'] = now()->addDay()->format('Y-m-d\TH:i');
         $this->refreshRounds();
     }
@@ -102,6 +138,15 @@ new class extends Component
         $this->eventForm['exact_bonus'] = (int) data_get($eventType->default_config, 'prediction.exact_match_bonus', 0);
         $this->eventForm['wrong_penalty'] = (int) data_get($eventType->default_config, 'prediction.wrong_answer_penalty', 0);
         $this->eventForm['allow_negative'] = (bool) data_get($eventType->default_config, 'allow_negative', false);
+        $this->eventForm['question'] = (string) data_get($eventType->default_config, 'question', '');
+        $this->eventForm['prediction_min_selections'] = (int) data_get($eventType->default_config, 'prediction_min_selections', 1);
+        $this->eventForm['prediction_max_selections'] = (int) data_get($eventType->default_config, 'prediction_max_selections', 1);
+        $this->eventForm['result_min_selections'] = (int) data_get($eventType->default_config, 'result_min_selections', 1);
+        $this->eventForm['result_max_selections'] = (int) data_get($eventType->default_config, 'result_max_selections', 1);
+        $this->eventForm['result_publication_mode'] = (string) data_get($eventType->default_config, 'result_publication_mode', 'immediate');
+        $this->eventForm['allow_none'] = (bool) data_get($eventType->default_config, 'allow_none', false);
+        $this->eventForm['include_inactive_houseguests'] = (bool) data_get($eventType->default_config, 'include_inactive_houseguests', false);
+        $this->customOptionsText = collect(data_get($eventType->default_config, 'custom_options', []))->implode("\n");
     }
 
     public function createEvent(CreateEvent $createEvent): void
@@ -132,27 +177,76 @@ new class extends Component
         $createEvent->handle($this->pool, auth()->user(), $data);
         $this->eventForm['name'] = '';
         $this->eventForm['question'] = '';
+        $this->eventForm['event_type_id'] = null;
+        $this->eventForm['save_as_template'] = false;
         $this->customOptionsText = '';
+        $this->refreshEventTypes();
         $this->refreshRounds();
         $this->dispatch('event-created');
     }
 
-    public function openEvent(int $eventId, RecordAuditLog $recordAuditLog): void
+    public function moveEvent(int $eventId, string $direction, ReorderRoundEvents $reorderRoundEvents): void
+    {
+        abort_unless(in_array($direction, ['up', 'down'], true), 422);
+
+        $event = $this->managedEvent($eventId);
+        $round = $event->round()->firstOrFail();
+        $eventIds = $round->events()
+            ->orderBy('position')
+            ->pluck('id')
+            ->map(fn (mixed $id): int => (int) $id)
+            ->all();
+        $currentIndex = array_search($event->id, $eventIds, true);
+        abort_if($currentIndex === false, 404);
+
+        $targetIndex = $direction === 'up' ? $currentIndex - 1 : $currentIndex + 1;
+        if (! array_key_exists($targetIndex, $eventIds)) {
+            return;
+        }
+
+        [$eventIds[$currentIndex], $eventIds[$targetIndex]] = [$eventIds[$targetIndex], $eventIds[$currentIndex]];
+        $reorderRoundEvents->handle($round, auth()->user(), $eventIds);
+
+        $this->refreshRounds();
+        $this->dispatch('events-reordered');
+    }
+
+    public function openEvent(int $eventId, SynchronizeEventLifecycle $lifecycle): void
     {
         $event = $this->managedEvent($eventId);
-        abort_unless($event->status === EventStatus::Draft, 422);
-        $event->update(['status' => EventStatus::Open, 'opens_at' => $event->opens_at ?? now()]);
-        $recordAuditLog->handle($this->pool, auth()->user(), 'event.opened', $event);
+        $lifecycle->transition($event, EventStatus::Open, auth()->user());
         $this->refreshRounds();
     }
 
-    public function lockEvent(int $eventId, RecordAuditLog $recordAuditLog): void
+    public function lockEvent(int $eventId, SynchronizeEventLifecycle $lifecycle): void
     {
         $event = $this->managedEvent($eventId);
-        abort_unless($event->status === EventStatus::Open, 422);
-        $event->update(['status' => EventStatus::Locked]);
-        $recordAuditLog->handle($this->pool, auth()->user(), 'event.locked', $event);
+        $lifecycle->transition($event, EventStatus::Locked, auth()->user());
         $this->refreshRounds();
+    }
+
+    public function startCancellation(int $eventId): void
+    {
+        $event = $this->managedEvent($eventId);
+        abort_unless(in_array($event->effectiveStatus(), [EventStatus::Draft, EventStatus::Open, EventStatus::Locked], true), 422);
+
+        $this->cancellingEventId = $event->id;
+        $this->cancellationReason = '';
+        $this->showCancellationModal = true;
+    }
+
+    public function cancelEvent(SynchronizeEventLifecycle $lifecycle): void
+    {
+        $validated = $this->validate([
+            'cancellationReason' => ['required', 'string', 'min:3', 'max:1000'],
+        ]);
+        $event = $this->managedEvent($this->cancellingEventId);
+        $lifecycle->transition($event, EventStatus::Cancelled, auth()->user(), $validated['cancellationReason']);
+
+        $this->showCancellationModal = false;
+        $this->cancellingEventId = null;
+        $this->refreshRounds();
+        $this->dispatch('event-cancelled');
     }
 
     public function submitPrediction(int $eventId, bool $submit, SubmitEventPrediction $submitEventPrediction): void
@@ -170,24 +264,121 @@ new class extends Component
     public function publishResult(int $eventId, PublishEventResult $publishEventResult): void
     {
         $event = $this->pool->events()->findOrFail($eventId);
-        Gate::authorize('publishResult', $event);
-        $publishEventResult->handle(
+        Gate::authorize('recordResult', $event);
+        $selectionIds = $this->normalizedResultSelections($eventId);
+        if (($this->resultPreviewFingerprints[$eventId] ?? null) !== $this->resultSelectionFingerprint($selectionIds)) {
+            throw ValidationException::withMessages([
+                "resultSelections.{$eventId}" => __('Generate a fresh score preview before publishing this result.'),
+            ]);
+        }
+
+        $result = $publishEventResult->handle(
             $event,
             auth()->user(),
-            $this->resultSelections[$eventId] ?? [],
+            $selectionIds,
             $this->correctionReasons[$eventId] ?? null,
         );
+        unset($this->resultPreviewFingerprints[$eventId], $this->scorePreviews[$eventId]);
+        $this->refreshRounds();
+        $this->dispatch($result->status === 'published' ? 'result-published' : 'result-recorded');
+    }
+
+    public function publishRecordedResult(int $eventId, PublishEventResult $publishEventResult): void
+    {
+        $event = $this->pool->events()->with('draftResult')->findOrFail($eventId);
+        Gate::authorize('publishResult', $event);
+        abort_if($event->draftResult === null, 404);
+
+        $publishEventResult->publishDraft($event->draftResult, auth()->user());
         $this->refreshRounds();
         $this->dispatch('result-published');
     }
 
+    public function startAmendingRecordedResult(int $eventId): void
+    {
+        $event = $this->pool->events()->with('draftResult')->findOrFail($eventId);
+        Gate::authorize('recordResult', $event);
+        abort_if($event->draftResult === null, 404);
+        Gate::authorize('amend', $event->draftResult);
+
+        if (! in_array($eventId, $this->editingDraftResultIds, true)) {
+            $this->editingDraftResultIds[] = $eventId;
+        }
+
+        unset($this->resultPreviewFingerprints[$eventId], $this->scorePreviews[$eventId]);
+        $this->resetErrorBag("resultSelections.{$eventId}");
+    }
+
+    public function amendRecordedResult(int $eventId, PublishEventResult $publishEventResult): void
+    {
+        $event = $this->pool->events()->with('draftResult')->findOrFail($eventId);
+        Gate::authorize('recordResult', $event);
+        abort_if($event->draftResult === null, 404);
+        $selectionIds = $this->normalizedResultSelections($eventId);
+
+        if (($this->resultPreviewFingerprints[$eventId] ?? null) !== $this->resultSelectionFingerprint($selectionIds)) {
+            throw ValidationException::withMessages([
+                "resultSelections.{$eventId}" => __('Generate a fresh score preview before updating this result.'),
+            ]);
+        }
+
+        $publishEventResult->amendDraft(
+            $event->draftResult,
+            auth()->user(),
+            $selectionIds,
+            $this->correctionReasons[$eventId] ?? null,
+        );
+
+        $this->editingDraftResultIds = array_values(array_diff($this->editingDraftResultIds, [$eventId]));
+        unset($this->resultPreviewFingerprints[$eventId], $this->scorePreviews[$eventId]);
+        $this->refreshRounds();
+        $this->dispatch('result-amended');
+    }
+
     public function previewResult(int $eventId, PreviewEventScore $previewEventScore): void
     {
+        $this->resetErrorBag("resultSelections.{$eventId}");
         $event = $this->pool->events()->findOrFail($eventId);
-        Gate::authorize('publishResult', $event);
+        Gate::authorize('recordResult', $event);
+        $selectionIds = $this->normalizedResultSelections($eventId);
         $this->scorePreviews[$eventId] = $previewEventScore
-            ->handle($event, $this->resultSelections[$eventId] ?? [])
+            ->handle($event, $selectionIds)
             ->all();
+        $this->resultPreviewFingerprints[$eventId] = $this->resultSelectionFingerprint($selectionIds);
+    }
+
+    public function updatedResultSelections(mixed $value, string $eventId): void
+    {
+        if (ctype_digit($eventId)) {
+            unset($this->resultPreviewFingerprints[(int) $eventId], $this->scorePreviews[(int) $eventId]);
+        }
+    }
+
+    public function saveOfficialRules(int $poolEventId, UpdatePoolEventRules $updatePoolEventRules): void
+    {
+        Gate::authorize('update', $this->pool);
+        $poolEvent = $this->pool->poolEvents()->whereNotNull('season_event_id')->findOrFail($poolEventId);
+        $formKey = "officialRuleForms.{$poolEventId}";
+        $validated = $this->validate([
+            "{$formKey}.mode" => ['required', 'in:roster,prediction,hybrid'],
+            "{$formKey}.visibility" => ['required', 'in:after_lock,after_publish'],
+            "{$formKey}.prediction_min_selections" => ['required', 'integer', 'min:0', 'max:50'],
+            "{$formKey}.prediction_max_selections" => ['required', 'integer', 'min:1', 'max:50'],
+            "{$formKey}.owner_points" => ['required', 'integer', 'between:-100,100'],
+            "{$formKey}.prediction_points" => ['required', 'integer', 'between:-100,100'],
+            "{$formKey}.exact_bonus" => ['required', 'integer', 'between:-100,100'],
+            "{$formKey}.wrong_penalty" => ['required', 'integer', 'between:-100,0'],
+            "{$formKey}.allow_negative" => ['required', 'boolean'],
+        ]);
+
+        $updatePoolEventRules->handle(
+            $poolEvent,
+            auth()->user(),
+            data_get($validated, $formKey),
+        );
+
+        $this->refreshRounds();
+        $this->dispatch('pool-event-rules-updated');
     }
 
     private function managedEvent(int $eventId): Event
@@ -198,29 +389,188 @@ new class extends Component
         return $event;
     }
 
-    private function refreshRounds(): void
+    private function refreshEventTypes(): void
     {
-        $member = $this->pool->memberFor(auth()->user());
-        $this->rounds = $this->pool->rounds()
-            ->with(['events' => function ($query) use ($member): void {
-                $query->withCount('predictions')->with([
-                    'eventType', 'options', 'latestResult.options',
-                    'predictions' => fn ($predictionQuery) => $predictionQuery
-                        ->where('pool_member_id', $member?->id)
-                        ->with(['options', 'poolMember.user']),
-                ])->orderBy('position');
-            }])
+        $this->eventTypes = EventType::query()
+            ->where(fn ($query) => $query->whereNull('pool_id')->orWhere('pool_id', $this->pool->id))
+            ->orderByDesc('is_standard')
+            ->orderBy('name')
+            ->get();
+    }
+
+    #[Computed]
+    public function canManage(): bool
+    {
+        return Gate::allows('update', $this->pool);
+    }
+
+    /** @return Collection<int, SeasonRound> */
+    #[Computed]
+    public function officialRounds(): Collection
+    {
+        $poolId = $this->pool->id;
+        $officialRounds = SeasonRound::query()
+            ->where('season_id', $this->pool->season_id)
+            ->whereHas('events.poolEvents', fn ($query) => $query->where('pool_id', $poolId)->where('is_active', true))
+            ->with([
+                'events' => fn ($query) => $query
+                    ->whereHas('poolEvents', fn ($poolEventQuery) => $poolEventQuery->where('pool_id', $poolId)->where('is_active', true))
+                    ->with([
+                        'options',
+                        'latestResult.options',
+                        'results' => fn ($resultQuery) => $resultQuery
+                            ->where('status', 'published')
+                            ->with(['options', 'creator']),
+                    ]),
+                'events.poolEvents' => fn ($query) => $query
+                    ->where('pool_id', $poolId)
+                    ->where('is_active', true)
+                    ->withCount([
+                        'predictions',
+                        'pointEntries' => fn ($pointQuery) => $pointQuery->published(),
+                    ]),
+            ])
             ->orderBy('position')
             ->get();
 
-        foreach ($this->rounds->flatMap->events as $event) {
+        foreach ($officialRounds->flatMap->events as $event) {
+            $event->poolEvents
+                ->filter(fn (PoolEvent $poolEvent): bool => $this->officialPredictionsAreVisible($poolEvent, $event))
+                ->each(fn (PoolEvent $poolEvent) => $poolEvent->load([
+                    'predictions' => fn ($query) => $query
+                        ->whereIn('status', ['submitted', 'locked'])
+                        ->with(['options', 'poolMember.user']),
+                ]));
+        }
+
+        return $officialRounds;
+    }
+
+    /** @return Collection<int, Round> */
+    #[Computed]
+    public function rounds(): Collection
+    {
+        $member = $this->pool->memberFor(auth()->user());
+        $canManage = $this->canManage;
+
+        return $this->pool->rounds()
+            ->with(['events' => function ($query) use ($canManage, $member): void {
+                $query->withCount('predictions')->with([
+                    'eventType', 'options', 'latestResult.options',
+                    'results' => fn ($resultQuery) => $resultQuery
+                        ->when(! $canManage, fn ($publishedQuery) => $publishedQuery->where('status', 'published'))
+                        ->with(['options', 'createdBy']),
+                    'predictions' => fn ($predictionQuery) => $predictionQuery
+                        ->where('pool_member_id', $member?->id)
+                        ->with(['options', 'poolMember.user']),
+                ])->when($canManage, fn ($eventQuery) => $eventQuery->with('draftResult.options'))
+                    ->orderBy('position');
+            }])
+            ->orderBy('position')
+            ->get();
+    }
+
+    private function officialPredictionsAreVisible(PoolEvent $poolEvent, SeasonEvent $event): bool
+    {
+        if ($this->canManage) {
+            return true;
+        }
+
+        if ($poolEvent->visibility === 'after_publish') {
+            return $event->effectiveStatus() === EventStatus::Published;
+        }
+
+        return in_array($event->effectiveStatus(), [EventStatus::Locked, EventStatus::ResultEntered, EventStatus::Published], true);
+    }
+
+    private function refreshRounds(): void
+    {
+        unset($this->rounds);
+
+        $rounds = $this->rounds;
+        $this->activeMembers = $this->pool->activeMembers()->with('user')->get()->sortBy('user.name')->values();
+
+        $this->reorderableRoundIds = $this->canManage
+            ? $rounds
+                ->filter(fn (Round $round): bool => $round->events->count() > 1
+                    && $round->events->every(fn (Event $event): bool => $event->effectiveStatus() === EventStatus::Draft
+                        && $event->predictions_count === 0
+                        && $event->results->isEmpty()))
+                ->pluck('id')
+                ->map(fn (mixed $id): int => (int) $id)
+                ->all()
+            : [];
+
+        foreach ($rounds->flatMap->events as $event) {
             $prediction = $event->predictions->first();
             $this->predictionSelections[$event->id] = $prediction?->options->pluck('id')->all() ?? [];
-            $this->resultSelections[$event->id] = $event->latestResult?->options->pluck('id')->all() ?? [];
+            $recordedResult = $this->canManage ? $event->draftResult : null;
+            $this->resultSelections[$event->id] = ($recordedResult ?? $event->latestResult)?->options->pluck('id')->all() ?? [];
+            $this->correctionReasons[$event->id] = $recordedResult?->correction_reason ?? ($this->correctionReasons[$event->id] ?? '');
 
-            if (in_array($event->status, [EventStatus::Locked, EventStatus::Published], true)) {
-                $event->load(['predictions' => fn ($query) => $query->with(['options', 'poolMember.user'])]);
+            if (in_array($event->effectiveStatus(), [EventStatus::Locked, EventStatus::ResultEntered, EventStatus::Published], true)) {
+                $event->load(['predictions' => fn ($query) => $query
+                    ->whereIn('status', ['submitted', 'locked'])
+                    ->with(['options', 'poolMember.user'])]);
             }
         }
+
+        $this->localRespondedMemberIds = [];
+        if ($this->canManage) {
+            $localEventIds = $rounds->flatMap->events->pluck('id');
+            $this->localRespondedMemberIds = EventPrediction::query()
+                ->whereIn('event_id', $localEventIds)
+                ->whereIn('status', ['submitted', 'locked'])
+                ->get(['event_id', 'pool_member_id'])
+                ->groupBy('event_id')
+                ->map(fn ($predictions) => $predictions->pluck('pool_member_id')->unique()->values()->all())
+                ->all();
+        }
+
+        $officialRounds = $this->officialRounds;
+
+        foreach ($officialRounds->flatMap->events as $event) {
+            $event->poolEvents->each(function ($poolEvent): void {
+                $this->officialRuleForms[$poolEvent->id] = [
+                    'mode' => $poolEvent->mode->value,
+                    'visibility' => $poolEvent->visibility,
+                    'prediction_min_selections' => $poolEvent->prediction_min_selections,
+                    'prediction_max_selections' => $poolEvent->prediction_max_selections,
+                    'owner_points' => (int) data_get($poolEvent->scoring_config, 'owner.points_per_match', 0),
+                    'prediction_points' => (int) data_get($poolEvent->scoring_config, 'prediction.points_per_correct', 0),
+                    'exact_bonus' => (int) data_get($poolEvent->scoring_config, 'prediction.exact_match_bonus', 0),
+                    'wrong_penalty' => (int) data_get($poolEvent->scoring_config, 'prediction.wrong_answer_penalty', 0),
+                    'allow_negative' => (bool) data_get($poolEvent->scoring_config, 'allow_negative', false),
+                ];
+            });
+
+        }
+
+        $this->officialRespondedMemberIds = [];
+        if ($this->canManage) {
+            $officialPoolEventIds = $officialRounds->flatMap->events->flatMap->poolEvents->pluck('id');
+            $this->officialRespondedMemberIds = PoolEventPrediction::query()
+                ->whereIn('pool_event_id', $officialPoolEventIds)
+                ->whereIn('status', ['submitted', 'locked'])
+                ->get(['pool_event_id', 'pool_member_id'])
+                ->groupBy('pool_event_id')
+                ->map(fn ($predictions) => $predictions->pluck('pool_member_id')->unique()->values()->all())
+                ->all();
+        }
+    }
+
+    /** @return list<int> */
+    private function normalizedResultSelections(int $eventId): array
+    {
+        $selectionIds = array_values(array_unique(array_map('intval', $this->resultSelections[$eventId] ?? [])));
+        sort($selectionIds);
+
+        return $selectionIds;
+    }
+
+    /** @param list<int> $selectionIds */
+    private function resultSelectionFingerprint(array $selectionIds): string
+    {
+        return hash('sha256', implode(':', $selectionIds));
     }
 };

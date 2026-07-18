@@ -53,8 +53,31 @@ class PoolMember extends Model
         return $this->hasMany(EventPrediction::class);
     }
 
+    public function poolEventPredictions(): HasMany
+    {
+        return $this->hasMany(PoolEventPrediction::class);
+    }
+
     public function pointEntries(): HasMany
     {
         return $this->hasMany(PointEntry::class);
+    }
+
+    protected static function booted(): void
+    {
+        $rejectReadOnlyPoolMutation = function (self $member): void {
+            $poolIds = collect([$member->pool_id, $member->getRawOriginal('pool_id')])
+                ->filter()
+                ->map(fn ($poolId): int => (int) $poolId)
+                ->unique()
+                ->values()
+                ->all();
+
+            Pool::assertAcceptsMutations(...$poolIds);
+        };
+
+        static::creating($rejectReadOnlyPoolMutation);
+        static::updating($rejectReadOnlyPoolMutation);
+        static::deleting($rejectReadOnlyPoolMutation);
     }
 }

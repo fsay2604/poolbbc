@@ -43,4 +43,35 @@ class EventType extends Model
     {
         return $this->hasMany(Event::class);
     }
+
+    public function seasonEvents(): HasMany
+    {
+        return $this->hasMany(SeasonEvent::class);
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (self $eventType): void {
+            $poolIds = collect([$eventType->pool_id, $eventType->getRawOriginal('pool_id')])
+                ->filter()
+                ->map(fn ($poolId): int => (int) $poolId)
+                ->unique()
+                ->values()
+                ->all();
+
+            Pool::assertAcceptsMutations(...$poolIds);
+            $eventType->scope_key = $eventType->pool_id === null ? 'global' : 'pool:'.$eventType->pool_id;
+        });
+
+        static::deleting(function (self $eventType): void {
+            $poolIds = collect([$eventType->pool_id, $eventType->getRawOriginal('pool_id')])
+                ->filter()
+                ->map(fn ($poolId): int => (int) $poolId)
+                ->unique()
+                ->values()
+                ->all();
+
+            Pool::assertAcceptsMutations(...$poolIds);
+        });
+    }
 }

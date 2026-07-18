@@ -27,6 +27,8 @@ class SeasonFactory extends Factory
             'is_active' => false,
             'starts_on' => now()->toDateString(),
             'ends_on' => null,
+            'prediction_opens_at' => now()->subDay(),
+            'prediction_locks_at' => now()->addDay(),
         ];
     }
 }

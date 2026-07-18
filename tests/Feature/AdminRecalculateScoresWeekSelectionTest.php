@@ -23,10 +23,10 @@ it('recalculates all weeks when triggered', function () {
     $boss1 = Houseguest::factory()->for($season)->create();
     $boss2 = Houseguest::factory()->for($season)->create();
 
-    $prediction1 = Prediction::factory()->for($week1)->for($user)->create([
+    $prediction1 = Prediction::factory()->submitted()->for($week1)->for($user)->create([
         'hoh_houseguest_id' => $boss1->id,
     ]);
-    $prediction2 = Prediction::factory()->for($week2)->for($user)->create([
+    $prediction2 = Prediction::factory()->submitted()->for($week2)->for($user)->create([
         'hoh_houseguest_id' => $boss2->id,
     ]);
 

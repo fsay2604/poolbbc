@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\PoolStatus;
 use App\Models\Event;
 use App\Models\User;
 
@@ -20,7 +21,7 @@ class EventPolicy
      */
     public function view(User $user, Event $event): bool
     {
-        return $user->is_admin || $event->pool->members()->whereBelongsTo($user)->where('status', 'active')->exists();
+        return $event->pool->members()->whereBelongsTo($user)->where('status', 'active')->exists();
     }
 
     /**
@@ -36,7 +37,8 @@ class EventPolicy
      */
     public function update(User $user, Event $event): bool
     {
-        return $user->is_admin || $event->pool->isManagedBy($user);
+        return ! in_array($event->pool->status, [PoolStatus::Completed, PoolStatus::Archived], true)
+            && $event->pool->isManagedBy($user);
     }
 
     /**
@@ -66,11 +68,17 @@ class EventPolicy
     public function predict(User $user, Event $event): bool
     {
         return $event->isPredictionOpen()
+            && ! in_array($event->pool->status, [PoolStatus::Completed, PoolStatus::Archived], true)
             && $event->pool->members()->whereBelongsTo($user)->where('status', 'active')->exists();
     }
 
     public function publishResult(User $user, Event $event): bool
     {
         return $this->update($user, $event);
+    }
+
+    public function recordResult(User $user, Event $event): bool
+    {
+        return $this->publishResult($user, $event);
     }
 }

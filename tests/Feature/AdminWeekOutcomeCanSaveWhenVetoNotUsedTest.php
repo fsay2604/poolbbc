@@ -73,6 +73,7 @@ it('clears saved and replacement results when veto is toggled off after being us
 
     $component
         ->set('form.phases.2.veto_used', false)
+        ->set('correctionReason', 'Le veto n’a finalement pas été utilisé.')
         ->call('save')
         ->assertHasNoErrors();
 

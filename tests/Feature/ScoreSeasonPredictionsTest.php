@@ -26,7 +26,7 @@ it('calculates and stores season scores when season outcomes exist', function ()
         'top_6_houseguest_ids' => $houseguests->take(6)->pluck('id')->all(),
     ])->save();
 
-    $prediction = SeasonPrediction::factory()->create([
+    $prediction = SeasonPrediction::factory()->submitted()->create([
         'season_id' => $season->id,
         'user_id' => $user->id,
         'winner_houseguest_id' => $houseguests[0]->id,
@@ -60,7 +60,7 @@ it('does not create scores if a season has no outcomes set', function () {
     $admin = User::factory()->admin()->create();
     $user = User::factory()->create();
 
-    $prediction = SeasonPrediction::factory()->create([
+    $prediction = SeasonPrediction::factory()->submitted()->create([
         'season_id' => $season->id,
         'user_id' => $user->id,
     ]);
@@ -87,7 +87,7 @@ it('does not create scores until week 16 has an outcome', function () {
         'top_6_houseguest_ids' => $houseguests->take(6)->pluck('id')->all(),
     ])->save();
 
-    $prediction = SeasonPrediction::factory()->create([
+    $prediction = SeasonPrediction::factory()->submitted()->create([
         'season_id' => $season->id,
         'user_id' => $user->id,
         'winner_houseguest_id' => $houseguests[0]->id,
@@ -114,7 +114,7 @@ it('creates scores when only first evicted is known (before top 6 / winner)', fu
         'top_6_houseguest_ids' => null,
     ])->save();
 
-    $prediction = SeasonPrediction::factory()->create([
+    $prediction = SeasonPrediction::factory()->submitted()->create([
         'season_id' => $season->id,
         'user_id' => $user->id,
         'first_evicted_houseguest_id' => $houseguests[1]->id,

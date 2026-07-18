@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\PoolStatus;
 use App\Models\Pool;
 use App\Models\User;
 
@@ -20,7 +21,7 @@ class PoolPolicy
      */
     public function view(User $user, Pool $pool): bool
     {
-        return $user->is_admin || $pool->members()->whereBelongsTo($user)->where('status', 'active')->exists();
+        return $pool->members()->whereBelongsTo($user)->where('status', 'active')->exists();
     }
 
     /**
@@ -36,7 +37,8 @@ class PoolPolicy
      */
     public function update(User $user, Pool $pool): bool
     {
-        return $user->is_admin || $pool->isManagedBy($user);
+        return ! in_array($pool->status, [PoolStatus::Completed, PoolStatus::Archived], true)
+            && $pool->isManagedBy($user);
     }
 
     /**
@@ -44,7 +46,9 @@ class PoolPolicy
      */
     public function delete(User $user, Pool $pool): bool
     {
-        return $user->is_admin || $pool->owner_id === $user->id;
+        return $pool->status === PoolStatus::Configuration
+            && $pool->owner_id === $user->id
+            && $pool->members()->whereBelongsTo($user)->where('status', 'active')->exists();
     }
 
     /**
@@ -66,5 +70,10 @@ class PoolPolicy
     public function manage(User $user, Pool $pool): bool
     {
         return $this->update($user, $pool);
+    }
+
+    public function archive(User $user, Pool $pool): bool
+    {
+        return $pool->status === PoolStatus::Completed && $pool->isManagedBy($user);
     }
 }

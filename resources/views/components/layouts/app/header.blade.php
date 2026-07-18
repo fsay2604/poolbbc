@@ -15,14 +15,8 @@
                 <flux:navbar.item icon="layout-grid" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate.hover>
                     {{ __('Dashboard') }}
                 </flux:navbar.item>
-                <flux:navbar.item icon="calendar" :href="route('weeks.index')" :current="request()->routeIs('weeks.*')" wire:navigate.hover>
-                    {{ __('Weeks Predictions') }}
-                </flux:navbar.item>
-                <flux:navbar.item icon="users" :href="route('season.prediction')" :current="request()->routeIs('season.prediction')" wire:navigate.hover>
-                    {{ __('Season Predictions') }}
-                </flux:navbar.item>
-                <flux:navbar.item icon="trophy" :href="route('leaderboard')" :current="request()->routeIs('leaderboard')" wire:navigate.hover>
-                    {{ __('Leaderboard') }}
+                <flux:navbar.item icon="user-group" :href="route('pools.index')" :current="request()->routeIs('pools.*')" wire:navigate.hover>
+                    Mes pools
                 </flux:navbar.item>
             </flux:navbar>
 
@@ -110,14 +104,8 @@
                     <flux:navlist.item icon="layout-grid" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate.hover>
                     {{ __('Dashboard') }}
                     </flux:navlist.item>
-                    <flux:navlist.item icon="calendar" :href="route('weeks.index')" :current="request()->routeIs('weeks.*')" wire:navigate.hover>
-                    {{ __('Weeks Predictions') }}
-                    </flux:navlist.item>
-                    <flux:navlist.item icon="users" :href="route('season.prediction')" :current="request()->routeIs('season.prediction')" wire:navigate.hover>
-                    {{ __('Season Predictions') }}
-                    </flux:navlist.item>
-                    <flux:navlist.item icon="trophy" :href="route('leaderboard')" :current="request()->routeIs('leaderboard')" wire:navigate.hover>
-                    {{ __('Leaderboard') }}
+                    <flux:navlist.item icon="user-group" :href="route('pools.index')" :current="request()->routeIs('pools.*')" wire:navigate.hover>
+                    Mes pools
                     </flux:navlist.item>
                 </flux:navlist.group>
             </flux:navlist>

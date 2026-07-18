@@ -5,6 +5,7 @@ namespace Database\Factories;
 use App\Enums\AnswerSource;
 use App\Enums\EventMode;
 use App\Enums\EventStatus;
+use App\Enums\ResultPublicationMode;
 use App\Models\Round;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -37,6 +38,7 @@ class EventFactory extends Factory
             'prediction_max_selections' => 1,
             'result_min_selections' => 1,
             'result_max_selections' => 1,
+            'result_publication_mode' => ResultPublicationMode::Immediate,
             'scoring_config' => [
                 'owner' => ['points_per_match' => 5],
                 'prediction' => ['points_per_correct' => 2, 'exact_match_bonus' => 0, 'wrong_answer_penalty' => 0],

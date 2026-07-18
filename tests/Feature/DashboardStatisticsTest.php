@@ -41,7 +41,7 @@ test('dashboard shows user prediction accuracy statistics', function () {
     $alice = User::factory()->create(['name' => 'Alice']);
     $bob = User::factory()->create(['name' => 'Bob']);
 
-    Prediction::factory()->create([
+    Prediction::factory()->submitted()->create([
         'week_id' => $week->id,
         'user_id' => $alice->id,
         'hoh_houseguest_id' => $hoh->id,
@@ -52,7 +52,7 @@ test('dashboard shows user prediction accuracy statistics', function () {
         'evicted_houseguest_id' => $evicted->id,
     ]);
 
-    Prediction::factory()->create([
+    Prediction::factory()->submitted()->create([
         'week_id' => $week->id,
         'user_id' => $bob->id,
     ]);

@@ -62,6 +62,10 @@
                     @endforeach
                 </div>
 
+                @if ($outcome)
+                    <flux:textarea wire:model="correctionReason" :label="__('Correction reason')" rows="2" required />
+                @endif
+
                 <div class="flex items-center gap-4">
                     <flux:button variant="primary" type="submit">{{ __('Save Outcome') }}</flux:button>
                     <x-action-message on="outcome-saved" class="text-sm">{{ __('Saved.') }}</x-action-message>

@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Dashboard\BuildDashboardStats;
+use App\Http\Middleware\RedirectLegacyFlow;
 use App\Models\Week;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
@@ -14,7 +15,7 @@ Route::get('/', function () {
 })->name('home');
 
 Route::get('dashboard', function (BuildDashboardStats $dashboardStats) {
-    return view('dashboard', $dashboardStats->handle());
+    return view('dashboard', $dashboardStats->handle(request()->user()));
 })
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
@@ -37,11 +38,11 @@ Route::middleware(['auth'])->group(function () {
         )
         ->name('two-factor.show');
 
-    Route::livewire('weeks', 'weeks.index')->name('weeks.index');
-    Route::livewire('weeks/{week}', 'weeks.show')->name('weeks.show');
+    Route::livewire('weeks', 'weeks.index')->middleware(RedirectLegacyFlow::class)->name('weeks.index');
+    Route::livewire('weeks/{week}', 'weeks.show')->middleware(RedirectLegacyFlow::class)->name('weeks.show');
 
-    Route::livewire('season-prediction', 'season-prediction')->name('season.prediction');
-    Route::livewire('predictions/{user}', 'predictions.show')->name('predictions.show');
+    Route::livewire('season-prediction', 'season-prediction')->middleware(RedirectLegacyFlow::class)->name('season.prediction');
+    Route::livewire('predictions/{user}', 'predictions.show')->middleware(RedirectLegacyFlow::class)->name('predictions.show');
 
     Route::get('current-week', function () {
         $now = now();
@@ -61,23 +62,28 @@ Route::middleware(['auth'])->group(function () {
         abort_if($week === null, 404);
 
         return redirect()->route('weeks.show', $week);
-    })->name('current-week');
+    })->middleware(RedirectLegacyFlow::class)->name('current-week');
 
-    Route::livewire('leaderboard', 'leaderboard')->name('leaderboard');
+    Route::livewire('leaderboard', 'leaderboard')->middleware(RedirectLegacyFlow::class)->name('leaderboard');
 
     Route::livewire('pools', 'pools.index')->name('pools.index');
-    Route::livewire('pools/{pool}', 'pools.show')->name('pools.show');
-    Route::livewire('pools/{pool}/draft', 'pools.draft')->name('pools.draft');
-    Route::livewire('pools/{pool}/events', 'pools.events')->name('pools.events');
-    Route::livewire('pools/{pool}/leaderboard', 'pools.leaderboard')->name('pools.leaderboard');
+    Route::middleware('can:view,pool')->group(function () {
+        Route::livewire('pools/{pool}', 'pools.show')->name('pools.show');
+        Route::livewire('pools/{pool}/draft', 'pools.draft')->name('pools.draft');
+        Route::livewire('pools/{pool}/predictions', 'pools.predictions')->name('pools.predictions');
+        Route::livewire('pools/{pool}/events', 'pools.events')->name('pools.events');
+        Route::livewire('pools/{pool}/leaderboard', 'pools.leaderboard')->name('pools.leaderboard');
+    });
 
     Route::middleware(['can:admin'])->prefix('admin')->group(function () {
         Route::livewire('seasons', 'admin.seasons.index')->name('admin.seasons.index');
-        Route::livewire('season-outcome', 'admin.seasons.outcome')->name('admin.seasons.outcome');
-        Route::livewire('weeks', 'admin.weeks.index')->name('admin.weeks.index');
+        Route::livewire('event-types', 'admin.event-types')->name('admin.event-types');
+        Route::livewire('official-rounds', 'admin.official-rounds')->name('admin.official-rounds');
+        Route::livewire('season-outcome', 'admin.seasons.outcome')->middleware(RedirectLegacyFlow::class)->name('admin.seasons.outcome');
+        Route::livewire('weeks', 'admin.weeks.index')->middleware(RedirectLegacyFlow::class)->name('admin.weeks.index');
         Route::livewire('houseguests', 'admin.houseguests.index')->name('admin.houseguests.index');
         Route::livewire('users', 'admin.users.index')->name('admin.users.index');
-        Route::livewire('weeks/{week}/outcome', 'admin.weeks.outcome')->name('admin.weeks.outcome');
-        Route::livewire('predictions/{prediction}', 'admin.predictions.edit')->name('admin.predictions.edit');
+        Route::livewire('weeks/{week}/outcome', 'admin.weeks.outcome')->middleware(RedirectLegacyFlow::class)->name('admin.weeks.outcome');
+        Route::livewire('predictions/{prediction}', 'admin.predictions.edit')->middleware(RedirectLegacyFlow::class)->name('admin.predictions.edit');
     });
 });

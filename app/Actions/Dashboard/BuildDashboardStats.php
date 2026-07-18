@@ -3,15 +3,22 @@
 namespace App\Actions\Dashboard;
 
 use App\Actions\Weeks\WeekPhaseManager;
+use App\Enums\PoolMemberStatus;
 use App\Models\Houseguest;
+use App\Models\Pool;
 use App\Models\PredictionScore;
 use App\Models\Season;
+use App\Models\User;
 use App\Models\Week;
+use App\Support\LegacyFlowAuthority;
 use Illuminate\Support\Facades\Cache;
 
 class BuildDashboardStats
 {
-    public function __construct(public WeekPhaseManager $weekPhaseManager) {}
+    public function __construct(
+        public WeekPhaseManager $weekPhaseManager,
+        private LegacyFlowAuthority $legacyFlowAuthority,
+    ) {}
 
     private int $cacheMinutes = 5;
 
@@ -28,21 +35,28 @@ class BuildDashboardStats
      *         series: array<int, int>
      *     }>,
      *     houseguestSexStatistics: array{male_percent:int, female_percent:int, total:int},
-     *     houseguestOccupationStatistics: \Illuminate\Support\Collection<int, array{occupation:string, count:int, percent:int}>
+     *     houseguestOccupationStatistics: \Illuminate\Support\Collection<int, array{occupation:string, count:int, percent:int}>,
+     *     canonicalMode: bool,
+     *     pools: \Illuminate\Support\Collection<int, \App\Models\Pool>
      * }
      */
-    public function handle(): array
+    public function handle(?User $user = null): array
     {
         $season = Season::query()->where('is_active', true)->first();
+        $canonicalMode = $this->legacyFlowAuthority->cutoverEnabled();
+
+        if ($canonicalMode) {
+            return $this->build($season, $user, true);
+        }
 
         if (app()->environment('testing')) {
-            return $this->build($season);
+            return $this->build($season, $user);
         }
 
         $cacheKey = $this->cacheKey($season);
         $ttl = now()->addMinutes($this->cacheMinutes);
 
-        return Cache::remember($cacheKey, $ttl, fn () => $this->build($season));
+        return Cache::remember($cacheKey, $ttl, fn () => $this->build($season, $user));
     }
 
     public function forget(?Season $season): void
@@ -72,10 +86,12 @@ class BuildDashboardStats
      *         series: array<int, int>
      *     }>,
      *     houseguestSexStatistics: array{male_percent:int, female_percent:int, total:int},
-     *     houseguestOccupationStatistics: \Illuminate\Support\Collection<int, array{occupation:string, count:int, percent:int}>
+     *     houseguestOccupationStatistics: \Illuminate\Support\Collection<int, array{occupation:string, count:int, percent:int}>,
+     *     canonicalMode: bool,
+     *     pools: \Illuminate\Support\Collection<int, \App\Models\Pool>
      * }
      */
-    private function build(?Season $season): array
+    private function build(?Season $season, ?User $user = null, bool $canonicalMode = false): array
     {
         $houseguests = Houseguest::query()
             ->when($season, fn ($q) => $q->where('season_id', $season->id), fn ($q) => $q->whereRaw('1=0'))
@@ -92,6 +108,25 @@ class BuildDashboardStats
         ];
 
         $houseguestOccupationStatistics = collect();
+        $pools = collect();
+
+        if ($canonicalMode && $user !== null) {
+            $pools = Pool::query()
+                ->whereHas('members', fn ($query) => $query
+                    ->whereBelongsTo($user)
+                    ->where('status', PoolMemberStatus::Active->value))
+                ->with([
+                    'season',
+                    'activeMembers' => fn ($query) => $query
+                        ->whereBelongsTo($user)
+                        ->withSum([
+                            'pointEntries' => fn ($pointQuery) => $pointQuery->published(),
+                        ], 'points'),
+                ])
+                ->withCount('activeMembers')
+                ->orderBy('name')
+                ->get();
+        }
 
         if ($houseguests->isNotEmpty()) {
             $totalHouseguests = $houseguests->count();
@@ -147,7 +182,7 @@ class BuildDashboardStats
                 ->values();
         }
 
-        if ($season !== null) {
+        if (! $canonicalMode && $season !== null) {
             $weeksWithOutcomes = Week::query()
                 ->where('season_id', $season->id)
                 ->with(['outcome', 'phases'])
@@ -235,6 +270,8 @@ class BuildDashboardStats
             'statistics' => $statistics,
             'houseguestSexStatistics' => $houseguestSexStatistics,
             'houseguestOccupationStatistics' => $houseguestOccupationStatistics,
+            'canonicalMode' => $canonicalMode,
+            'pools' => $pools,
         ];
     }
 }

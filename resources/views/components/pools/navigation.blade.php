@@ -1,9 +1,5 @@
 @props(['pool', 'availablePools' => collect()])
 
-@if (request()->boolean('migrated'))
-    <flux:callout class="mb-3" icon="arrow-path">Ce parcours a été transféré vers le nouveau flux du pool. Vos données historiques restent conservées.</flux:callout>
-@endif
-
 <div class="flex flex-col gap-1 rounded-xl border border-zinc-200 bg-white p-1 dark:border-zinc-700 dark:bg-zinc-900 sm:flex-row sm:items-center">
     <flux:dropdown position="bottom" align="start">
         <flux:button variant="ghost" icon="arrows-right-left" icon:trailing="chevron-down" class="w-full justify-between sm:w-auto">

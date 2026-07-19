@@ -83,6 +83,16 @@ class CanonicalEventDomainTest extends TestCase
 
         Carbon::setTestNow('2026-07-16 13:00:00');
         $first = app(PublishSeasonEventResult::class)->handle($event->fresh(), $administrator, [$option->id]);
+        $reconciliation = PointEntry::query()->create([
+            'pool_member_id' => $member->id,
+            'pool_event_id' => $poolEvent->id,
+            'type' => 'round_reconciliation',
+            'points' => 4,
+            'reason' => 'Canonical round score reconciliation.',
+            'idempotency_key' => 'round-reconciliation:test-correction-lifecycle',
+        ]);
+
+        $this->assertSame(7, PointEntry::query()->where('pool_member_id', $member->id)->sum('points'));
 
         try {
             app(PublishSeasonEventResult::class)->handle($event->fresh(), $administrator, [$option->id]);
@@ -104,6 +114,12 @@ class CanonicalEventDomainTest extends TestCase
             'season_event_result_id' => $second->id,
             'reverses_point_entry_id' => PointEntry::query()->where('season_event_result_id', $first->id)->value('id'),
             'points' => -3,
+        ]);
+        $this->assertDatabaseHas('point_entries', [
+            'season_event_result_id' => $second->id,
+            'reverses_point_entry_id' => $reconciliation->id,
+            'points' => -4,
+            'idempotency_key' => "round-reconciliation:{$reconciliation->id}:correction-reversal",
         ]);
         $this->assertSame(3, PointEntry::query()->where('pool_member_id', $member->id)->sum('points'));
     }

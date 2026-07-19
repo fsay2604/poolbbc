@@ -2,11 +2,8 @@
 
 namespace App\Providers;
 
-use App\Listeners\PreventCanonicalMigrationRollback;
 use App\Models\User;
 use App\Translation\PhpJsonFileLoader;
-use Illuminate\Database\Events\MigrationStarted;
-use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Translation\FileLoader;
@@ -42,7 +39,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        Event::listen(MigrationStarted::class, PreventCanonicalMigrationRollback::class);
         Gate::define('admin', fn (User $user): bool => (bool) $user->is_admin);
     }
 }

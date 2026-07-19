@@ -24,7 +24,6 @@ class Pool extends Model
         'season_id', 'owner_id', 'name', 'description', 'invite_code', 'timezone',
         'status', 'competition_mode', 'scoring_config', 'max_members', 'picks_per_member', 'draft_mode', 'exclusive_draft',
         'registrations_closed_at',
-        'legacy_key',
     ];
 
     protected $attributes = [

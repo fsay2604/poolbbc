@@ -17,7 +17,6 @@ class SeasonEventResult extends Model
     protected $fillable = [
         'season_event_id', 'created_by', 'supersedes_id', 'version', 'status',
         'correction_reason', 'published_at',
-        'legacy_key',
     ];
 
     protected static function booted(): void

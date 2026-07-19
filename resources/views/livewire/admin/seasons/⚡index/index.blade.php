@@ -17,11 +17,6 @@
                         <flux:input wire:model="form.ends_on" :label="__('Ends on')" type="date" />
                     </div>
 
-                    <div class="grid gap-4 md:grid-cols-2">
-                        <flux:input wire:model="form.prediction_opens_at" :label="__('Predictions open at')" type="datetime-local" />
-                        <flux:input wire:model="form.prediction_locks_at" :label="__('Predictions lock at')" type="datetime-local" required />
-                    </div>
-
                     <div class="flex items-center gap-4">
                         <flux:button variant="primary" type="submit">{{ __('Save') }}</flux:button>
                         <x-action-message on="season-saved" class="text-sm">{{ __('Saved.') }}</x-action-message>
@@ -36,7 +31,6 @@
                             <tr>
                                 <th class="px-4 py-3 text-left font-medium">{{ __('Name') }}</th>
                                 <th class="px-4 py-3 text-left font-medium">{{ __('Active') }}</th>
-                                <th class="px-4 py-3 text-left font-medium">{{ __('Outcome') }}</th>
                                 <th class="px-4 py-3"></th>
                             </tr>
                         </thead>
@@ -45,19 +39,10 @@
                                 <tr>
                                     <td class="px-4 py-3">{{ $season->name }}</td>
                                     <td class="px-4 py-3">
-                                        @if ($season->is_active && ! config('legacy-flow.cutover_enabled') && ! config('legacy-flow.canonical_is_authoritative'))
+                                        @if ($season->is_active)
                                             <span class="text-green-600">{{ __('Yes') }}</span>
                                         @else
                                             <span class="text-zinc-500 dark:text-zinc-400">{{ __('No') }}</span>
-                                        @endif
-                                    </td>
-                                    <td class="px-4 py-3">
-                                        @if ($season->is_active)
-                                            <flux:button size="sm" :href="route('admin.seasons.outcome')" wire:navigate.hover>
-                                                {{ __('Set') }}
-                                            </flux:button>
-                                        @else
-                                            <span class="text-zinc-500 dark:text-zinc-400">--</span>
                                         @endif
                                     </td>
                                     <td class="px-4 py-3 text-right">
@@ -78,6 +63,10 @@
         </div>
 
         <x-action-message on="season-deleted" class="text-sm">{{ __('Deleted.') }}</x-action-message>
+
+        @error('seasonDeletion')
+            <flux:text class="text-sm text-red-600 dark:text-red-400">{{ $message }}</flux:text>
+        @enderror
     </div>
 
     <flux:modal wire:model.self="showConfirmSeasonDeletionModal" focusable class="max-w-lg">
@@ -86,7 +75,7 @@
                 <flux:heading size="lg">{{ __('Delete season?') }}</flux:heading>
 
                 <flux:subheading>
-                    {{ __('This will permanently delete the season and all related data (weeks, houseguests, outcomes, predictions, and scores).') }}
+                    {{ __('This permanently deletes the season, its houseguests, and official rounds, events, and options only when no pools or official result history exist.') }}
                     @if ($confirmingSeasonDeletionName)
                         <div class="mt-2 font-medium text-zinc-900 dark:text-zinc-100">
                             {{ $confirmingSeasonDeletionName }}

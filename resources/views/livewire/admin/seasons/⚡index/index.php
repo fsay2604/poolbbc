@@ -1,11 +1,11 @@
 <?php
 
 use App\Actions\Audit\RecordAuditLog;
-use App\Actions\Seasons\CreateDefaultWeeks;
 use App\Http\Requests\Admin\SaveSeasonRequest;
 use App\Models\Season;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 
 new class extends Component
@@ -19,14 +19,12 @@ new class extends Component
 
     public bool $showConfirmSeasonDeletionModal = false;
 
-    /** @var array{name:string,is_active:bool,starts_on:?string,ends_on:?string,prediction_opens_at:?string,prediction_locks_at:?string} */
+    /** @var array{name:string,is_active:bool,starts_on:?string,ends_on:?string} */
     public array $form = [
         'name' => '',
         'is_active' => false,
         'starts_on' => null,
         'ends_on' => null,
-        'prediction_opens_at' => null,
-        'prediction_locks_at' => null,
     ];
 
     public ?int $editingId = null;
@@ -46,8 +44,6 @@ new class extends Component
             'is_active' => false,
             'starts_on' => null,
             'ends_on' => null,
-            'prediction_opens_at' => null,
-            'prediction_locks_at' => null,
         ];
     }
 
@@ -61,8 +57,6 @@ new class extends Component
             'is_active' => $season->is_active,
             'starts_on' => $season->starts_on?->format('Y-m-d'),
             'ends_on' => $season->ends_on?->format('Y-m-d'),
-            'prediction_opens_at' => $season->prediction_opens_at?->format('Y-m-d\TH:i'),
-            'prediction_locks_at' => $season->prediction_locks_at?->format('Y-m-d\TH:i'),
         ];
     }
 
@@ -100,10 +94,6 @@ new class extends Component
             $season->fill($validated['form']);
             $season->save();
 
-            if ($isCreating) {
-                app(CreateDefaultWeeks::class)->run($season);
-            }
-
             $recordAuditLog->handle(null, auth()->user(), $isCreating ? 'season.created' : 'season.updated', $season, [
                 'before' => $before,
                 'after' => $season->only($auditAttributes),
@@ -121,6 +111,7 @@ new class extends Component
         Gate::authorize('admin');
 
         $season = Season::query()->findOrFail($seasonId);
+        $this->ensureSeasonCanBeDeleted($season);
 
         $this->confirmingSeasonDeletionId = $season->id;
         $this->confirmingSeasonDeletionName = $season->name;
@@ -134,13 +125,12 @@ new class extends Component
 
         DB::transaction(function () use ($seasonId, $recordAuditLog): void {
             $season = Season::query()->lockForUpdate()->findOrFail($seasonId);
+            $this->ensureSeasonCanBeDeleted($season);
             $before = $season->only([
                 'name',
                 'is_active',
                 'starts_on',
                 'ends_on',
-                'prediction_opens_at',
-                'prediction_locks_at',
             ]);
 
             $recordAuditLog->handle(null, auth()->user(), 'season.deleted', $season, [
@@ -174,5 +164,18 @@ new class extends Component
     private function refresh(): void
     {
         $this->seasons = Season::query()->orderByDesc('is_active')->orderByDesc('id')->get();
+    }
+
+    private function ensureSeasonCanBeDeleted(Season $season): void
+    {
+        $hasOfficialResults = $season->canonicalRounds()
+            ->whereHas('events.results')
+            ->exists();
+
+        if ($season->pools()->exists() || $hasOfficialResults) {
+            throw ValidationException::withMessages([
+                'seasonDeletion' => __('A season with pools or official result history cannot be deleted. Preserve the ledger and archive the season instead.'),
+            ]);
+        }
     }
 };

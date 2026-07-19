@@ -1,5 +1,3 @@
-@inject('legacyFlowAuthority', 'App\Support\LegacyFlowAuthority')
-
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark">
     <head>
@@ -26,9 +24,6 @@
                         <flux:navlist.item icon="cog" :href="route('admin.seasons.index')" :current="request()->routeIs('admin.seasons.*')" wire:navigate.hover>{{ __('Seasons') }}</flux:navlist.item>
                         <flux:navlist.item icon="squares-2x2" :href="route('admin.event-types')" :current="request()->routeIs('admin.event-types')" wire:navigate.hover>{{ __('Standard event types') }}</flux:navlist.item>
                         <flux:navlist.item icon="calendar-days" :href="route('admin.official-rounds')" :current="request()->routeIs('admin.official-rounds')" wire:navigate.hover>Rondes officielles</flux:navlist.item>
-                        @unless ($legacyFlowAuthority->cutoverEnabled())
-                            <flux:navlist.item icon="calendar" :href="route('admin.weeks.index')" :current="request()->routeIs('admin.weeks.*')" wire:navigate.hover>{{ __('Weeks') }}</flux:navlist.item>
-                        @endunless
                         <flux:navlist.item icon="user" :href="route('admin.houseguests.index')" :current="request()->routeIs('admin.houseguests.*')" wire:navigate.hover>{{ __('Houseguests') }}</flux:navlist.item>
                         <flux:separator class="my-2" />
                         <flux:navlist.item icon="users" :href="route('admin.users.index')" :current="request()->routeIs('admin.users.*')" wire:navigate.hover>{{ __('Users') }}</flux:navlist.item>

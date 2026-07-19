@@ -33,7 +33,7 @@ class ScoreSeasonEventResult
         }
 
         if ($result->supersedes !== null) {
-            $this->reverseLegacyAdjustments($poolEvent, $result);
+            $this->reverseRoundReconciliations($poolEvent, $result);
             $this->reversePreviousScore($poolEvent, $result->supersedes, $result);
         }
 
@@ -129,20 +129,27 @@ class ScoreSeasonEventResult
             });
     }
 
-    private function reverseLegacyAdjustments(PoolEvent $poolEvent, SeasonEventResult $current): void
+    private function reverseRoundReconciliations(PoolEvent $poolEvent, SeasonEventResult $current): void
     {
         $poolEventIds = PoolEvent::query()
             ->where('pool_id', $poolEvent->pool_id)
-            ->whereHas('seasonEvent', fn ($query) => $query->where('season_round_id', $current->event->season_round_id))
+            ->whereHas('seasonEvent', fn ($query) => $query
+                ->where('season_round_id', $current->event->season_round_id))
             ->pluck('id');
 
         PointEntry::query()
             ->whereIn('pool_event_id', $poolEventIds)
-            ->where('type', 'legacy_adjustment')
-            ->where('points', '!=', 0)
+            ->where('type', 'round_reconciliation')
+            ->whereNull('season_event_result_id')
+            ->whereNull('reverses_point_entry_id')
+            ->whereNotExists(function ($query): void {
+                $query->selectRaw('1')
+                    ->from('point_entries as reversal')
+                    ->whereColumn('reversal.reverses_point_entry_id', 'point_entries.id');
+            })
             ->each(function (PointEntry $entry) use ($poolEvent, $current): void {
                 PointEntry::query()->firstOrCreate(
-                    ['idempotency_key' => "legacy-adjustment-reversal:{$entry->id}"],
+                    ['idempotency_key' => "round-reconciliation:{$entry->id}:correction-reversal"],
                     [
                         'pool_member_id' => $entry->pool_member_id,
                         'pool_event_id' => $poolEvent->id,
@@ -150,7 +157,7 @@ class ScoreSeasonEventResult
                         'reverses_point_entry_id' => $entry->id,
                         'type' => 'reversal',
                         'points' => -$entry->points,
-                        'reason' => __('Legacy import adjustment retired by the first canonical correction.'),
+                        'reason' => __('Round score reconciliation retired by official correction'),
                     ],
                 );
             });

@@ -24,7 +24,6 @@ class SeasonEvent extends Model
         'include_inactive_houseguests', 'allow_none', 'scoring_config', 'default_mode',
         'status', 'position', 'opens_at', 'locks_at', 'prediction_min_selections',
         'prediction_max_selections', 'result_min_selections', 'result_max_selections', 'result_publication_mode', 'options_locked_at', 'cancelled_at',
-        'legacy_key',
     ];
 
     protected $attributes = [

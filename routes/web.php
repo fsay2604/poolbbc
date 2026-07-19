@@ -1,8 +1,6 @@
 <?php
 
 use App\Actions\Dashboard\BuildDashboardStats;
-use App\Http\Middleware\RedirectLegacyFlow;
-use App\Models\Week;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
@@ -38,34 +36,6 @@ Route::middleware(['auth'])->group(function () {
         )
         ->name('two-factor.show');
 
-    Route::livewire('weeks', 'weeks.index')->middleware(RedirectLegacyFlow::class)->name('weeks.index');
-    Route::livewire('weeks/{week}', 'weeks.show')->middleware(RedirectLegacyFlow::class)->name('weeks.show');
-
-    Route::livewire('season-prediction', 'season-prediction')->middleware(RedirectLegacyFlow::class)->name('season.prediction');
-    Route::livewire('predictions/{user}', 'predictions.show')->middleware(RedirectLegacyFlow::class)->name('predictions.show');
-
-    Route::get('current-week', function () {
-        $now = now();
-
-        $week = Week::query()
-            ->forActiveSeason()
-            ->orderBy('number')
-            ->where(function ($query) use ($now) {
-                $query
-                    ->where('is_locked', false)
-                    ->where(fn ($query) => $query->whereNull('auto_lock_at')->orWhere('auto_lock_at', '>', $now));
-            })
-            ->first();
-
-        $week ??= Week::query()->forActiveSeason()->orderByDesc('number')->first();
-
-        abort_if($week === null, 404);
-
-        return redirect()->route('weeks.show', $week);
-    })->middleware(RedirectLegacyFlow::class)->name('current-week');
-
-    Route::livewire('leaderboard', 'leaderboard')->middleware(RedirectLegacyFlow::class)->name('leaderboard');
-
     Route::livewire('pools', 'pools.index')->name('pools.index');
     Route::middleware('can:view,pool')->group(function () {
         Route::livewire('pools/{pool}', 'pools.show')->name('pools.show');
@@ -79,11 +49,7 @@ Route::middleware(['auth'])->group(function () {
         Route::livewire('seasons', 'admin.seasons.index')->name('admin.seasons.index');
         Route::livewire('event-types', 'admin.event-types')->name('admin.event-types');
         Route::livewire('official-rounds', 'admin.official-rounds')->name('admin.official-rounds');
-        Route::livewire('season-outcome', 'admin.seasons.outcome')->middleware(RedirectLegacyFlow::class)->name('admin.seasons.outcome');
-        Route::livewire('weeks', 'admin.weeks.index')->middleware(RedirectLegacyFlow::class)->name('admin.weeks.index');
         Route::livewire('houseguests', 'admin.houseguests.index')->name('admin.houseguests.index');
         Route::livewire('users', 'admin.users.index')->name('admin.users.index');
-        Route::livewire('weeks/{week}/outcome', 'admin.weeks.outcome')->middleware(RedirectLegacyFlow::class)->name('admin.weeks.outcome');
-        Route::livewire('predictions/{prediction}', 'admin.predictions.edit')->middleware(RedirectLegacyFlow::class)->name('admin.predictions.edit');
     });
 });

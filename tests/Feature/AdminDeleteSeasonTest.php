@@ -1,70 +1,86 @@
 <?php
 
-use App\Actions\Predictions\ScoreWeek;
+namespace Tests\Feature;
+
 use App\Models\Houseguest;
-use App\Models\Prediction;
-use App\Models\PredictionScore;
+use App\Models\Pool;
 use App\Models\Season;
+use App\Models\SeasonEvent;
+use App\Models\SeasonEventOption;
+use App\Models\SeasonEventResult;
+use App\Models\SeasonRound;
 use App\Models\User;
-use App\Models\Week;
-use App\Models\WeekOutcome;
-use Illuminate\Support\Carbon;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
+use Tests\TestCase;
 
-test('admin can delete a season and all related data', function () {
-    Carbon::setTestNow('2026-01-04 12:00:00');
+class AdminDeleteSeasonTest extends TestCase
+{
+    use RefreshDatabase;
 
-    $admin = User::factory()->admin()->create();
-    $user = User::factory()->create();
-    $season = Season::factory()->create(['is_active' => true]);
-    $week = Week::factory()->for($season)->create(['number' => 1]);
+    public function test_admin_can_delete_a_season_and_its_canonical_event_data(): void
+    {
+        $administrator = User::factory()->admin()->create();
+        $season = Season::factory()->create(['is_active' => true]);
+        $houseguest = Houseguest::factory()->for($season)->create();
+        $round = SeasonRound::factory()->for($season)->create(['position' => 1]);
+        $event = SeasonEvent::factory()
+            ->for($round, 'round')
+            ->for($administrator, 'creator')
+            ->create(['position' => 1]);
+        $option = SeasonEventOption::factory()->for($event, 'event')->create([
+            'houseguest_id' => $houseguest->id,
+        ]);
+        Livewire::actingAs($administrator)
+            ->test('admin.seasons.index')
+            ->call('delete', $season->id)
+            ->assertHasNoErrors();
 
-    $hg1 = Houseguest::factory()->for($season)->create(['is_active' => true, 'sort_order' => 1]);
-    $hg2 = Houseguest::factory()->for($season)->create(['is_active' => true, 'sort_order' => 2]);
-    $hg3 = Houseguest::factory()->for($season)->create(['is_active' => true, 'sort_order' => 3]);
-    $hg4 = Houseguest::factory()->for($season)->create(['is_active' => true, 'sort_order' => 4]);
-    $hg5 = Houseguest::factory()->for($season)->create(['is_active' => true, 'sort_order' => 5]);
-    $hg6 = Houseguest::factory()->for($season)->create(['is_active' => true, 'sort_order' => 6]);
-    $hg7 = Houseguest::factory()->for($season)->create(['is_active' => true, 'sort_order' => 7]);
+        $this->assertModelMissing($season);
+        $this->assertModelMissing($houseguest);
+        $this->assertModelMissing($round);
+        $this->assertModelMissing($event);
+        $this->assertModelMissing($option);
+    }
 
-    $prediction = Prediction::factory()->for($week)->for($user)->create([
-        'hoh_houseguest_id' => $hg1->id,
-        'nominee_1_houseguest_id' => $hg2->id,
-        'nominee_2_houseguest_id' => $hg3->id,
-        'veto_winner_houseguest_id' => $hg4->id,
-        'veto_used' => true,
-        'saved_houseguest_id' => $hg2->id,
-        'replacement_nominee_houseguest_id' => $hg5->id,
-        'evicted_houseguest_id' => $hg5->id,
-        'confirmed_at' => now(),
-    ]);
+    public function test_admin_cannot_delete_a_season_with_official_result_history(): void
+    {
+        $administrator = User::factory()->admin()->create();
+        $season = Season::factory()->create();
+        $round = SeasonRound::factory()->for($season)->create();
+        $event = SeasonEvent::factory()
+            ->for($round, 'round')
+            ->for($administrator, 'creator')
+            ->create();
+        $result = SeasonEventResult::factory()
+            ->for($event, 'event')
+            ->for($administrator, 'creator')
+            ->create();
 
-    WeekOutcome::factory()->for($week)->create([
-        'hoh_houseguest_id' => $hg1->id,
-        'nominee_1_houseguest_id' => $hg2->id,
-        'nominee_2_houseguest_id' => $hg3->id,
-        'veto_winner_houseguest_id' => $hg4->id,
-        'veto_used' => true,
-        'saved_houseguest_id' => $hg2->id,
-        'replacement_nominee_houseguest_id' => $hg5->id,
-        'evicted_houseguest_id' => $hg5->id,
-        'last_admin_edited_by_user_id' => $admin->id,
-        'last_admin_edited_at' => now(),
-    ]);
+        Livewire::actingAs($administrator)
+            ->test('admin.seasons.index')
+            ->call('delete', $season->id)
+            ->assertHasErrors(['seasonDeletion']);
 
-    app(ScoreWeek::class)->run($week, $admin);
-    expect(PredictionScore::query()->where('prediction_id', $prediction->id)->exists())->toBeTrue();
+        $this->assertModelExists($season);
+        $this->assertModelExists($result);
+    }
 
-    $this->actingAs($admin);
+    public function test_admin_cannot_delete_a_season_with_a_pool(): void
+    {
+        $administrator = User::factory()->admin()->create();
+        $season = Season::factory()->create();
+        $pool = Pool::factory()
+            ->for($season)
+            ->for($administrator, 'owner')
+            ->create();
 
-    Livewire::test('admin.seasons.index')
-        ->call('delete', $season->id)
-        ->assertHasNoErrors();
+        Livewire::actingAs($administrator)
+            ->test('admin.seasons.index')
+            ->call('delete', $season->id)
+            ->assertHasErrors(['seasonDeletion']);
 
-    expect(Season::query()->whereKey($season->id)->exists())->toBeFalse();
-    expect(Week::query()->whereKey($week->id)->exists())->toBeFalse();
-    expect(Houseguest::query()->where('season_id', $season->id)->exists())->toBeFalse();
-    expect(Prediction::query()->whereKey($prediction->id)->exists())->toBeFalse();
-    expect(WeekOutcome::query()->where('week_id', $week->id)->exists())->toBeFalse();
-    expect(PredictionScore::query()->where('week_id', $week->id)->exists())->toBeFalse();
-});
+        $this->assertModelExists($season);
+        $this->assertModelExists($pool);
+    }
+}

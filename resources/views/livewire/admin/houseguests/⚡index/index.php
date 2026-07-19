@@ -1,7 +1,6 @@
 <?php
 
 use App\Actions\Audit\RecordAuditLog;
-use App\Actions\Dashboard\BuildDashboardStats;
 use App\Http\Requests\Admin\SaveHouseguestRequest;
 use App\Models\Houseguest;
 use App\Models\Season;
@@ -121,8 +120,6 @@ new class extends Component
             Storage::disk('public')->delete($avatarPath);
         }
 
-        app(BuildDashboardStats::class)->forget($this->season);
-
         if ($this->editingId === $houseguest->id) {
             $this->startCreate();
         }
@@ -178,8 +175,6 @@ new class extends Component
                 'after' => $houseguest->only($auditAttributes),
             ]);
         });
-
-        app(BuildDashboardStats::class)->forget($this->season);
 
         $this->startCreate();
         $this->refresh();

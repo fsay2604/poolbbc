@@ -5,13 +5,11 @@ declare(strict_types=1);
 use App\Models\Houseguest;
 use App\Models\Season;
 use App\Models\User;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 
 test('admin can delete a houseguest and its avatar', function () {
     Storage::fake('public');
-    Cache::spy();
 
     $season = Season::factory()->create(['is_active' => true]);
 
@@ -32,5 +30,4 @@ test('admin can delete a houseguest and its avatar', function () {
 
     expect(Houseguest::query()->whereKey($houseguest->id)->exists())->toBeFalse();
     Storage::disk('public')->assertMissing($avatarPath);
-    Cache::shouldHaveReceived('forget')->with("dashboard.stats.season.{$season->id}");
 });

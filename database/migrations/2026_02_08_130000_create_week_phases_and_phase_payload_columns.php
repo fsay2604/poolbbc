@@ -1,6 +1,5 @@
 <?php
 
-use App\Actions\Weeks\WeekPhaseManager;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -8,6 +7,14 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    private const TYPE_HOH = 'hoh';
+
+    private const TYPE_NOMINEES = 'nominees';
+
+    private const TYPE_VETO = 'veto';
+
+    private const TYPE_EVICTIONS = 'evictions';
+
     /**
      * Run the migrations.
      */
@@ -86,7 +93,7 @@ return new class extends Migration
                 [
                     'week_id' => $week->id,
                     'position' => 1,
-                    'type' => WeekPhaseManager::TYPE_HOH,
+                    'type' => self::TYPE_HOH,
                     'config' => json_encode([
                         'hoh_count' => $this->normalizeCount($this->legacyValue($week, 'boss_count') ?? 1),
                     ], JSON_THROW_ON_ERROR),
@@ -96,7 +103,7 @@ return new class extends Migration
                 [
                     'week_id' => $week->id,
                     'position' => 2,
-                    'type' => WeekPhaseManager::TYPE_NOMINEES,
+                    'type' => self::TYPE_NOMINEES,
                     'config' => json_encode([
                         'nominee_count' => $this->normalizeCount($this->legacyValue($week, 'nominee_count') ?? 2),
                     ], JSON_THROW_ON_ERROR),
@@ -106,7 +113,7 @@ return new class extends Migration
                 [
                     'week_id' => $week->id,
                     'position' => 3,
-                    'type' => WeekPhaseManager::TYPE_VETO,
+                    'type' => self::TYPE_VETO,
                     'config' => json_encode([
                         'winner_count' => 1,
                         'saved_count' => 1,
@@ -118,7 +125,7 @@ return new class extends Migration
                 [
                     'week_id' => $week->id,
                     'position' => 4,
-                    'type' => WeekPhaseManager::TYPE_EVICTIONS,
+                    'type' => self::TYPE_EVICTIONS,
                     'config' => json_encode([
                         'evicted_count' => $this->normalizeCount($this->legacyValue($week, 'evicted_count') ?? 1),
                     ], JSON_THROW_ON_ERROR),
@@ -289,7 +296,7 @@ return new class extends Migration
                 'type' => $phase->type,
             ];
 
-            if ($phase->type === WeekPhaseManager::TYPE_HOH) {
+            if ($phase->type === self::TYPE_HOH) {
                 $entry['hoh_ids'] = $useLegacyValues
                     ? $this->fallbackList($legacy['boss_houseguest_ids'] ?? null, $legacy['hoh_houseguest_id'] ?? null)
                     : [];
@@ -299,7 +306,7 @@ return new class extends Migration
                 continue;
             }
 
-            if ($phase->type === WeekPhaseManager::TYPE_NOMINEES) {
+            if ($phase->type === self::TYPE_NOMINEES) {
                 $entry['nominee_ids'] = $useLegacyValues
                     ? $this->fallbackList(
                         $legacy['nominee_houseguest_ids'] ?? null,
@@ -315,7 +322,7 @@ return new class extends Migration
                 continue;
             }
 
-            if ($phase->type === WeekPhaseManager::TYPE_VETO) {
+            if ($phase->type === self::TYPE_VETO) {
                 $vetoUsed = $useLegacyValues ? $this->isTruthy($legacy['veto_used'] ?? null) : false;
 
                 $entry['veto_used'] = $vetoUsed;
@@ -334,7 +341,7 @@ return new class extends Migration
                 continue;
             }
 
-            if ($phase->type === WeekPhaseManager::TYPE_EVICTIONS) {
+            if ($phase->type === self::TYPE_EVICTIONS) {
                 $entry['evicted_ids'] = $useLegacyValues
                     ? $this->fallbackList($legacy['evicted_houseguest_ids'] ?? null, $legacy['evicted_houseguest_id'] ?? null)
                     : [];

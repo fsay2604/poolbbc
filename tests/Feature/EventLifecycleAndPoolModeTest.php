@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Actions\Events\CreateEvent;
 use App\Actions\Events\CreateSeasonRoundFromTemplate;
 use App\Actions\Events\SynchronizeEventLifecycle;
-use App\Actions\Events\SynchronizeOfficialPoolEvents;
 use App\Actions\Events\TransitionSeasonEvent;
 use App\Actions\Pools\ActivatePool;
 use App\Actions\Pools\JoinPool;
@@ -83,11 +82,6 @@ class EventLifecycleAndPoolModeTest extends TestCase
         $season = Season::factory()->create();
         $existingRound = SeasonRound::factory()->for($season)->create();
         $existingEvent = SeasonEvent::factory()->for($existingRound, 'round')->create();
-        $historicalEvent = SeasonEvent::factory()->for($existingRound, 'round')->create([
-            'legacy_key' => 'legacy:historical-event',
-            'status' => EventStatus::Published,
-            'locks_at' => now()->subDay(),
-        ]);
         $owner = User::factory()->create();
 
         $pool = $this->createPoolOpenForRegistration($owner, $this->poolData($season, PoolCompetitionMode::PredictionOnly));
@@ -96,16 +90,6 @@ class EventLifecycleAndPoolModeTest extends TestCase
             'season_event_id' => $existingEvent->id,
             'mode' => 'prediction',
         ]);
-        $this->assertDatabaseMissing('pool_events', [
-            'pool_id' => $pool->id,
-            'season_event_id' => $historicalEvent->id,
-        ]);
-        app(SynchronizeOfficialPoolEvents::class)->handleEvent($historicalEvent);
-        $this->assertDatabaseMissing('pool_events', [
-            'pool_id' => $pool->id,
-            'season_event_id' => $historicalEvent->id,
-        ]);
-
         $completedPool = Pool::factory()->predictionOnly()->create([
             'season_id' => $season->id,
             'status' => PoolStatus::Completed,

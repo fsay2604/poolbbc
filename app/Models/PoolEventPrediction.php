@@ -13,7 +13,7 @@ class PoolEventPrediction extends Model
     /** @use HasFactory<\Database\Factories\PoolEventPredictionFactory> */
     use HasFactory;
 
-    protected $fillable = ['pool_event_id', 'pool_member_id', 'status', 'submitted_at', 'locked_at', 'legacy_key'];
+    protected $fillable = ['pool_event_id', 'pool_member_id', 'status', 'submitted_at', 'locked_at'];
 
     protected $attributes = ['status' => PredictionStatus::Draft->value];
 

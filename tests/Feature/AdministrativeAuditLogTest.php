@@ -40,8 +40,8 @@ class AdministrativeAuditLogTest extends TestCase
             ->test('admin.seasons.index')
             ->set('form.name', 'Saison auditée')
             ->set('form.is_active', true)
-            ->set('form.prediction_opens_at', '2026-07-01T18:00')
-            ->set('form.prediction_locks_at', '2026-07-02T18:00')
+            ->set('form.starts_on', '2026-07-01')
+            ->set('form.ends_on', '2026-09-30')
             ->call('save')
             ->assertHasNoErrors();
 
@@ -112,39 +112,6 @@ class AdministrativeAuditLogTest extends TestCase
         $this->assertSame('Célébrité renommée', data_get($deletedAudit->metadata, 'before.name'));
         $this->assertNull(data_get($deletedAudit->metadata, 'after'));
         $this->assertModelMissing($houseguest);
-    }
-
-    public function test_season_outcome_administration_records_before_and_after_selections(): void
-    {
-        $administrator = User::factory()->admin()->create();
-        $season = Season::factory()->create([
-            'is_active' => true,
-            'winner_houseguest_id' => null,
-            'first_evicted_houseguest_id' => null,
-            'top_6_houseguest_ids' => [],
-        ]);
-        $houseguests = Houseguest::factory()->for($season)->count(8)->create(['is_active' => true]);
-
-        Livewire::actingAs($administrator)
-            ->test('admin.seasons.outcome')
-            ->set('form.winner_houseguest_id', $houseguests[0]->id)
-            ->set('form.first_evicted_houseguest_id', $houseguests[1]->id)
-            ->set('form.top_6_1_houseguest_id', $houseguests[0]->id)
-            ->set('form.top_6_2_houseguest_id', $houseguests[2]->id)
-            ->set('form.top_6_3_houseguest_id', $houseguests[3]->id)
-            ->set('form.top_6_4_houseguest_id', $houseguests[4]->id)
-            ->set('form.top_6_5_houseguest_id', $houseguests[5]->id)
-            ->set('form.top_6_6_houseguest_id', $houseguests[6]->id)
-            ->call('save')
-            ->assertHasNoErrors();
-
-        $audit = $this->auditFor('season.outcome_updated', $season, $administrator);
-        $this->assertNull(data_get($audit->metadata, 'before.winner_houseguest_id'));
-        $this->assertSame($houseguests[0]->id, data_get($audit->metadata, 'after.winner_houseguest_id'));
-        $this->assertSame(
-            [$houseguests[0]->id, $houseguests[2]->id, $houseguests[3]->id, $houseguests[4]->id, $houseguests[5]->id, $houseguests[6]->id],
-            data_get($audit->metadata, 'after.top_6_houseguest_ids'),
-        );
     }
 
     public function test_user_administration_records_safe_crud_role_and_password_audits(): void

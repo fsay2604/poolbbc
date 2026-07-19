@@ -16,7 +16,6 @@ class SynchronizeOfficialPoolEvents
         SeasonEvent::query()
             ->with('eventType')
             ->whereHas('round', fn ($query) => $query->where('season_id', $pool->season_id))
-            ->whereNull('legacy_key')
             ->whereIn('status', ['draft', 'open'])
             ->where(fn ($query) => $query->whereNull('locks_at')->orWhere('locks_at', '>', now()))
             ->each(fn (SeasonEvent $event) => $this->attach($pool, $event));
@@ -25,8 +24,7 @@ class SynchronizeOfficialPoolEvents
     public function handleEvent(SeasonEvent $event): void
     {
         $event->loadMissing(['round', 'eventType']);
-        if ($event->legacy_key !== null
-            || ! in_array($event->status->value, ['draft', 'open'], true)
+        if (! in_array($event->status->value, ['draft', 'open'], true)
             || ($event->locks_at !== null && $event->locks_at->lessThanOrEqualTo(now()))) {
             return;
         }
@@ -44,7 +42,6 @@ class SynchronizeOfficialPoolEvents
             $event = SeasonEvent::query()->with(['round', 'eventType'])->lockForUpdate()->findOrFail($event->id);
 
             if ($event->round->season_id !== $pool->season_id
-                || $event->legacy_key !== null
                 || ! in_array($event->status->value, ['draft', 'open'], true)
                 || ($event->locks_at !== null && $event->locks_at->lessThanOrEqualTo(now()))) {
                 return null;

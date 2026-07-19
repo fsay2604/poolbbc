@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Actions\Seasons\CreateDefaultWeeks;
 use App\Models\Season;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
@@ -31,7 +30,5 @@ class CurrentYearSeasonSeeder extends Seeder
             'is_active' => true,
             'starts_on' => $season->starts_on ?? Carbon::create($year, 1, 1),
         ])->save();
-
-        app(CreateDefaultWeeks::class)->run($season);
     }
 }

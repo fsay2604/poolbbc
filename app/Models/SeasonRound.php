@@ -12,7 +12,7 @@ class SeasonRound extends Model
     /** @use HasFactory<\Database\Factories\SeasonRoundFactory> */
     use HasFactory;
 
-    protected $fillable = ['season_id', 'name', 'position', 'status', 'starts_at', 'ends_at', 'legacy_key'];
+    protected $fillable = ['season_id', 'name', 'position', 'status', 'starts_at', 'ends_at'];
 
     protected function casts(): array
     {

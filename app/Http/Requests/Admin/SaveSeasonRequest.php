@@ -26,8 +26,6 @@ class SaveSeasonRequest extends FormRequest
             'form.is_active' => ['required', 'boolean'],
             'form.starts_on' => ['nullable', 'date'],
             'form.ends_on' => ['nullable', 'date'],
-            'form.prediction_opens_at' => ['nullable', 'date'],
-            'form.prediction_locks_at' => ['required', 'date', 'after:form.prediction_opens_at'],
         ];
     }
 }

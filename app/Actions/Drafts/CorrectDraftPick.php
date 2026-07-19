@@ -46,6 +46,15 @@ class CorrectDraftPick
                 throw ValidationException::withMessages(['houseguest' => __('Select a different houseguest for this correction.')]);
             }
 
+            if (DraftPick::query()
+                ->where('draft_id', $draft->id)
+                ->where('pool_member_id', $pick->pool_member_id)
+                ->where('houseguest_id', $replacement->id)
+                ->where('id', '!=', $pick->id)
+                ->exists()) {
+                throw ValidationException::withMessages(['houseguest' => __('This houseguest is already on this roster.')]);
+            }
+
             if ($pool->exclusive_draft && DraftPick::query()
                 ->where('pool_id', $pool->id)
                 ->where('id', '!=', $pick->id)

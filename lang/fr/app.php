@@ -398,6 +398,7 @@ return [
     'This event mode is incompatible with the pool competition mode.' => 'Ce mode d’événement est incompatible avec le mode de compétition du pool.',
     'This event status transition is not allowed.' => 'Cette transition de statut de l’événement n’est pas permise.',
     'This houseguest has already been drafted.' => 'Ce candidat a déjà été repêché.',
+    'This houseguest is already on this roster.' => 'Ce candidat fait déjà partie de cette équipe.',
     'This houseguest is not available.' => 'Ce candidat n’est pas disponible.',
     'This official event is not ready for a result.' => 'Cet événement officiel n’est pas prêt à recevoir un résultat.',
     'This official event is not ready to publish the recorded result.' => 'Cet événement officiel n’est pas prêt à publier le résultat enregistré.',

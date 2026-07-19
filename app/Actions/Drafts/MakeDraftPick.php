@@ -40,6 +40,14 @@ class MakeDraftPick
                 throw ValidationException::withMessages(['houseguest' => __('This houseguest is not available.')]);
             }
 
+            if (DraftPick::query()
+                ->where('draft_id', $draft->id)
+                ->where('pool_member_id', $member->id)
+                ->where('houseguest_id', $houseguest->id)
+                ->exists()) {
+                throw ValidationException::withMessages(['houseguest' => __('This houseguest is already on this roster.')]);
+            }
+
             if ($pool->exclusive_draft && DraftPick::query()->where('pool_id', $pool->id)->whereBelongsTo($houseguest)->exists()) {
                 throw ValidationException::withMessages(['houseguest' => __('This houseguest has already been drafted.')]);
             }

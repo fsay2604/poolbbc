@@ -177,9 +177,10 @@ new class extends Component
             'picks.poolMember.user',
         ])->firstOrFail();
 
-        $selectedHouseguestIds = $this->pool->exclusive_draft
-            ? $this->draft->picks->pluck('houseguest_id')
-            : collect();
+        $selectedPicks = $this->pool->exclusive_draft
+            ? $this->draft->picks
+            : $this->draft->picks->where('pool_member_id', $this->draft->current_pool_member_id);
+        $selectedHouseguestIds = $selectedPicks->pluck('houseguest_id');
 
         $this->availableHouseguests = $this->pool->season->houseguests()
             ->where('is_active', true)
@@ -199,8 +200,10 @@ new class extends Component
 
     private function refreshCorrectionHouseguests(): void
     {
+        $correctingPick = $this->draft->picks->firstWhere('id', $this->correctingPickId);
         $unavailableHouseguestIds = $this->draft->picks
-            ->filter(fn (DraftPick $pick): bool => $this->pool->exclusive_draft || $pick->id === $this->correctingPickId)
+            ->filter(fn (DraftPick $pick): bool => $this->pool->exclusive_draft
+                || ($correctingPick !== null && $pick->pool_member_id === $correctingPick->pool_member_id))
             ->pluck('houseguest_id');
 
         $this->correctionHouseguests = $this->pool->season->houseguests()

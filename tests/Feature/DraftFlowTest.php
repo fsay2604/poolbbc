@@ -11,9 +11,11 @@ use App\Actions\Pools\JoinPool;
 use App\Enums\DraftStatus;
 use App\Enums\PoolMemberStatus;
 use App\Models\AuditLog;
+use App\Models\DraftPick;
 use App\Models\Houseguest;
 use App\Models\Season;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
@@ -74,6 +76,158 @@ class DraftFlowTest extends TestCase
         $this->expectException(ValidationException::class);
 
         app(MakeDraftPick::class)->handle($draft->fresh(), $secondMember, $houseguests[0]);
+    }
+
+    public function test_non_exclusive_draft_allows_cross_member_reuse_but_rejects_a_duplicate_on_the_same_roster(): void
+    {
+        $owner = User::factory()->create();
+        $secondUser = User::factory()->create();
+        $season = Season::factory()->create();
+        $houseguests = Houseguest::factory()->count(2)->for($season)->create();
+        $pool = $this->createPoolOpenForRegistration($owner, [
+            'season_id' => $season->id, 'name' => 'Équipes partagées', 'description' => null,
+            'timezone' => 'America/Toronto', 'max_members' => 2, 'picks_per_member' => 2,
+            'draft_mode' => 'linear', 'exclusive_draft' => false,
+        ]);
+        $secondMember = app(JoinPool::class)->handle($secondUser, $pool->invite_code);
+        $ownerMember = $pool->memberFor($owner);
+        $draft = app(StartDraft::class)->handle($pool->draft, $owner);
+
+        app(MakeDraftPick::class)->handle($draft, $ownerMember, $houseguests[0]);
+        app(MakeDraftPick::class)->handle($draft->fresh(), $secondMember, $houseguests[0]);
+
+        $draft = $draft->fresh();
+        $this->assertSame($ownerMember->id, $draft->current_pool_member_id);
+        $this->assertSame(3, $draft->current_pick_number);
+        app()->setLocale('fr');
+
+        try {
+            app(MakeDraftPick::class)->handle($draft, $ownerMember, $houseguests[0]);
+            $this->fail('A member should not be able to draft the same houseguest twice.');
+        } catch (ValidationException $exception) {
+            $this->assertSame(
+                ['Ce candidat fait déjà partie de cette équipe.'],
+                $exception->errors()['houseguest'],
+            );
+        }
+
+        $draft = $draft->fresh();
+        $this->assertSame(DraftStatus::Active, $draft->status);
+        $this->assertSame($ownerMember->id, $draft->current_pool_member_id);
+        $this->assertSame(3, $draft->current_pick_number);
+        $this->assertSame(2, $draft->picks()->count());
+    }
+
+    public function test_non_exclusive_livewire_hides_own_pick_and_handles_a_stale_duplicate_selection(): void
+    {
+        $owner = User::factory()->create();
+        $secondUser = User::factory()->create();
+        $season = Season::factory()->create();
+        $houseguests = Houseguest::factory()->count(3)->for($season)->create();
+        $pool = $this->createPoolOpenForRegistration($owner, [
+            'season_id' => $season->id, 'name' => 'Choix disponibles', 'description' => null,
+            'timezone' => 'America/Toronto', 'max_members' => 2, 'picks_per_member' => 2,
+            'draft_mode' => 'linear', 'exclusive_draft' => false,
+        ]);
+        $secondMember = app(JoinPool::class)->handle($secondUser, $pool->invite_code);
+        $ownerMember = $pool->memberFor($owner);
+        $draft = app(StartDraft::class)->handle($pool->draft, $owner);
+
+        app(MakeDraftPick::class)->handle($draft, $ownerMember, $houseguests[0]);
+        app(MakeDraftPick::class)->handle($draft->fresh(), $secondMember, $houseguests[1]);
+
+        Livewire::actingAs($owner)
+            ->test('pools.draft', ['pool' => $pool])
+            ->assertSet('availableHouseguests', function ($options) use ($houseguests): bool {
+                $availableIds = $options->pluck('id');
+
+                return ! $availableIds->contains($houseguests[0]->id)
+                    && $availableIds->contains($houseguests[1]->id)
+                    && $availableIds->contains($houseguests[2]->id);
+            })
+            ->set('confirmingHouseguestId', $houseguests[0]->id)
+            ->set('confirmingHouseguestName', $houseguests[0]->name)
+            ->set('showConfirmPickModal', true)
+            ->call('pick')
+            ->assertHasErrors(['draft'])
+            ->assertSet('showConfirmPickModal', false);
+
+        $draft = $draft->fresh();
+        $this->assertSame($ownerMember->id, $draft->current_pool_member_id);
+        $this->assertSame(3, $draft->current_pick_number);
+        $this->assertSame(2, $draft->picks()->count());
+    }
+
+    public function test_non_exclusive_correction_excludes_and_rejects_a_duplicate_roster_candidate(): void
+    {
+        $owner = User::factory()->create();
+        $secondUser = User::factory()->create();
+        $season = Season::factory()->create();
+        $houseguests = Houseguest::factory()->count(4)->for($season)->create();
+        $pool = $this->createPoolOpenForRegistration($owner, [
+            'season_id' => $season->id, 'name' => 'Correction non exclusive', 'description' => null,
+            'timezone' => 'America/Toronto', 'max_members' => 2, 'picks_per_member' => 3,
+            'draft_mode' => 'linear', 'exclusive_draft' => false,
+        ]);
+        $secondMember = app(JoinPool::class)->handle($secondUser, $pool->invite_code);
+        $ownerMember = $pool->memberFor($owner);
+        $draft = app(StartDraft::class)->handle($pool->draft, $owner);
+
+        $ownerFirstPick = app(MakeDraftPick::class)->handle($draft, $ownerMember, $houseguests[0]);
+        app(MakeDraftPick::class)->handle($draft->fresh(), $secondMember, $houseguests[2]);
+        $ownerSecondPick = app(MakeDraftPick::class)->handle($draft->fresh(), $ownerMember, $houseguests[1]);
+
+        Livewire::actingAs($owner)
+            ->test('pools.draft', ['pool' => $pool])
+            ->call('startCorrection', $ownerSecondPick->id)
+            ->assertSet('correctionHouseguests', function ($options) use ($houseguests): bool {
+                $availableIds = $options->pluck('id');
+
+                return ! $availableIds->contains($houseguests[0]->id)
+                    && ! $availableIds->contains($houseguests[1]->id)
+                    && $availableIds->contains($houseguests[2]->id)
+                    && $availableIds->contains($houseguests[3]->id);
+            })
+            ->set('correctionHouseguestId', $ownerFirstPick->houseguest_id)
+            ->set('correctionReason', 'Tentative de doublon dans la même équipe.')
+            ->call('correct')
+            ->assertHasErrors(['correctionHouseguestId'])
+            ->assertSet('showCorrectionModal', true);
+
+        $this->assertSame($houseguests[1]->id, $ownerSecondPick->fresh()->houseguest_id);
+        $this->assertDatabaseMissing('audit_logs', ['action' => 'draft.pick_corrected']);
+    }
+
+    public function test_database_constraint_rejects_a_duplicate_pick_on_the_same_roster(): void
+    {
+        $owner = User::factory()->create();
+        $season = Season::factory()->create();
+        $houseguests = Houseguest::factory()->count(2)->for($season)->create();
+        $pool = $this->createPoolOpenForRegistration($owner, [
+            'season_id' => $season->id, 'name' => 'Contrainte équipe', 'description' => null,
+            'timezone' => 'America/Toronto', 'max_members' => 2, 'picks_per_member' => 2,
+            'draft_mode' => 'linear', 'exclusive_draft' => false,
+        ]);
+        $ownerMember = $pool->memberFor($owner);
+        $draft = app(StartDraft::class)->handle($pool->draft, $owner);
+
+        app(MakeDraftPick::class)->handle($draft, $ownerMember, $houseguests[0]);
+
+        try {
+            DraftPick::query()->create([
+                'draft_id' => $draft->id,
+                'pool_id' => $pool->id,
+                'pool_member_id' => $ownerMember->id,
+                'houseguest_id' => $houseguests[0]->id,
+                'round_number' => 2,
+                'pick_number' => 2,
+                'exclusive_claim' => null,
+                'picked_at' => now(),
+            ]);
+            $this->fail('The database should reject a duplicate roster pick.');
+        } catch (QueryException) {
+            $this->assertSame(1, $draft->picks()->count());
+        }
     }
 
     public function test_manager_confirms_a_manual_order_before_start_and_can_pause_and_resume(): void

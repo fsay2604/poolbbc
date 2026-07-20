@@ -37,8 +37,8 @@ Le parcours `pools.predictions` regroupe uniquement les événements officiels s
 2. [Gérer les candidats](administration/candidats.md)
 3. [Gérer les utilisateurs](administration/utilisateurs.md)
 4. [Configurer les types d’événements standards](administration/types-evenements-standards.md)
-5. [Créer et piloter les rondes et événements officiels](administration/rondes-evenements-officiels.md)
-6. [Prévisualiser, publier, corriger et reprendre les résultats officiels](administration/resultats-officiels.md)
+5. [Créer, modifier, supprimer et piloter les rondes et événements officiels](administration/rondes-evenements-officiels.md)
+6. [Saisir, prévisualiser, publier, corriger et reprendre les résultats officiels](administration/resultats-officiels.md)
 
 ## Carte globale
 
@@ -57,8 +57,8 @@ flowchart LR
     J --> K["Classement du pool"]
     C --> L["Paramètres du compte"]
     C -->|administrateur| M["Configuration officielle"]
-    M --> N["Rondes et événements officiels"]
-    N --> O["Aperçu, publication et correction"]
+    M --> N["Structure : rondes et événements officiels"]
+    N --> O["Résultats : aperçu, publication et correction"]
     O --> I
 ```
 
@@ -69,7 +69,7 @@ flowchart LR
 | Accueil | `home`, `dashboard` |
 | Compte | `profile.edit`, `user-password.edit`, `appearance.edit`, `two-factor.show` |
 | Pools | `pools.index`, `pools.show`, `pools.draft`, `pools.predictions`, `pools.events`, `pools.leaderboard` |
-| Administration | `admin.seasons.index`, `admin.event-types`, `admin.official-rounds`, `admin.houseguests.index`, `admin.users.index` |
+| Administration | `admin.seasons.index`, `admin.event-types`, `admin.official-rounds`, `admin.official-results`, `admin.houseguests.index`, `admin.users.index` |
 
 Les routes d’authentification, d’inscription, de vérification du courriel et de récupération du mot de passe sont enregistrées par Fortify.
 

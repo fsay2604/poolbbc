@@ -16,6 +16,8 @@ class AdminRoutesTest extends TestCase
         $user = User::factory()->create(['is_admin' => false]);
 
         $this->actingAs($user)->get(route('admin.seasons.index'))->assertForbidden();
+        $this->actingAs($user)->get(route('admin.official-rounds'))->assertForbidden();
+        $this->actingAs($user)->get(route('admin.official-results'))->assertForbidden();
         $this->actingAs($user)->get(route('admin.houseguests.index'))->assertForbidden();
     }
 
@@ -24,6 +26,8 @@ class AdminRoutesTest extends TestCase
         $administrator = User::factory()->admin()->create();
 
         $this->actingAs($administrator)->get(route('admin.seasons.index'))->assertSuccessful();
+        $this->actingAs($administrator)->get(route('admin.official-rounds'))->assertSuccessful();
+        $this->actingAs($administrator)->get(route('admin.official-results'))->assertSuccessful();
         $this->actingAs($administrator)->get(route('admin.houseguests.index'))->assertSuccessful();
     }
 
@@ -55,6 +59,7 @@ class AdminRoutesTest extends TestCase
             'admin.seasons.index',
             'admin.event-types',
             'admin.official-rounds',
+            'admin.official-results',
             'admin.houseguests.index',
             'admin.users.index',
         ] as $canonicalRoute) {

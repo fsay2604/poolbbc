@@ -70,10 +70,16 @@ class TransitionSeasonEvent
             }
 
             if ($target === EventStatus::Open && $event->options_locked_at === null) {
+                $event->update(['opens_at' => $attributes['opens_at']]);
                 $event = $this->snapshotEligibleOptions->handle($event);
-            }
+                $event->update(['status' => $target]);
+            } else {
+                if ($target === EventStatus::Open) {
+                    unset($attributes['opens_at']);
+                }
 
-            $event->update($attributes);
+                $event->update($attributes);
+            }
 
             if ($target === EventStatus::Locked) {
                 $event->poolEvents()->each(function ($poolEvent): void {

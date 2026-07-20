@@ -118,7 +118,7 @@ class OfficialResultPreviewTest extends TestCase
         [$administrator, $event, $options] = $this->manualOfficialEvent();
 
         $component = Livewire::actingAs($administrator)
-            ->test('admin.official-rounds')
+            ->test('admin.official-results')
             ->call('startResult', $event->id)
             ->set('resultOptionIds', [$options[0]->id])
             ->call('publishResult')

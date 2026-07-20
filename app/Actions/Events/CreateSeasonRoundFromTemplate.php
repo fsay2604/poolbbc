@@ -74,31 +74,13 @@ class CreateSeasonRoundFromTemplate
                         'default_config' => $catalogDefinition['default_config'],
                     ],
                 );
-                $defaultConfig = $this->catalog->normalizeDefaultConfig(
-                    $eventType->slug,
-                    $eventType->default_config,
-                );
-                $instanceDefinition = [
-                    'name' => $eventType->name,
-                    'question' => $defaultConfig['question'],
-                    'prediction_min_selections' => $defaultConfig['prediction_min_selections'],
-                    'prediction_max_selections' => $defaultConfig['prediction_max_selections'],
-                    'result_min_selections' => $defaultConfig['result_min_selections'],
-                    'result_max_selections' => $defaultConfig['result_max_selections'],
-                    'include_inactive_houseguests' => $defaultConfig['include_inactive_houseguests'],
-                    'allow_none' => $defaultConfig['allow_none'],
-                    'result_publication_mode' => $defaultConfig['result_publication_mode'],
-                    'scoring_config' => $this->catalog->scoringConfig($defaultConfig),
-                    'default_mode' => $eventType->default_mode,
-                ];
                 $event = $round->events()->create([
-                    ...$instanceDefinition,
+                    ...$this->catalog->seasonEventAttributes($eventType),
                     ...$item['overrides'],
                     'event_type_id' => $eventType->id,
                     'created_by' => $administrator->id,
                     'position' => $index + 1,
                     'status' => EventStatus::Draft,
-                    'answer_source' => $eventType->answer_source,
                     'opens_at' => $opensAt,
                     'locks_at' => $locksAt,
                 ]);

@@ -6,6 +6,7 @@ use App\Enums\AnswerSource;
 use App\Enums\EventMode;
 use App\Enums\OfficialRoundTemplate;
 use App\Enums\ResultPublicationMode;
+use App\Models\EventType;
 use InvalidArgumentException;
 
 final class StandardEventTypeCatalog
@@ -189,6 +190,31 @@ final class StandardEventTypeCatalog
             'owner' => $defaultConfig['owner'],
             'prediction' => $defaultConfig['prediction'],
             'allow_negative' => $defaultConfig['allow_negative'],
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    public function seasonEventAttributes(EventType $eventType): array
+    {
+        if ($eventType->pool_id !== null || ! $eventType->is_standard || ! $this->has($eventType->slug)) {
+            throw new InvalidArgumentException("Event type [{$eventType->id}] is not a managed standard event type.");
+        }
+
+        $defaultConfig = $this->normalizeDefaultConfig($eventType->slug, $eventType->default_config);
+
+        return [
+            'name' => $eventType->name,
+            'question' => $defaultConfig['question'],
+            'prediction_min_selections' => $defaultConfig['prediction_min_selections'],
+            'prediction_max_selections' => $defaultConfig['prediction_max_selections'],
+            'result_min_selections' => $defaultConfig['result_min_selections'],
+            'result_max_selections' => $defaultConfig['result_max_selections'],
+            'include_inactive_houseguests' => $defaultConfig['include_inactive_houseguests'],
+            'allow_none' => $defaultConfig['allow_none'],
+            'result_publication_mode' => $defaultConfig['result_publication_mode'],
+            'scoring_config' => $this->scoringConfig($defaultConfig),
+            'default_mode' => $eventType->default_mode,
+            'answer_source' => $eventType->answer_source,
         ];
     }
 

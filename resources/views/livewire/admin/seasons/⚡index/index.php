@@ -171,10 +171,35 @@ new class extends Component
         $hasOfficialResults = $season->canonicalRounds()
             ->whereHas('events.results')
             ->exists();
+        $hasProtectedOfficialStructure = $season->canonicalRounds()
+            ->where(function ($roundQuery): void {
+                $roundQuery
+                    ->where('status', '!=', 'draft')
+                    ->orWhereHas('events', function ($eventQuery): void {
+                        $eventQuery
+                            ->where('status', '!=', 'draft')
+                            ->orWhereNotNull('options_locked_at')
+                            ->orWhere(function ($dateQuery): void {
+                                $dateQuery
+                                    ->whereNotNull('opens_at')
+                                    ->where('opens_at', '<=', now());
+                            })
+                            ->orWhere(function ($dateQuery): void {
+                                $dateQuery
+                                    ->whereNull('opens_at')
+                                    ->whereNotNull('locks_at')
+                                    ->where('locks_at', '<=', now());
+                            })
+                            ->orWhereHas('poolEvents.predictions')
+                            ->orWhereHas('poolEvents.pointEntries')
+                            ->orWhereHas('results');
+                    });
+            })
+            ->exists();
 
-        if ($season->pools()->exists() || $hasOfficialResults) {
+        if ($season->pools()->exists() || $hasOfficialResults || $hasProtectedOfficialStructure) {
             throw ValidationException::withMessages([
-                'seasonDeletion' => __('A season with pools or official result history cannot be deleted. Preserve the ledger and archive the season instead.'),
+                'seasonDeletion' => __('A season with pools, protected official events, or official result history cannot be deleted. Preserve the ledger and archive the season instead.'),
             ]);
         }
     }

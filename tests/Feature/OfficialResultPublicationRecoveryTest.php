@@ -148,7 +148,7 @@ class OfficialResultPublicationRecoveryTest extends TestCase
             ->failed(new RuntimeException('Simulated terminal scoring failure.'));
 
         Livewire::actingAs($administrator)
-            ->test('admin.official-rounds')
+            ->test('admin.official-results')
             ->assertSee('Reprendre le pointage')
             ->call('retryPublication', $event->id)
             ->assertDispatched('official-result-retried');

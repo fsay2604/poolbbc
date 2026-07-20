@@ -1,29 +1,33 @@
 <?php
 
-use App\Actions\Audit\RecordAuditLog;
+use App\Actions\Events\CreateSeasonEvent;
 use App\Actions\Events\CreateSeasonRoundFromTemplate;
-use App\Actions\Events\PublishSeasonEventResult;
-use App\Actions\Events\SynchronizeOfficialPoolEvents;
+use App\Actions\Events\DeleteSeasonEvent;
+use App\Actions\Events\DeleteSeasonRound;
 use App\Actions\Events\TransitionSeasonEvent;
-use App\Actions\Scoring\PreviewSeasonEventScore;
-use App\Enums\EventMode;
+use App\Actions\Events\UpdateSeasonEvent;
+use App\Actions\Events\UpdateSeasonRound;
 use App\Enums\EventStatus;
 use App\Enums\OfficialRoundTemplate;
-use App\Enums\ResultPublicationMode;
+use App\Http\Requests\Events\CreateSeasonEventRequest;
+use App\Http\Requests\Events\UpdateSeasonEventRequest;
+use App\Http\Requests\Events\UpdateSeasonRoundRequest;
+use App\Models\EventType;
 use App\Models\Season;
 use App\Models\SeasonEvent;
 use App\Models\SeasonRound;
+use App\Support\StandardEventTypeCatalog;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 new class extends Component
 {
     public $seasons;
+
+    public $eventTypes;
 
     /** @var Collection<int, SeasonRound> */
     public Collection $rounds;
@@ -40,12 +44,29 @@ new class extends Component
 
     public string $locksAt = '';
 
-    public bool $showEditModal = false;
+    public bool $showRoundModal = false;
 
+    #[Locked]
+    public ?int $editingRoundId = null;
+
+    /** @var array{name:string,starts_at:string,ends_at:string} */
+    public array $roundForm = [
+        'name' => '',
+        'starts_at' => '',
+        'ends_at' => '',
+    ];
+
+    public bool $showEventModal = false;
+
+    #[Locked]
+    public ?int $creatingRoundId = null;
+
+    #[Locked]
     public ?int $editingEventId = null;
 
-    /** @var array{name:string,question:string,default_mode:string,opens_at:string,locks_at:string,prediction_min_selections:int,prediction_max_selections:int,result_min_selections:int,result_max_selections:int,result_publication_mode:string,include_inactive_houseguests:bool,allow_none:bool} */
+    /** @var array{event_type_id:int|null,name:string,question:string,default_mode:string,opens_at:string,locks_at:string,prediction_min_selections:int,prediction_max_selections:int,result_min_selections:int,result_max_selections:int,result_publication_mode:string,include_inactive_houseguests:bool,allow_none:bool} */
     public array $eventForm = [
+        'event_type_id' => null,
         'name' => '',
         'question' => '',
         'default_mode' => 'hybrid',
@@ -62,35 +83,51 @@ new class extends Component
 
     public bool $showCancellationModal = false;
 
+    #[Locked]
     public ?int $cancellingEventId = null;
 
     public string $cancellationReason = '';
 
-    public bool $showResultModal = false;
+    public bool $showEventDeletionModal = false;
 
-    public ?int $resultEventId = null;
+    #[Locked]
+    public ?int $deletingEventId = null;
 
-    /** @var list<int> */
-    public array $resultOptionIds = [];
+    public string $deletingEventName = '';
 
-    public string $correctionReason = '';
+    public bool $showRoundDeletionModal = false;
 
-    /** @var list<array{pool:string,member:string,roster_points:int,prediction_points:int,total_points:int}> */
-    public array $previewRows = [];
+    #[Locked]
+    public ?int $deletingRoundId = null;
 
-    public ?string $resultPreviewFingerprint = null;
+    public string $deletingRoundName = '';
 
-    public function mount(): void
+    public function mount(StandardEventTypeCatalog $catalog): void
     {
         Gate::authorize('admin');
         $this->seasons = Season::query()->orderByDesc('is_active')->orderByDesc('id')->get();
         $this->seasonId = $this->seasons->first()?->id;
+        $this->refreshEventTypes($catalog);
         $this->refreshRounds();
     }
 
     public function updatedSeasonId(): void
     {
         $this->refreshRounds();
+    }
+
+    public function updatedEventFormEventTypeId(mixed $value, StandardEventTypeCatalog $catalog): void
+    {
+        if ($this->creatingRoundId === null || $this->eventForm['event_type_id'] === null) {
+            return;
+        }
+
+        $round = SeasonRound::query()->findOrFail($this->creatingRoundId);
+        $this->initializeEventForm(
+            $this->managedEventType((int) $value, $catalog),
+            $catalog,
+            $round,
+        );
     }
 
     public function reviewWizard(): void
@@ -108,15 +145,13 @@ new class extends Component
     {
         $validated = $this->validateWizard();
         $season = Season::query()->findOrFail($validated['seasonId']);
-        $opensAt = Carbon::parse($validated['opensAt'], config('app.timezone'));
-        $locksAt = Carbon::parse($validated['locksAt'], config('app.timezone'));
         $createRound->handle(
             $season,
             auth()->user(),
             OfficialRoundTemplate::from($validated['template']),
             $validated['roundName'],
-            $opensAt,
-            $locksAt,
+            Carbon::parse($validated['opensAt'], config('app.timezone')),
+            Carbon::parse($validated['locksAt'], config('app.timezone')),
         );
 
         $this->wizardStep = 1;
@@ -125,6 +160,112 @@ new class extends Component
         $this->locksAt = '';
         $this->refreshRounds();
         $this->dispatch('official-round-created');
+    }
+
+    public function startRoundEdit(int $roundId): void
+    {
+        $round = SeasonRound::query()->findOrFail($roundId);
+        Gate::authorize('update', $round);
+        $this->editingRoundId = $round->id;
+        $this->roundForm = [
+            'name' => $round->name,
+            'starts_at' => $round->starts_at?->format('Y-m-d\TH:i') ?? '',
+            'ends_at' => $round->ends_at?->format('Y-m-d\TH:i') ?? '',
+        ];
+        $this->resetErrorBag();
+        $this->showRoundModal = true;
+    }
+
+    public function saveRound(UpdateSeasonRound $updateSeasonRound): void
+    {
+        abort_if($this->editingRoundId === null, 422);
+        $request = new UpdateSeasonRoundRequest;
+        $validated = $this->validate($request->rules(), $request->messages(), $request->attributes());
+        $round = SeasonRound::query()->findOrFail($this->editingRoundId);
+
+        $updateSeasonRound->handle($round, auth()->user(), $validated['roundForm']);
+
+        $this->showRoundModal = false;
+        $this->editingRoundId = null;
+        $this->refreshRounds();
+        $this->dispatch('official-round-updated');
+    }
+
+    public function startCreateEvent(int $roundId, StandardEventTypeCatalog $catalog): void
+    {
+        $round = SeasonRound::query()->findOrFail($roundId);
+        Gate::authorize('create', SeasonEvent::class);
+        $eventType = $this->eventTypes->first();
+
+        if (! $eventType instanceof EventType) {
+            $this->addError('eventForm.event_type_id', __('Create a managed standard event type before adding an official event.'));
+
+            return;
+        }
+
+        $this->creatingRoundId = $round->id;
+        $this->editingEventId = null;
+        $this->initializeEventForm($eventType, $catalog, $round);
+        $this->resetErrorBag();
+        $this->showEventModal = true;
+    }
+
+    public function startEdit(int $eventId): void
+    {
+        $event = SeasonEvent::query()->findOrFail($eventId);
+        Gate::authorize('update', $event);
+
+        if ($event->effectiveStatus() !== EventStatus::Draft || $event->options_locked_at !== null) {
+            $this->addError('eventForm', __('Official event rules cannot change after opening or the first response.'));
+
+            return;
+        }
+
+        $this->creatingRoundId = null;
+        $this->editingEventId = $event->id;
+        $this->eventForm = [
+            'event_type_id' => $event->event_type_id,
+            'name' => $event->name,
+            'question' => $event->question ?? '',
+            'default_mode' => $event->default_mode->value,
+            'opens_at' => $event->opens_at?->format('Y-m-d\TH:i') ?? '',
+            'locks_at' => $event->locks_at?->format('Y-m-d\TH:i') ?? '',
+            'prediction_min_selections' => $event->prediction_min_selections,
+            'prediction_max_selections' => $event->prediction_max_selections,
+            'result_min_selections' => $event->result_min_selections,
+            'result_max_selections' => $event->result_max_selections,
+            'result_publication_mode' => $event->result_publication_mode->value,
+            'include_inactive_houseguests' => $event->include_inactive_houseguests,
+            'allow_none' => $event->allow_none,
+        ];
+        $this->resetErrorBag();
+        $this->showEventModal = true;
+    }
+
+    public function saveEvent(
+        CreateSeasonEvent $createSeasonEvent,
+        UpdateSeasonEvent $updateSeasonEvent,
+    ): void {
+        if ($this->creatingRoundId !== null) {
+            $request = new CreateSeasonEventRequest;
+            $validated = $this->validate($request->rules(), $request->messages(), $request->attributes());
+            $round = SeasonRound::query()->findOrFail($this->creatingRoundId);
+            $createSeasonEvent->handle($round, auth()->user(), $validated['eventForm']);
+            $event = 'official-event-created';
+        } else {
+            abort_if($this->editingEventId === null, 422);
+            $request = new UpdateSeasonEventRequest;
+            $validated = $this->validate($request->rules(), $request->messages(), $request->attributes());
+            $officialEvent = SeasonEvent::query()->findOrFail($this->editingEventId);
+            $updateSeasonEvent->handle($officialEvent, auth()->user(), $validated['eventForm']);
+            $event = 'official-event-updated';
+        }
+
+        $this->showEventModal = false;
+        $this->creatingRoundId = null;
+        $this->editingEventId = null;
+        $this->refreshRounds();
+        $this->dispatch($event);
     }
 
     public function openEvent(int $eventId, TransitionSeasonEvent $transition): void
@@ -141,75 +282,10 @@ new class extends Component
         $this->dispatch('official-event-updated');
     }
 
-    public function startEdit(int $eventId): void
-    {
-        $event = SeasonEvent::query()->findOrFail($eventId);
-        abort_unless($event->effectiveStatus() === EventStatus::Draft && $event->options_locked_at === null, 422);
-
-        $this->editingEventId = $event->id;
-        $this->eventForm = [
-            'name' => $event->name,
-            'question' => $event->question ?? '',
-            'default_mode' => $event->default_mode->value,
-            'opens_at' => $event->opens_at?->format('Y-m-d\TH:i') ?? '',
-            'locks_at' => $event->locks_at?->format('Y-m-d\TH:i') ?? '',
-            'prediction_min_selections' => $event->prediction_min_selections,
-            'prediction_max_selections' => $event->prediction_max_selections,
-            'result_min_selections' => $event->result_min_selections,
-            'result_max_selections' => $event->result_max_selections,
-            'result_publication_mode' => $event->result_publication_mode->value,
-            'include_inactive_houseguests' => $event->include_inactive_houseguests,
-            'allow_none' => $event->allow_none,
-        ];
-        $this->showEditModal = true;
-    }
-
-    public function saveEvent(
-        RecordAuditLog $recordAuditLog,
-        SynchronizeOfficialPoolEvents $synchronizeOfficialPoolEvents,
-    ): void {
-        Gate::authorize('admin');
-
-        $validated = $this->validate([
-            'eventForm.name' => ['required', 'string', 'max:255'],
-            'eventForm.question' => ['nullable', 'string', 'max:1000'],
-            'eventForm.default_mode' => ['required', Rule::enum(EventMode::class)],
-            'eventForm.opens_at' => ['required', 'date', 'after:now'],
-            'eventForm.locks_at' => ['required', 'date', 'after:eventForm.opens_at'],
-            'eventForm.prediction_min_selections' => ['required', 'integer', 'min:0'],
-            'eventForm.prediction_max_selections' => ['required', 'integer', 'gte:eventForm.prediction_min_selections'],
-            'eventForm.result_min_selections' => ['required', 'integer', 'min:0'],
-            'eventForm.result_max_selections' => ['required', 'integer', 'gte:eventForm.result_min_selections'],
-            'eventForm.result_publication_mode' => ['required', Rule::enum(ResultPublicationMode::class)],
-            'eventForm.include_inactive_houseguests' => ['required', 'boolean'],
-            'eventForm.allow_none' => ['required', 'boolean'],
-        ]);
-        DB::transaction(function () use ($validated, $recordAuditLog, $synchronizeOfficialPoolEvents): void {
-            $event = SeasonEvent::query()->lockForUpdate()->findOrFail($this->editingEventId);
-            abort_unless($event->effectiveStatus() === EventStatus::Draft && $event->options_locked_at === null, 422);
-            if (Carbon::parse($validated['eventForm']['opens_at'], config('app.timezone'))->lessThanOrEqualTo(now())) {
-                throw ValidationException::withMessages([
-                    'eventForm.opens_at' => __('The opening date must be in the future.'),
-                ]);
-            }
-
-            $before = $event->only(array_keys($validated['eventForm']));
-            $event->update($validated['eventForm']);
-            $synchronizeOfficialPoolEvents->handleEvent($event);
-            $recordAuditLog->handle(null, auth()->user(), 'season_event.updated', $event, [
-                'before' => $before,
-                'after' => $event->only(array_keys($validated['eventForm'])),
-            ]);
-        });
-
-        $this->showEditModal = false;
-        $this->refreshRounds();
-        $this->dispatch('official-event-updated');
-    }
-
     public function startCancellation(int $eventId): void
     {
         $event = SeasonEvent::query()->findOrFail($eventId);
+        Gate::authorize('transition', $event);
         abort_unless(in_array($event->effectiveStatus(), [EventStatus::Draft, EventStatus::Open, EventStatus::Locked], true), 422);
 
         $this->cancellingEventId = $event->id;
@@ -231,96 +307,52 @@ new class extends Component
         $this->dispatch('official-event-cancelled');
     }
 
-    public function startResult(int $eventId): void
-    {
-        $event = SeasonEvent::query()->with(['options', 'latestResult', 'draftResult'])->findOrFail($eventId);
-        Gate::authorize('recordResult', $event);
-        abort_unless(in_array($event->effectiveStatus(), [EventStatus::Locked, EventStatus::ResultEntered, EventStatus::Published], true), 422);
-
-        $this->resultEventId = $event->id;
-        $this->resultOptionIds = ($event->draftResult ?? $event->latestResult)?->options()->pluck('season_event_options.id')->all() ?? [];
-        sort($this->resultOptionIds);
-        $this->correctionReason = $event->draftResult?->correction_reason ?? '';
-        $this->previewRows = [];
-        $this->resultPreviewFingerprint = null;
-        $this->showResultModal = true;
-    }
-
-    public function updatedResultOptionIds(): void
-    {
-        $this->previewRows = [];
-        $this->resultPreviewFingerprint = null;
-        $this->resetValidation('resultOptionIds');
-    }
-
-    public function previewResult(PreviewSeasonEventScore $preview): void
-    {
-        $this->resetValidation('resultOptionIds');
-        $event = SeasonEvent::query()->findOrFail($this->resultEventId);
-        $optionIds = $this->normalizedResultOptionIds();
-        $this->resultOptionIds = $optionIds;
-        $this->previewRows = $preview->handle($event, auth()->user(), $optionIds)->all();
-        $this->resultPreviewFingerprint = $this->resultFingerprint($optionIds);
-    }
-
-    public function publishResult(PublishSeasonEventResult $publish): void
-    {
-        $event = SeasonEvent::query()->with('latestResult')->findOrFail($this->resultEventId);
-        $optionIds = $this->requireFreshResultPreview();
-        $result = $publish->handle(
-            $event,
-            auth()->user(),
-            $optionIds,
-            $event->latestResult === null ? null : $this->correctionReason,
-        );
-
-        $this->showResultModal = false;
-        $this->resultPreviewFingerprint = null;
-        $this->refreshRounds();
-        $this->dispatch($result->status === 'draft' ? 'official-result-recorded' : 'official-result-queued');
-    }
-
-    public function amendResult(PublishSeasonEventResult $publish): void
-    {
-        $event = SeasonEvent::query()->with('draftResult')->findOrFail($this->resultEventId);
-        abort_if($event->draftResult === null, 404);
-
-        $publish->amendDraft(
-            $event->draftResult,
-            auth()->user(),
-            $this->requireFreshResultPreview(),
-            $this->correctionReason,
-        );
-
-        $this->showResultModal = false;
-        $this->resultPreviewFingerprint = null;
-        $this->refreshRounds();
-        $this->dispatch('official-result-amended');
-    }
-
-    public function publishRecordedResult(int $eventId, PublishSeasonEventResult $publish): void
-    {
-        $event = SeasonEvent::query()->with('draftResult')->findOrFail($eventId);
-        Gate::authorize('publishResult', $event);
-        abort_if($event->draftResult === null, 404);
-
-        $publish->publishDraft($event->draftResult, auth()->user());
-        $this->refreshRounds();
-        $this->dispatch('official-result-queued');
-    }
-
-    public function retryPublication(int $eventId, PublishSeasonEventResult $publish): void
+    public function startEventDeletion(int $eventId): void
     {
         $event = SeasonEvent::query()->findOrFail($eventId);
-        Gate::authorize('publishResult', $event);
-        $result = $event->results()
-            ->whereIn('status', ['pending', 'failed'])
-            ->orderByDesc('version')
-            ->firstOrFail();
+        Gate::authorize('delete', $event);
+        $this->resetValidation('eventDeletion');
+        $this->deletingEventId = $event->id;
+        $this->deletingEventName = $event->name;
+        $this->showEventDeletionModal = true;
+    }
 
-        $publish->retry($result, auth()->user());
+    public function deleteEvent(DeleteSeasonEvent $deleteSeasonEvent): void
+    {
+        abort_if($this->deletingEventId === null, 422);
+        $deleteSeasonEvent->handle(
+            SeasonEvent::query()->findOrFail($this->deletingEventId),
+            auth()->user(),
+        );
+
+        $this->showEventDeletionModal = false;
+        $this->deletingEventId = null;
         $this->refreshRounds();
-        $this->dispatch('official-result-retried');
+        $this->dispatch('official-event-deleted');
+    }
+
+    public function startRoundDeletion(int $roundId): void
+    {
+        $round = SeasonRound::query()->findOrFail($roundId);
+        Gate::authorize('delete', $round);
+        $this->resetValidation('roundDeletion');
+        $this->deletingRoundId = $round->id;
+        $this->deletingRoundName = $round->name;
+        $this->showRoundDeletionModal = true;
+    }
+
+    public function deleteRound(DeleteSeasonRound $deleteSeasonRound): void
+    {
+        abort_if($this->deletingRoundId === null, 422);
+        $deleteSeasonRound->handle(
+            SeasonRound::query()->findOrFail($this->deletingRoundId),
+            auth()->user(),
+        );
+
+        $this->showRoundDeletionModal = false;
+        $this->deletingRoundId = null;
+        $this->refreshRounds();
+        $this->dispatch('official-round-deleted');
     }
 
     /** @return array{seasonId:int,template:string,roundName:string,opensAt:string,locksAt:string} */
@@ -341,37 +373,47 @@ new class extends Component
         ]);
     }
 
-    /** @return list<int> */
-    private function normalizedResultOptionIds(): array
+    private function managedEventType(int $eventTypeId, StandardEventTypeCatalog $catalog): EventType
     {
-        $optionIds = array_values(array_unique(array_map('intval', $this->resultOptionIds)));
-        sort($optionIds);
-
-        return $optionIds;
+        return EventType::query()
+            ->whereKey($eventTypeId)
+            ->whereNull('pool_id')
+            ->where('is_standard', true)
+            ->whereIn('slug', $catalog->slugs())
+            ->firstOrFail();
     }
 
-    /** @param list<int> $optionIds */
-    private function resultFingerprint(array $optionIds): string
-    {
-        return hash('sha256', json_encode([
-            'event_id' => $this->resultEventId,
-            'option_ids' => $optionIds,
-        ], JSON_THROW_ON_ERROR));
+    private function initializeEventForm(
+        EventType $eventType,
+        StandardEventTypeCatalog $catalog,
+        SeasonRound $round,
+    ): void {
+        $definition = $catalog->seasonEventAttributes($eventType);
+        $this->eventForm = [
+            'event_type_id' => $eventType->id,
+            'name' => $definition['name'],
+            'question' => $definition['question'] ?? '',
+            'default_mode' => $eventType->default_mode->value,
+            'opens_at' => $round->starts_at?->format('Y-m-d\TH:i') ?? now()->addHour()->format('Y-m-d\TH:i'),
+            'locks_at' => $round->ends_at?->format('Y-m-d\TH:i') ?? now()->addDay()->format('Y-m-d\TH:i'),
+            'prediction_min_selections' => $definition['prediction_min_selections'],
+            'prediction_max_selections' => $definition['prediction_max_selections'],
+            'result_min_selections' => $definition['result_min_selections'],
+            'result_max_selections' => $definition['result_max_selections'],
+            'result_publication_mode' => $definition['result_publication_mode'],
+            'include_inactive_houseguests' => $definition['include_inactive_houseguests'],
+            'allow_none' => $definition['allow_none'],
+        ];
     }
 
-    /** @return list<int> */
-    private function requireFreshResultPreview(): array
+    private function refreshEventTypes(StandardEventTypeCatalog $catalog): void
     {
-        $optionIds = $this->normalizedResultOptionIds();
-        $expectedFingerprint = $this->resultFingerprint($optionIds);
-
-        if ($this->resultPreviewFingerprint === null || ! hash_equals($expectedFingerprint, $this->resultPreviewFingerprint)) {
-            throw ValidationException::withMessages([
-                'resultOptionIds' => __('Generate a new preview before confirming this official result.'),
-            ]);
-        }
-
-        return $optionIds;
+        $this->eventTypes = EventType::query()
+            ->whereNull('pool_id')
+            ->where('is_standard', true)
+            ->whereIn('slug', $catalog->slugs())
+            ->orderBy('name')
+            ->get();
     }
 
     private function refreshRounds(): void
@@ -380,14 +422,9 @@ new class extends Component
             ? collect()
             : SeasonRound::query()
                 ->where('season_id', $this->seasonId)
-                ->with([
-                    'events.options',
-                    'events.latestResult.options',
-                    'events.draftResult.options',
-                    'events.results.options',
-                    'events.results.creator',
-                    'events.poolEvents.pool',
-                ])
+                ->with(['events' => fn ($query) => $query
+                    ->with('eventType')
+                    ->withCount('poolEvents')])
                 ->orderBy('position')
                 ->get();
     }

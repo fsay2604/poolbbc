@@ -10,7 +10,7 @@ Membre actif pour consulter les résultats et répondre aux événements locaux;
   - les événements officiels de la saison, partagés entre pools par une association `PoolEvent`;
   - les rondes et événements locaux, créés exclusivement dans le pool.
 - Les prédictions officielles se saisissent dans `pools.predictions`; seules les prédictions locales se saisissent ici.
-- La publication d’un résultat officiel et la reprise d’une publication échouée sont réservées à l’administration système; cette page de pool n’affiche que l’historique officiel publié.
+- La publication d’un résultat officiel et la reprise d’une publication échouée sont réservées à la section d’administration `admin.official-results`; cette page de pool n’affiche que l’historique officiel publié.
 
 ## Parcours
 

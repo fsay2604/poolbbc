@@ -283,8 +283,10 @@ class StandardEventTypeManagementTest extends TestCase
 
     public function test_backfill_migration_snapshots_existing_type_scoring_and_safe_legacy_defaults(): void
     {
+        $safeDeletionMigration = require database_path('migrations/2026_07_19_195408_enforce_safe_official_structure_deletions.php');
         $ruleImmutabilityMigration = require database_path('migrations/2026_07_17_102611_enforce_canonical_rule_snapshot_immutability.php');
         $poolEventImmutabilityMigration = require database_path('migrations/2026_07_17_083933_enforce_pool_event_definition_immutability.php');
+        $safeDeletionMigration->down();
         $ruleImmutabilityMigration->down();
         $poolEventImmutabilityMigration->down();
         $contractMigration = require database_path('migrations/2026_07_17_083553_enforce_non_null_season_event_scoring_config.php');
@@ -322,6 +324,7 @@ class StandardEventTypeManagementTest extends TestCase
         $contractMigration->up();
         $poolEventImmutabilityMigration->up();
         $ruleImmutabilityMigration->up();
+        $safeDeletionMigration->up();
 
         $this->assertSame(-2, data_get($standardEvent->fresh()->scoring_config, 'owner.points_per_match'));
         $this->assertTrue(data_get($standardEvent->fresh()->scoring_config, 'allow_negative'));

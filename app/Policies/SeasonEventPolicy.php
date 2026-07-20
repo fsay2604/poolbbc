@@ -44,7 +44,7 @@ class SeasonEventPolicy
      */
     public function delete(User $user, SeasonEvent $seasonEvent): bool
     {
-        return false;
+        return $user->is_admin;
     }
 
     /**

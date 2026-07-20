@@ -49,6 +49,7 @@ Route::middleware(['auth'])->group(function () {
         Route::livewire('seasons', 'admin.seasons.index')->name('admin.seasons.index');
         Route::livewire('event-types', 'admin.event-types')->name('admin.event-types');
         Route::livewire('official-rounds', 'admin.official-rounds')->name('admin.official-rounds');
+        Route::livewire('official-results', 'admin.official-results')->name('admin.official-results');
         Route::livewire('houseguests', 'admin.houseguests.index')->name('admin.houseguests.index');
         Route::livewire('users', 'admin.users.index')->name('admin.users.index');
     });

@@ -39,8 +39,16 @@
                 </flux:navbar.item>
             @endif
             <flux:navbar.item :href="route('pools.events', $pool)" :current="request()->routeIs('pools.events')" icon="calendar-days" wire:navigate.hover>
-                Résultats
+                Événements du pool
             </flux:navbar.item>
+            @can('admin')
+                <flux:navbar.item :href="route('pools.official-rounds', $pool)" :current="request()->routeIs('pools.official-rounds')" icon="list-bullet" wire:navigate.hover>
+                    Rondes et événements
+                </flux:navbar.item>
+                <flux:navbar.item :href="route('pools.official-results', $pool)" :current="request()->routeIs('pools.official-results')" icon="check-circle" wire:navigate.hover>
+                    Résultats officiels
+                </flux:navbar.item>
+            @endcan
             <flux:navbar.item :href="route('pools.leaderboard', $pool)" :current="request()->routeIs('pools.leaderboard')" icon="trophy" wire:navigate.hover>
                 Classement
             </flux:navbar.item>

@@ -165,7 +165,7 @@ class EventLifecycleAndPoolModeTest extends TestCase
         $this->assertCount(0, $prediction->options);
     }
 
-    public function test_official_prediction_visibility_can_wait_for_result_publication(): void
+    public function test_local_event_page_never_loads_official_prediction_content(): void
     {
         $season = Season::factory()->create();
         $round = SeasonRound::factory()->for($season)->create();
@@ -203,8 +203,7 @@ class EventLifecycleAndPoolModeTest extends TestCase
         SeasonEvent::query()->whereKey($event->id)->update(['status' => EventStatus::Published->value]);
         $publishedComponent = Livewire::actingAs($user)->test('pools.events', ['pool' => $pool]);
         $publishedPoolEvent = $publishedComponent->get('officialRounds')->first()->events->first()->poolEvents->first();
-        $this->assertTrue($publishedPoolEvent->relationLoaded('predictions'));
-        $this->assertCount(1, $publishedPoolEvent->predictions);
+        $this->assertFalse($publishedPoolEvent->relationLoaded('predictions'));
     }
 
     public function test_official_prediction_visibility_cannot_be_bypassed_by_falsifying_manager_state(): void

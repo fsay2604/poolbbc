@@ -71,9 +71,9 @@ class PoolFirstNavigationTest extends TestCase
 
         Livewire::actingAs($member->user)
             ->test('pools.events', ['pool' => $pool])
-            ->assertSee('Résultats officiels')
+            ->assertSee('Réglages des événements officiels')
             ->assertSee($event->name)
-            ->assertSee($opponent->user->name);
+            ->assertDontSee($opponent->user->name);
     }
 
     public function test_after_publish_visibility_hides_competing_predictions_until_the_result_is_published(): void
@@ -196,7 +196,8 @@ class PoolFirstNavigationTest extends TestCase
             ->assertOk()
             ->assertSee('Vue d’ensemble')
             ->assertSee('Prédictions')
-            ->assertSee('Résultats')
+            ->assertSee('Événements du pool')
+            ->assertDontSee('Résultats officiels')
             ->assertSee('Classement');
 
         $this->actingAs($member->user)
@@ -298,7 +299,7 @@ class PoolFirstNavigationTest extends TestCase
 
         Livewire::actingAs($member->user)
             ->test('pools.events', ['pool' => $pool])
-            ->assertSee('Aucune sélection')
+            ->assertDontSee('Aucune sélection')
             ->assertDontSee('En attente de publication');
     }
 

@@ -26,7 +26,7 @@ Chaque guide utilise le même canevas : acteur, préconditions et autorisations,
 3. [Consulter et gérer le cycle de vie d’un pool](pools/vue-ensemble-cycle-de-vie.md)
 4. [Participer au repêchage](pools/repechage.md)
 5. [Soumettre les prédictions officielles](pools/predictions.md)
-6. [Gérer les rondes, événements locaux et résultats](pools/rondes-evenements-resultats.md)
+6. [Gérer les rondes et événements locaux](pools/rondes-evenements-resultats.md)
 7. [Consulter le classement](pools/classement.md)
 
 Le parcours `pools.predictions` regroupe uniquement les événements officiels synchronisés dans un pool. Les prédictions liées aux événements locaux sont saisies dans `pools.events` et sont donc documentées avec la gestion des rondes et événements du pool.
@@ -68,10 +68,11 @@ flowchart LR
 |---|---|
 | Accueil | `home`, `dashboard` |
 | Compte | `profile.edit`, `user-password.edit`, `appearance.edit`, `two-factor.show` |
-| Pools | `pools.index`, `pools.show`, `pools.draft`, `pools.predictions`, `pools.events`, `pools.leaderboard` |
+| Pools | `pools.index`, `pools.show`, `pools.draft`, `pools.predictions`, `pools.events`, `pools.official-rounds`, `pools.official-results`, `pools.leaderboard` |
 | Administration | `admin.seasons.index`, `admin.event-types`, `admin.official-rounds`, `admin.official-results`, `admin.houseguests.index`, `admin.users.index` |
 
 Les routes d’authentification, d’inscription, de vérification du courriel et de récupération du mot de passe sont enregistrées par Fortify.
+Les routes `pools.official-rounds` et `pools.official-results` sont les accès administratifs affichés dans la navigation d’un pool et restent figées sur sa saison. Les routes globales `admin.official-rounds` et `admin.official-results` sont conservées comme accès direct de secours, notamment avant qu’un pool existe.
 
 ## Sources principales
 

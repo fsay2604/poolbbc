@@ -1,9 +1,19 @@
 <section class="w-full">
     <div class="flex flex-col gap-6">
         <div>
-            <flux:heading size="xl" level="1">Résultats officiels</flux:heading>
+            <flux:heading size="xl" level="1">
+                Résultats officiels{{ $pool ? ' · '.$pool->name : '' }}
+            </flux:heading>
             <flux:text class="mt-1">Saisissez, prévisualisez et publiez les réponses officielles sans modifier la structure des rondes.</flux:text>
         </div>
+
+        @if ($pool)
+            <x-pools.navigation :pool="$pool" :available-pools="$availablePools" />
+            <flux:callout icon="information-circle" color="blue">
+                <flux:callout.heading>{{ $pool->season->name }}</flux:callout.heading>
+                <flux:callout.text>Un résultat officiel et son pointage concernent tous les pools de cette saison, pas seulement {{ $pool->name }}.</flux:callout.text>
+            </flux:callout>
+        @endif
 
         <div class="flex flex-wrap gap-4">
             <x-action-message on="official-result-recorded">Le résultat est enregistré et attend une publication explicite.</x-action-message>
@@ -17,11 +27,15 @@
                 <flux:heading size="lg">Événements prêts pour un résultat</flux:heading>
                 <flux:text class="mt-1 text-sm">Seuls les événements verrouillés ou déjà publiés apparaissent ici.</flux:text>
             </div>
-            <flux:select wire:model.live="seasonId" label="Saison affichée" class="sm:w-64">
-                @foreach ($seasons as $season)
-                    <flux:select.option :value="$season->id">{{ $season->name }}</flux:select.option>
-                @endforeach
-            </flux:select>
+            @if ($pool)
+                <flux:badge color="blue" size="lg">{{ $pool->season->name }}</flux:badge>
+            @else
+                <flux:select wire:model.live="seasonId" label="Saison affichée" class="sm:w-64">
+                    @foreach ($seasons as $season)
+                        <flux:select.option :value="$season->id">{{ $season->name }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+            @endif
         </div>
 
         @forelse ($rounds as $round)

@@ -8,11 +8,13 @@ Administrateur.
 
 - Le compte doit être authentifié et posséder le rôle administrateur.
 - Au moins une saison doit exister. Les événements autonomes exigent aussi un type d’événement standard géré par l’application.
-- L’écran de structure est accessible par `admin.official-rounds` (`/admin/official-rounds`). La saisie des résultats se trouve dans `admin.official-results`.
+- Depuis un pool, l’écran de structure est accessible par `pools.official-rounds` (`/pools/{pool}/official-rounds`) et sa saison est fixe. La saisie des résultats se trouve dans `pools.official-results`.
+- L’accès global `admin.official-rounds` (`/admin/official-rounds`) demeure disponible sans entrée dans le menu latéral, notamment pour préparer une saison qui ne possède encore aucun pool.
+- Une modification de la structure canonique affecte tous les pools de la saison; l’interface contextuelle l’indique explicitement.
 
 ## Parcours
 
-1. Sélectionner une saison pour afficher ses rondes et leurs événements dans l’ordre officiel.
+1. Ouvrir **Rondes et événements** depuis la navigation du pool. La saison du pool est sélectionnée et verrouillée automatiquement; dans l’accès global, sélectionner la saison.
 2. Créer une ronde avec l’assistant en choisissant son nom, ses dates, ses heures d’ouverture et de verrouillage, puis une structure : standard, sans veto, double éviction ou finale.
 3. Ajouter au besoin un événement autonome à une ronde existante. Le type standard choisi fournit la source de réponse et l’instantané initial du barème.
 4. Modifier les métadonnées d’une ronde : nom, début et fin. Cette modification ne déplace jamais automatiquement les dates de ses événements.
@@ -50,6 +52,7 @@ Administrateur.
 - Les règles d’un événement ne peuvent plus changer après son ouverture effective, le gel des options, la première réponse, un résultat ou une écriture de points.
 - Une annulation exige une justification de 3 à 1 000 caractères et ne peut pas être annulée ou rouverte ensuite.
 - Les actions relisent et reverrouillent les entités dans leur transaction avant de revérifier les autorisations et les dépendances.
+- Dans le contexte d’un pool, un identifiant de ronde ou d’événement appartenant à une autre saison est refusé avant toute mutation.
 
 ## Sources et couverture
 

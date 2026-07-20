@@ -16,10 +16,8 @@ use App\Models\Event;
 use App\Models\EventPrediction;
 use App\Models\EventType;
 use App\Models\Pool;
-use App\Models\PoolEvent;
 use App\Models\PoolEventPrediction;
 use App\Models\Round;
-use App\Models\SeasonEvent;
 use App\Models\SeasonRound;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Arr;
@@ -89,6 +87,10 @@ new class extends Component
 
     public bool $showCancellationModal = false;
 
+    public bool $showRoundModal = false;
+
+    public bool $showEventModal = false;
+
     public ?int $cancellingEventId = null;
 
     public string $cancellationReason = '';
@@ -115,6 +117,7 @@ new class extends Component
         ]);
         $recordAuditLog->handle($this->pool, auth()->user(), 'round.created', $round);
         $this->roundForm = ['name' => '', 'starts_at' => null, 'ends_at' => null];
+        $this->showRoundModal = false;
         $this->refreshRounds();
         $this->dispatch('round-created');
     }
@@ -180,6 +183,7 @@ new class extends Component
         $this->eventForm['event_type_id'] = null;
         $this->eventForm['save_as_template'] = false;
         $this->customOptionsText = '';
+        $this->showEventModal = false;
         $this->refreshEventTypes();
         $this->refreshRounds();
         $this->dispatch('event-created');
@@ -415,13 +419,7 @@ new class extends Component
             ->with([
                 'events' => fn ($query) => $query
                     ->whereHas('poolEvents', fn ($poolEventQuery) => $poolEventQuery->where('pool_id', $poolId)->where('is_active', true))
-                    ->with([
-                        'options',
-                        'latestResult.options',
-                        'results' => fn ($resultQuery) => $resultQuery
-                            ->where('status', 'published')
-                            ->with(['options', 'creator']),
-                    ]),
+                    ->with('options'),
                 'events.poolEvents' => fn ($query) => $query
                     ->where('pool_id', $poolId)
                     ->where('is_active', true)
@@ -432,16 +430,6 @@ new class extends Component
             ])
             ->orderBy('position')
             ->get();
-
-        foreach ($officialRounds->flatMap->events as $event) {
-            $event->poolEvents
-                ->filter(fn (PoolEvent $poolEvent): bool => $this->officialPredictionsAreVisible($poolEvent, $event))
-                ->each(fn (PoolEvent $poolEvent) => $poolEvent->load([
-                    'predictions' => fn ($query) => $query
-                        ->whereIn('status', ['submitted', 'locked'])
-                        ->with(['options', 'poolMember.user']),
-                ]));
-        }
 
         return $officialRounds;
     }
@@ -468,19 +456,6 @@ new class extends Component
             }])
             ->orderBy('position')
             ->get();
-    }
-
-    private function officialPredictionsAreVisible(PoolEvent $poolEvent, SeasonEvent $event): bool
-    {
-        if ($this->canManage) {
-            return true;
-        }
-
-        if ($poolEvent->visibility === 'after_publish') {
-            return $event->effectiveStatus() === EventStatus::Published;
-        }
-
-        return in_array($event->effectiveStatus(), [EventStatus::Locked, EventStatus::ResultEntered, EventStatus::Published], true);
     }
 
     private function refreshRounds(): void

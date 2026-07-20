@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\Pool;
+use App\Models\PoolMember;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Route;
@@ -31,6 +33,33 @@ class AdminRoutesTest extends TestCase
         $this->actingAs($administrator)->get(route('admin.houseguests.index'))->assertSuccessful();
     }
 
+    public function test_official_administration_is_available_in_the_pool_context_only_to_administrators(): void
+    {
+        $administrator = User::factory()->admin()->create();
+        $pool = Pool::factory()->create(['owner_id' => $administrator->id]);
+        PoolMember::factory()->for($pool)->for($administrator)->create();
+
+        $this->actingAs($administrator)
+            ->get(route('pools.official-rounds', $pool))
+            ->assertSuccessful()
+            ->assertSee($pool->name)
+            ->assertSee($pool->season->name)
+            ->assertSee('Résultats officiels');
+
+        $this->actingAs($administrator)
+            ->get(route('pools.official-results', $pool))
+            ->assertSuccessful()
+            ->assertSee($pool->name)
+            ->assertSee($pool->season->name)
+            ->assertSee('Rondes et événements');
+
+        $member = User::factory()->create();
+        PoolMember::factory()->for($pool)->for($member)->create(['draft_position' => 2]);
+
+        $this->actingAs($member)->get(route('pools.official-rounds', $pool))->assertForbidden();
+        $this->actingAs($member)->get(route('pools.official-results', $pool))->assertForbidden();
+    }
+
     public function test_legacy_routes_are_absent_and_canonical_routes_remain_registered(): void
     {
         foreach ([
@@ -56,6 +85,8 @@ class AdminRoutesTest extends TestCase
             'pools.predictions',
             'pools.events',
             'pools.leaderboard',
+            'pools.official-rounds',
+            'pools.official-results',
             'admin.seasons.index',
             'admin.event-types',
             'admin.official-rounds',

@@ -1,8 +1,10 @@
 <?php
 
 use App\Actions\Events\PublishSeasonEventResult;
+use App\Actions\Pools\ListUserPools;
 use App\Actions\Scoring\PreviewSeasonEventScore;
 use App\Enums\EventStatus;
+use App\Models\Pool;
 use App\Models\Season;
 use App\Models\SeasonEvent;
 use App\Models\SeasonRound;
@@ -14,6 +16,10 @@ use Livewire\Component;
 
 new class extends Component
 {
+    public ?Pool $pool = null;
+
+    public $availablePools;
+
     public $seasons;
 
     /** @var Collection<int, SeasonRound> */
@@ -36,22 +42,37 @@ new class extends Component
 
     public ?string $resultPreviewFingerprint = null;
 
-    public function mount(): void
+    public function mount(?Pool $pool = null): void
     {
         Gate::authorize('admin');
-        $this->seasons = Season::query()->orderByDesc('is_active')->orderByDesc('id')->get();
-        $this->seasonId = $this->seasons->first()?->id;
+        $this->pool = $pool?->exists ? $pool->load('season') : null;
+
+        if ($this->pool !== null) {
+            Gate::authorize('view', $this->pool);
+            $this->availablePools = app(ListUserPools::class)->handle(auth()->user());
+            $this->seasons = collect([$this->pool->season]);
+            $this->seasonId = $this->pool->season_id;
+        } else {
+            $this->availablePools = collect();
+            $this->seasons = Season::query()->orderByDesc('is_active')->orderByDesc('id')->get();
+            $this->seasonId = $this->seasons->first()?->id;
+        }
+
         $this->refreshRounds();
     }
 
     public function updatedSeasonId(): void
     {
+        if ($this->pool !== null) {
+            $this->seasonId = $this->pool->season_id;
+        }
+
         $this->refreshRounds();
     }
 
     public function startResult(int $eventId): void
     {
-        $event = SeasonEvent::query()->with(['options', 'latestResult', 'draftResult'])->findOrFail($eventId);
+        $event = $this->eventQuery()->with(['options', 'latestResult', 'draftResult'])->findOrFail($eventId);
         Gate::authorize('recordResult', $event);
         abort_unless(in_array($event->effectiveStatus(), [EventStatus::Locked, EventStatus::ResultEntered, EventStatus::Published], true), 422);
 
@@ -75,7 +96,7 @@ new class extends Component
     public function previewResult(PreviewSeasonEventScore $preview): void
     {
         $this->resetValidation('resultOptionIds');
-        $event = SeasonEvent::query()->findOrFail($this->resultEventId);
+        $event = $this->eventQuery()->findOrFail($this->resultEventId);
         $optionIds = $this->normalizedResultOptionIds();
         $this->resultOptionIds = $optionIds;
         $this->previewRows = $preview->handle($event, auth()->user(), $optionIds)->all();
@@ -84,7 +105,7 @@ new class extends Component
 
     public function publishResult(PublishSeasonEventResult $publish): void
     {
-        $event = SeasonEvent::query()->with('latestResult')->findOrFail($this->resultEventId);
+        $event = $this->eventQuery()->with('latestResult')->findOrFail($this->resultEventId);
         $result = $publish->handle(
             $event,
             auth()->user(),
@@ -99,7 +120,7 @@ new class extends Component
 
     public function amendResult(PublishSeasonEventResult $publish): void
     {
-        $event = SeasonEvent::query()->with('draftResult')->findOrFail($this->resultEventId);
+        $event = $this->eventQuery()->with('draftResult')->findOrFail($this->resultEventId);
         abort_if($event->draftResult === null, 404);
 
         $publish->amendDraft(
@@ -116,7 +137,7 @@ new class extends Component
 
     public function publishRecordedResult(int $eventId, PublishSeasonEventResult $publish): void
     {
-        $event = SeasonEvent::query()->with('draftResult')->findOrFail($eventId);
+        $event = $this->eventQuery()->with('draftResult')->findOrFail($eventId);
         Gate::authorize('publishResult', $event);
         abort_if($event->draftResult === null, 404);
 
@@ -127,7 +148,7 @@ new class extends Component
 
     public function retryPublication(int $eventId, PublishSeasonEventResult $publish): void
     {
-        $event = SeasonEvent::query()->findOrFail($eventId);
+        $event = $this->eventQuery()->findOrFail($eventId);
         Gate::authorize('publishResult', $event);
         $result = $event->results()
             ->whereIn('status', ['pending', 'failed'])
@@ -181,14 +202,16 @@ new class extends Component
 
     private function refreshRounds(): void
     {
-        if ($this->seasonId === null) {
+        $seasonId = $this->pool?->season_id ?? $this->seasonId;
+
+        if ($seasonId === null) {
             $this->rounds = collect();
 
             return;
         }
 
         $this->rounds = SeasonRound::query()
-            ->where('season_id', $this->seasonId)
+            ->where('season_id', $seasonId)
             ->with([
                 'events.options',
                 'events.latestResult.options',
@@ -211,5 +234,14 @@ new class extends Component
             })
             ->filter(fn (SeasonRound $round): bool => $round->events->isNotEmpty())
             ->values();
+    }
+
+    private function eventQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        return SeasonEvent::query()
+            ->when(
+                $this->pool !== null,
+                fn ($query) => $query->whereHas('round', fn ($roundQuery) => $roundQuery->where('season_id', $this->pool->season_id)),
+            );
     }
 };

@@ -18,6 +18,8 @@ new class extends Component
 {
     public ?Pool $pool = null;
 
+    public bool $embedded = false;
+
     public $availablePools;
 
     public $seasons;
@@ -42,9 +44,10 @@ new class extends Component
 
     public ?string $resultPreviewFingerprint = null;
 
-    public function mount(?Pool $pool = null): void
+    public function mount(?Pool $pool = null, bool $embedded = false): void
     {
         Gate::authorize('admin');
+        $this->embedded = $embedded;
         $this->pool = $pool?->exists ? $pool->load('season') : null;
 
         if ($this->pool !== null) {

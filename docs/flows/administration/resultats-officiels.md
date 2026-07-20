@@ -7,14 +7,16 @@ Administrateur.
 ## Préconditions et autorisations
 
 - Le compte doit être authentifié et posséder le rôle administrateur.
-- Depuis un pool, l’écran consacré aux résultats est accessible par `pools.official-results` (`/pools/{pool}/official-results`) et sa saison est fixe.
-- L’accès global `admin.official-results` (`/admin/official-results`) demeure disponible sans entrée dans le menu latéral.
-- Seuls les événements effectivement verrouillés, en résultat saisi ou publié sont affichés. La structure se gère séparément dans `pools.official-rounds` ou, hors contexte, `admin.official-rounds`.
+- Depuis un pool, les résultats officiels sont intégrés à la section **Résultats officiels de la saison** de `pools.results` (`/pools/{pool}/results`). Elle n’apparaît que pour un administrateur système et la saison du pool y est fixe.
+- L’ancien accès contextuel `pools.official-results` (`/pools/{pool}/official-results`) demeure une redirection protégée vers `pools.results`; il ne rend plus une page autonome.
+- L’accès global `admin.official-results` (`/admin/official-results`) demeure disponible pour travailler hors du contexte d’un pool.
+- Seuls les événements effectivement verrouillés, en résultat saisi ou publié sont affichés. La structure se gère séparément dans `pools.events` ou, hors contexte, `admin.official-rounds`.
+- Les résultats propres au pool partagent l’écran contextuel, mais conservent leurs modèles, actions, autorisations, versions et audits distincts des résultats officiels.
 - Un résultat officiel et son pointage concernent tous les pools de la saison; le contexte du pool sert à la navigation et au filtrage, pas à limiter la publication à ce seul pool.
 
 ## Parcours
 
-1. Ouvrir **Résultats officiels** depuis la navigation du pool; sa saison est fixée automatiquement. Dans l’accès global, choisir la saison.
+1. Ouvrir **Résultats** depuis la navigation du pool, puis la section officielle intégrée; sa saison est fixée automatiquement. Dans l’accès global `admin.official-results`, choisir la saison.
 2. Sélectionner uniquement des options figées de l’événement.
 3. Générer l’aperçu en lecture seule pour vérifier, par pool et par membre, les points d’équipe, de prédiction et le total.
 4. Confirmer sans modifier la sélection après l’aperçu. En publication immédiate, le pointage est mis en file; en publication manuelle, un brouillon privé est enregistré.
@@ -45,6 +47,7 @@ Administrateur.
 ## Sources et couverture
 
 - `routes/web.php`
+- `resources/views/components/pools/⚡results/results.blade.php`
 - `resources/views/components/admin/⚡official-results/official-results.php`
 - `resources/views/components/admin/⚡official-results/official-results.blade.php`
 - `app/Actions/Scoring/PreviewSeasonEventScore.php`
@@ -57,3 +60,4 @@ Administrateur.
 - `tests/Feature/OfficialResultPublicationRecoveryTest.php`
 - `tests/Feature/ResultDraftAmendmentTest.php`
 - `tests/Feature/ResultPublicationFlowTest.php`
+- `tests/Feature/PoolStructureAndResultsNavigationTest.php`

@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Dashboard\BuildDashboardStats;
+use App\Models\Pool;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
@@ -42,11 +43,14 @@ Route::middleware(['auth'])->group(function () {
         Route::livewire('pools/{pool}/draft', 'pools.draft')->name('pools.draft');
         Route::livewire('pools/{pool}/predictions', 'pools.predictions')->name('pools.predictions');
         Route::livewire('pools/{pool}/events', 'pools.events')->name('pools.events');
+        Route::livewire('pools/{pool}/results', 'pools.results')->name('pools.results');
         Route::livewire('pools/{pool}/leaderboard', 'pools.leaderboard')->name('pools.leaderboard');
 
         Route::middleware('can:admin')->group(function () {
-            Route::livewire('pools/{pool}/official-rounds', 'admin.official-rounds')->name('pools.official-rounds');
-            Route::livewire('pools/{pool}/official-results', 'admin.official-results')->name('pools.official-results');
+            Route::get('pools/{pool}/official-rounds', fn (Pool $pool) => redirect()->route('pools.events', $pool))
+                ->name('pools.official-rounds');
+            Route::get('pools/{pool}/official-results', fn (Pool $pool) => redirect()->route('pools.results', $pool))
+                ->name('pools.official-results');
         });
     });
 

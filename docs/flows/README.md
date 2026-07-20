@@ -25,11 +25,16 @@ Chaque guide utilise le même canevas : acteur, préconditions et autorisations,
 2. [Créer ou rejoindre un pool](pools/creer-rejoindre-pool.md)
 3. [Consulter et gérer le cycle de vie d’un pool](pools/vue-ensemble-cycle-de-vie.md)
 4. [Participer au repêchage](pools/repechage.md)
-5. [Soumettre les prédictions officielles](pools/predictions.md)
-6. [Gérer les rondes et événements locaux](pools/rondes-evenements-resultats.md)
-7. [Consulter le classement](pools/classement.md)
+5. [Saisir et visualiser les prédictions](pools/predictions.md)
+6. [Gérer les rondes et événements](pools/rondes-evenements.md)
+7. [Saisir et publier les résultats](pools/resultats.md)
+8. [Consulter le classement](pools/classement.md)
 
-Le parcours `pools.predictions` regroupe uniquement les événements officiels synchronisés dans un pool. Les prédictions liées aux événements locaux sont saisies dans `pools.events` et sont donc documentées avec la gestion des rondes et événements du pool.
+Les trois écrans fonctionnels sont volontairement distincts :
+
+- `pools.events` gère la structure des rondes et événements, sans formulaire de prédiction ni de résultat;
+- `pools.predictions` réunit les événements de la saison officielle et ceux propres au pool qui acceptent des prédictions;
+- `pools.results` regroupe la saisie et l’historique des résultats locaux et, pour un administrateur système, les résultats officiels de la saison.
 
 ## Administration
 
@@ -49,17 +54,22 @@ flowchart LR
     C --> D["Créer ou rejoindre un pool"]
     D --> E["Vue d’ensemble du pool"]
     E --> F["Repêchage"]
-    E --> G["Prédictions officielles"]
-    E --> H["Rondes et événements locaux"]
-    G --> I["Résultats publiés"]
-    H --> I
-    I --> J["Registre de points"]
+    E --> G["Prédictions"]
+    G --> G1["Source : saison officielle"]
+    G --> G2["Source : propre au pool"]
+    E -->|gestionnaire| H["Rondes et événements"]
+    H --> H1["Structure locale du pool"]
+    H -->|administrateur système| H2["Structure officielle de la saison"]
+    E -->|gestionnaire| I["Résultats"]
+    I --> I1["Résultats locaux"]
+    I -->|administrateur système| I2["Résultats officiels"]
+    I1 --> J["Registre de points"]
+    I2 --> J
     J --> K["Classement du pool"]
     C --> L["Paramètres du compte"]
-    C -->|administrateur| M["Configuration officielle"]
-    M --> N["Structure : rondes et événements officiels"]
-    N --> O["Résultats : aperçu, publication et correction"]
-    O --> I
+    C -->|administrateur système| M["Administration globale"]
+    M --> H2
+    M --> I2
 ```
 
 ## Couverture des routes applicatives
@@ -68,11 +78,11 @@ flowchart LR
 |---|---|
 | Accueil | `home`, `dashboard` |
 | Compte | `profile.edit`, `user-password.edit`, `appearance.edit`, `two-factor.show` |
-| Pools | `pools.index`, `pools.show`, `pools.draft`, `pools.predictions`, `pools.events`, `pools.official-rounds`, `pools.official-results`, `pools.leaderboard` |
-| Administration | `admin.seasons.index`, `admin.event-types`, `admin.official-rounds`, `admin.official-results`, `admin.houseguests.index`, `admin.users.index` |
+| Pools | `pools.index`, `pools.show`, `pools.draft`, `pools.predictions`, `pools.events`, `pools.results`, `pools.leaderboard` |
+| Redirections administratives contextuelles | `pools.official-rounds` redirige vers `pools.events`; `pools.official-results` redirige vers `pools.results` |
+| Administration globale | `admin.seasons.index`, `admin.event-types`, `admin.official-rounds`, `admin.official-results`, `admin.houseguests.index`, `admin.users.index` |
 
-Les routes d’authentification, d’inscription, de vérification du courriel et de récupération du mot de passe sont enregistrées par Fortify.
-Les routes `pools.official-rounds` et `pools.official-results` sont les accès administratifs affichés dans la navigation d’un pool et restent figées sur sa saison. Les routes globales `admin.official-rounds` et `admin.official-results` sont conservées comme accès direct de secours, notamment avant qu’un pool existe.
+Les routes d’authentification, d’inscription, de vérification du courriel et de récupération du mot de passe sont enregistrées par Fortify. Les deux redirections contextuelles officielles restent protégées par l’autorisation administrateur; elles préservent les anciens favoris sans recréer de pages parallèles.
 
 ## Sources principales
 

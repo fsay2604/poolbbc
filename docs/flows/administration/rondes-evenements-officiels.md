@@ -8,13 +8,15 @@ Administrateur.
 
 - Le compte doit être authentifié et posséder le rôle administrateur.
 - Au moins une saison doit exister. Les événements autonomes exigent aussi un type d’événement standard géré par l’application.
-- Depuis un pool, l’écran de structure est accessible par `pools.official-rounds` (`/pools/{pool}/official-rounds`) et sa saison est fixe. La saisie des résultats se trouve dans `pools.official-results`.
-- L’accès global `admin.official-rounds` (`/admin/official-rounds`) demeure disponible sans entrée dans le menu latéral, notamment pour préparer une saison qui ne possède encore aucun pool.
+- Depuis un pool, la structure officielle est intégrée à la section **Structure officielle de la saison** de `pools.events` (`/pools/{pool}/events`). Elle n’apparaît que pour un administrateur système et la saison du pool y est fixe.
+- L’ancien accès contextuel `pools.official-rounds` (`/pools/{pool}/official-rounds`) demeure une redirection protégée vers `pools.events`; il ne rend plus une page autonome.
+- L’accès global `admin.official-rounds` (`/admin/official-rounds`) demeure disponible, notamment pour préparer une saison qui ne possède encore aucun pool.
+- La structure propre au pool partage l’écran contextuel, mais conserve ses modèles, actions, autorisations et audits distincts. Un gestionnaire de pool non administrateur ne peut pas modifier la structure canonique de la saison.
 - Une modification de la structure canonique affecte tous les pools de la saison; l’interface contextuelle l’indique explicitement.
 
 ## Parcours
 
-1. Ouvrir **Rondes et événements** depuis la navigation du pool. La saison du pool est sélectionnée et verrouillée automatiquement; dans l’accès global, sélectionner la saison.
+1. Ouvrir **Rondes et événements** depuis la navigation du pool, puis la section officielle intégrée. La saison du pool est sélectionnée et verrouillée automatiquement; dans l’accès global `admin.official-rounds`, sélectionner la saison.
 2. Créer une ronde avec l’assistant en choisissant son nom, ses dates, ses heures d’ouverture et de verrouillage, puis une structure : standard, sans veto, double éviction ou finale.
 3. Ajouter au besoin un événement autonome à une ronde existante. Le type standard choisi fournit la source de réponse et l’instantané initial du barème.
 4. Modifier les métadonnées d’une ronde : nom, début et fin. Cette modification ne déplace jamais automatiquement les dates de ses événements.
@@ -57,6 +59,7 @@ Administrateur.
 ## Sources et couverture
 
 - `routes/web.php`
+- `resources/views/components/pools/⚡events/events.blade.php`
 - `resources/views/components/admin/⚡official-rounds/official-rounds.php`
 - `resources/views/components/admin/⚡official-rounds/official-rounds.blade.php`
 - `app/Actions/Events/CreateSeasonRoundFromTemplate.php`
@@ -71,3 +74,4 @@ Administrateur.
 - `tests/Feature/OfficialStructureManagementTest.php`
 - `tests/Feature/OfficialAdminFlowTest.php`
 - `tests/Feature/AdministrativeAuditLogTest.php`
+- `tests/Feature/PoolStructureAndResultsNavigationTest.php`

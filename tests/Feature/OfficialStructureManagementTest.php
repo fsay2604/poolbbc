@@ -254,6 +254,11 @@ class OfficialStructureManagementTest extends TestCase
     {
         $administrator = User::factory()->admin()->create();
         $season = Season::factory()->create();
+        $pool = Pool::factory()->create([
+            'owner_id' => $administrator->id,
+            'season_id' => $season->id,
+        ]);
+        PoolMember::factory()->for($pool)->for($administrator)->create();
         $round = SeasonRound::factory()->for($season)->create();
         SeasonEvent::factory()->for($round, 'round')->create([
             'name' => 'Événement verrouillé',
@@ -263,14 +268,16 @@ class OfficialStructureManagementTest extends TestCase
         ]);
 
         Livewire::actingAs($administrator)
-            ->test('admin.official-rounds')
-            ->assertSee('Rondes et événements officiels')
+            ->test('pools.events', ['pool' => $pool])
+            ->assertSee('Rondes et événements')
+            ->assertSee('Structure officielle de la saison')
             ->assertDontSee('Historique des résultats')
             ->assertDontSee('Saisir le résultat');
 
         Livewire::actingAs($administrator)
-            ->test('admin.official-results')
-            ->assertSee('Résultats officiels')
+            ->test('pools.results', ['pool' => $pool])
+            ->assertSee('Résultats')
+            ->assertSee('Résultats officiels de la saison')
             ->assertSee('Saisir le résultat')
             ->assertDontSee('Assistant de création d’une ronde');
     }
@@ -303,20 +310,18 @@ class OfficialStructureManagementTest extends TestCase
         ]);
 
         Livewire::actingAs($administrator)
-            ->test('admin.official-rounds', ['pool' => $pool])
-            ->assertSet('seasonId', $poolSeason->id)
+            ->test('pools.events', ['pool' => $pool])
             ->assertSee('Ronde du pool')
             ->assertDontSee('Ronde étrangère');
 
         Livewire::actingAs($administrator)
-            ->test('admin.official-results', ['pool' => $pool])
-            ->assertSet('seasonId', $poolSeason->id)
+            ->test('pools.results', ['pool' => $pool])
             ->assertSee('Événement du pool')
             ->assertDontSee('Événement étranger');
 
         try {
             Livewire::actingAs($administrator)
-                ->test('admin.official-rounds', ['pool' => $pool])
+                ->test('admin.official-rounds', ['pool' => $pool, 'embedded' => true])
                 ->call('startEdit', $otherEvent->id);
             $this->fail('A foreign-season event was accepted by the contextual structure page.');
         } catch (ModelNotFoundException) {
@@ -325,7 +330,7 @@ class OfficialStructureManagementTest extends TestCase
 
         try {
             Livewire::actingAs($administrator)
-                ->test('admin.official-results', ['pool' => $pool])
+                ->test('admin.official-results', ['pool' => $pool, 'embedded' => true])
                 ->call('startResult', $otherEvent->id);
             $this->fail('A foreign-season event was accepted by the contextual result page.');
         } catch (ModelNotFoundException) {

@@ -59,10 +59,13 @@ class ResultPublicationFlowTest extends TestCase
         ]);
 
         $memberComponent = Livewire::actingAs($member->user)
-            ->test('pools.events', ['pool' => $event->pool]);
-        $memberEvent = $memberComponent->get('rounds')->first()->events->first();
-        $this->assertCount(0, $memberEvent->results);
-        $this->assertFalse($memberEvent->relationLoaded('draftResult'));
+            ->test('pools.predictions', ['pool' => $event->pool])
+            ->assertSee($event->name)
+            ->assertSee('En attente de publication');
+        $memberEvent = $memberComponent->get('predictionEvents')->firstWhere('key', "local-{$event->id}");
+        $this->assertNotNull($memberEvent);
+        $this->assertFalse($memberEvent->hasPublishedResult);
+        $this->assertSame([], $memberEvent->resultOptionLabels);
 
         $published = app(PublishEventResult::class)->publishDraft($result, $owner);
 
@@ -75,6 +78,15 @@ class ResultPublicationFlowTest extends TestCase
             'action' => 'event.result_published',
             'auditable_id' => $result->id,
         ]);
+
+        $publishedEvent = Livewire::actingAs($member->user)
+            ->test('pools.predictions', ['pool' => $event->pool])
+            ->assertSee($options[0]->label)
+            ->get('predictionEvents')
+            ->firstWhere('key', "local-{$event->id}");
+        $this->assertNotNull($publishedEvent);
+        $this->assertTrue($publishedEvent->hasPublishedResult);
+        $this->assertSame([$options[0]->label], $publishedEvent->resultOptionLabels);
     }
 
     public function test_local_manual_correction_keeps_previous_public_points_until_the_new_version_is_published(): void
@@ -98,16 +110,17 @@ class ResultPublicationFlowTest extends TestCase
         $this->assertSame(1, PointEntry::query()->published()->count());
 
         $memberComponent = Livewire::actingAs($member->user)
-            ->test('pools.events', ['pool' => $event->pool])
+            ->test('pools.predictions', ['pool' => $event->pool])
             ->assertDontSee($correctionReason)
             ->call('$refresh')
             ->assertDontSee($correctionReason);
-        $memberEvent = $memberComponent->get('rounds')->first()->events->first();
-        $this->assertCount(1, $memberEvent->results);
-        $this->assertSame($first->id, $memberEvent->latestResult?->id);
+        $memberEvent = $memberComponent->get('predictionEvents')->firstWhere('key', "local-{$event->id}");
+        $this->assertNotNull($memberEvent);
+        $this->assertTrue($memberEvent->hasPublishedResult);
+        $this->assertSame([$options[0]->label], $memberEvent->resultOptionLabels);
 
         Livewire::actingAs($owner)
-            ->test('pools.events', ['pool' => $event->pool])
+            ->test('pools.results', ['pool' => $event->pool])
             ->assertSee($correctionReason)
             ->call('$refresh')
             ->assertSee($correctionReason);
@@ -122,6 +135,13 @@ class ResultPublicationFlowTest extends TestCase
             'action' => 'event.result_corrected',
             'auditable_id' => $correction->id,
         ]);
+
+        $correctedEvent = Livewire::actingAs($member->user)
+            ->test('pools.predictions', ['pool' => $event->pool])
+            ->get('predictionEvents')
+            ->firstWhere('key', "local-{$event->id}");
+        $this->assertNotNull($correctedEvent);
+        $this->assertSame([$options[1]->label], $correctedEvent->resultOptionLabels);
     }
 
     public function test_official_manual_result_is_queued_only_after_explicit_publication_and_corrections_keep_the_old_result_visible(): void

@@ -20,6 +20,7 @@ use App\Models\Houseguest;
 use App\Models\Round;
 use App\Models\Season;
 use App\Models\User;
+use App\Support\PredictionEventView;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Livewire;
@@ -98,7 +99,7 @@ class EventScoringFlowTest extends TestCase
         $this->assertSame(2, AuditLog::query()->where('pool_id', $pool->id)->whereIn('action', ['event.result_published', 'event.result_corrected'])->count());
     }
 
-    public function test_other_members_predictions_are_not_hydrated_before_locking(): void
+    public function test_other_members_prediction_answers_are_hidden_before_locking(): void
     {
         $owner = User::factory()->create();
         $otherUser = User::factory()->create();
@@ -114,7 +115,8 @@ class EventScoringFlowTest extends TestCase
         $event = Event::factory()->for($round)->create([
             'pool_id' => $pool->id, 'created_by' => $owner->id, 'status' => 'draft',
         ]);
-        $option = EventOption::factory()->for($event)->create();
+        $ownerOption = EventOption::factory()->for($event)->create(['label' => 'Choix du propriétaire']);
+        $otherOption = EventOption::factory()->for($event)->create(['label' => 'Choix de l’autre membre']);
         $event->update(['status' => 'open']);
 
         foreach ([$ownerMember, $otherMember] as $member) {
@@ -124,27 +126,41 @@ class EventScoringFlowTest extends TestCase
                 'status' => 'submitted',
                 'submitted_at' => now(),
             ]);
-            $prediction->options()->sync([$option->id]);
+            $prediction->options()->sync([
+                $member->is($ownerMember) ? $ownerOption->id : $otherOption->id,
+            ]);
         }
 
-        $this->actingAs($owner);
-        $component = Livewire::test('pools.events', ['pool' => $pool]);
-        $loadedEvent = $component->get('rounds')->first()->events->first();
+        $eventKey = "local-{$event->id}";
+        $component = Livewire::actingAs($owner)->test('pools.predictions', ['pool' => $pool]);
+        $ownerView = $component->get('predictionEvents')
+            ->first(fn (PredictionEventView $view): bool => $view->key === $eventKey);
 
-        $this->assertCount(1, $loadedEvent->predictions);
-        $this->assertSame($ownerMember->id, $loadedEvent->predictions->first()->pool_member_id);
-        $this->assertEqualsCanonicalizing(
-            [$ownerMember->id, $otherMember->id],
-            $component->get('localRespondedMemberIds')[$event->id],
-        );
+        $this->assertInstanceOf(PredictionEventView::class, $ownerView);
+        $this->assertSame([$ownerOption->id], $ownerView->selectedOptionIds);
+        $this->assertSame([], $ownerView->revealedPredictions);
+        $this->assertSame($ownerOption->id, $component->get('selections')[$eventKey]);
 
-        $memberComponent = Livewire::actingAs($otherUser)->test('pools.events', ['pool' => $pool]);
-        $this->assertSame([], $memberComponent->get('localRespondedMemberIds'));
+        $memberComponent = Livewire::actingAs($otherUser)->test('pools.predictions', ['pool' => $pool]);
+        $memberView = $memberComponent->get('predictionEvents')
+            ->first(fn (PredictionEventView $view): bool => $view->key === $eventKey);
+
+        $this->assertInstanceOf(PredictionEventView::class, $memberView);
+        $this->assertSame([$otherOption->id], $memberView->selectedOptionIds);
+        $this->assertSame([], $memberView->revealedPredictions);
+        $this->assertSame($otherOption->id, $memberComponent->get('selections')[$eventKey]);
 
         $event->update(['status' => 'locked']);
-        $lockedComponent = Livewire::test('pools.events', ['pool' => $pool]);
-        $lockedEvent = $lockedComponent->get('rounds')->first()->events->first();
-        $this->assertCount(2, $lockedEvent->predictions);
+        $lockedComponent = Livewire::actingAs($owner)->test('pools.predictions', ['pool' => $pool]);
+        $lockedView = $lockedComponent->get('predictionEvents')
+            ->first(fn (PredictionEventView $view): bool => $view->key === $eventKey);
+
+        $this->assertInstanceOf(PredictionEventView::class, $lockedView);
+        $this->assertCount(2, $lockedView->revealedPredictions);
+        $this->assertEqualsCanonicalizing(
+            [$owner->name, $otherUser->name],
+            collect($lockedView->revealedPredictions)->pluck('member_name')->all(),
+        );
     }
 
     public function test_pool_administrator_can_create_a_round_and_a_generic_boolean_event(): void
@@ -182,6 +198,7 @@ class EventScoringFlowTest extends TestCase
         $this->assertFalse($template->is_standard);
 
         $component
+            ->set('eventForm.round_id', $round->id)
             ->set('eventForm.event_type_id', $template->id)
             ->set('eventForm.locks_at', now()->addDays(2)->format('Y-m-d\TH:i'))
             ->call('createEvent')
@@ -213,7 +230,7 @@ class EventScoringFlowTest extends TestCase
         $event->update(['status' => 'locked']);
 
         $component = Livewire::actingAs($owner)
-            ->test('pools.events', ['pool' => $pool])
+            ->test('pools.results', ['pool' => $pool])
             ->set("resultSelections.{$event->id}", [$option->id])
             ->call('publishResult', $event->id)
             ->assertHasErrors(["resultSelections.{$event->id}"])

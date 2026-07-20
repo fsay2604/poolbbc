@@ -3,6 +3,7 @@
 namespace App\Actions\Predictions;
 
 use App\Actions\Events\SynchronizeEventLifecycle;
+use App\Enums\EventMode;
 use App\Enums\PoolMemberStatus;
 use App\Enums\PoolStatus;
 use App\Enums\PredictionStatus;
@@ -29,6 +30,7 @@ class SubmitEventPrediction
             if ($member->pool_id !== $event->pool_id
                 || $event->pool_id !== $pool->id
                 || $member->status !== PoolMemberStatus::Active
+                || ! in_array($event->mode, [EventMode::Prediction, EventMode::Hybrid], true)
                 || in_array($pool->status, [PoolStatus::Completed, PoolStatus::Archived], true)) {
                 throw ValidationException::withMessages(['prediction' => __('Predictions are closed for this event.')]);
             }

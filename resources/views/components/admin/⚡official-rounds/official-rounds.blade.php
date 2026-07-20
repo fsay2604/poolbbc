@@ -1,14 +1,19 @@
 <section class="w-full">
     <div class="flex flex-col gap-6">
         <div>
-            <flux:heading size="xl" level="1">
-                Rondes et événements officiels{{ $pool ? ' · '.$pool->name : '' }}
-            </flux:heading>
+            @if ($embedded)
+                <flux:heading size="lg" level="2">Structure officielle de la saison</flux:heading>
+            @else
+                <flux:heading size="xl" level="1">Rondes et événements officiels{{ $pool ? ' · '.$pool->name : '' }}</flux:heading>
+            @endif
             <flux:text class="mt-1">Créez la structure canonique de la saison, puis gérez chaque événement avant son ouverture.</flux:text>
         </div>
 
-        @if ($pool)
+        @if ($pool && ! $embedded)
             <x-pools.navigation :pool="$pool" :available-pools="$availablePools" />
+        @endif
+
+        @if ($pool)
             <flux:callout icon="information-circle" color="blue">
                 <flux:callout.heading>{{ $pool->season->name }}</flux:callout.heading>
                 <flux:callout.text>La structure officielle est commune à tous les pools de cette saison. Une modification faite ici s’applique donc aussi aux autres pools.</flux:callout.text>

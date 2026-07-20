@@ -92,7 +92,7 @@
         @endif
 
         <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
-            <flux:card>
+            <flux:card class="h-fit">
                 <div class="flex items-center justify-between gap-3">
                     <flux:heading size="lg">Membres {{ $pool->usesDraft() ? 'et ordre du repêchage' : '' }}</flux:heading>
                     @if ($pool->usesDraft())

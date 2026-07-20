@@ -14,7 +14,7 @@
             <div class="grid gap-4 sm:grid-cols-2">
                 @forelse ($pools as $pool)
                     <a href="{{ route('pools.show', $pool) }}" wire:navigate.hover class="group rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
-                        <flux:card class="h-full transition group-hover:-translate-y-0.5 group-hover:shadow-lg">
+                        <flux:card class="h-fit transition group-hover:-translate-y-0.5 group-hover:shadow-lg">
                             <div class="flex items-start justify-between gap-4">
                                 <div>
                                     <flux:heading size="lg">{{ $pool->name }}</flux:heading>
@@ -35,7 +35,7 @@
                         </flux:card>
                     </a>
                 @empty
-                    <flux:card class="sm:col-span-2">
+                    <flux:card class="sm:col-span-2 h-fit">
                         <div class="py-10 text-center">
                             <flux:heading size="lg">Aucun pool pour le moment</flux:heading>
                             <flux:text class="mt-2">Commencez par créer votre pool ou saisir un code d’invitation.</flux:text>

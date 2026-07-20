@@ -13,7 +13,7 @@
                 @if ($pool->usesDraft())
                     <flux:button :href="route('pools.draft', $pool)" icon="queue-list" wire:navigate.hover>Repêchage</flux:button>
                 @endif
-                <flux:button :href="route('pools.events', $pool)" icon="calendar-days" wire:navigate.hover>Rondes et événements</flux:button>
+                <flux:button :href="route('pools.events', $pool)" icon="calendar-days" wire:navigate.hover>Événements du pool</flux:button>
                 <flux:button :href="route('pools.leaderboard', $pool)" icon="trophy" variant="primary" wire:navigate.hover>Classement</flux:button>
             </div>
         </div>

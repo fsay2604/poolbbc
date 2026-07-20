@@ -1,9 +1,19 @@
 <section class="w-full">
     <div class="flex flex-col gap-6">
         <div>
-            <flux:heading size="xl" level="1">Rondes et événements officiels</flux:heading>
+            <flux:heading size="xl" level="1">
+                Rondes et événements officiels{{ $pool ? ' · '.$pool->name : '' }}
+            </flux:heading>
             <flux:text class="mt-1">Créez la structure canonique de la saison, puis gérez chaque événement avant son ouverture.</flux:text>
         </div>
+
+        @if ($pool)
+            <x-pools.navigation :pool="$pool" :available-pools="$availablePools" />
+            <flux:callout icon="information-circle" color="blue">
+                <flux:callout.heading>{{ $pool->season->name }}</flux:callout.heading>
+                <flux:callout.text>La structure officielle est commune à tous les pools de cette saison. Une modification faite ici s’applique donc aussi aux autres pools.</flux:callout.text>
+            </flux:callout>
+        @endif
 
         <div class="flex flex-wrap gap-4">
             <x-action-message on="official-round-created">La ronde officielle et ses événements ont été créés.</x-action-message>
@@ -26,11 +36,18 @@
 
             @if ($wizardStep === 1)
                 <form wire:submit="reviewWizard" class="mt-6 grid gap-4 md:grid-cols-2">
-                    <flux:select wire:model="seasonId" label="Saison">
-                        @foreach ($seasons as $season)
-                            <flux:select.option :value="$season->id">{{ $season->name }}</flux:select.option>
-                        @endforeach
-                    </flux:select>
+                    @if ($pool)
+                        <div>
+                            <div class="text-sm font-medium text-zinc-800 dark:text-zinc-200">Saison</div>
+                            <div class="mt-2 rounded-lg border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-700">{{ $pool->season->name }}</div>
+                        </div>
+                    @else
+                        <flux:select wire:model="seasonId" label="Saison">
+                            @foreach ($seasons as $season)
+                                <flux:select.option :value="$season->id">{{ $season->name }}</flux:select.option>
+                            @endforeach
+                        </flux:select>
+                    @endif
                     <flux:select wire:model="template" label="Structure de la ronde">
                         <flux:select.option value="standard">Semaine standard</flux:select.option>
                         <flux:select.option value="no_veto">Sans veto</flux:select.option>
@@ -67,11 +84,15 @@
                 <flux:heading size="lg">Calendrier officiel</flux:heading>
                 <flux:text class="mt-1 text-sm">Les dates de la ronde sont informatives; modifier une ronde ne déplace pas automatiquement ses événements.</flux:text>
             </div>
-            <flux:select wire:model.live="seasonId" label="Saison affichée" class="sm:w-64">
-                @foreach ($seasons as $season)
-                    <flux:select.option :value="$season->id">{{ $season->name }}</flux:select.option>
-                @endforeach
-            </flux:select>
+            @if ($pool)
+                <flux:badge color="blue" size="lg">{{ $pool->season->name }}</flux:badge>
+            @else
+                <flux:select wire:model.live="seasonId" label="Saison affichée" class="sm:w-64">
+                    @foreach ($seasons as $season)
+                        <flux:select.option :value="$season->id">{{ $season->name }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+            @endif
         </div>
 
         <flux:error name="eventForm.event_type_id" />

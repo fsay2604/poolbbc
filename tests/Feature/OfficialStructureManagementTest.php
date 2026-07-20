@@ -23,6 +23,7 @@ use App\Models\SeasonRound;
 use App\Models\User;
 use App\Support\StandardEventTypeCatalog;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -272,6 +273,64 @@ class OfficialStructureManagementTest extends TestCase
             ->assertSee('Résultats officiels')
             ->assertSee('Saisir le résultat')
             ->assertDontSee('Assistant de création d’une ronde');
+    }
+
+    public function test_contextual_official_pages_are_fixed_to_the_pool_season(): void
+    {
+        $administrator = User::factory()->admin()->create();
+        $poolSeason = Season::factory()->create(['name' => 'Saison du pool']);
+        $pool = Pool::factory()->create([
+            'owner_id' => $administrator->id,
+            'season_id' => $poolSeason->id,
+        ]);
+        PoolMember::factory()->for($pool)->for($administrator)->create();
+
+        $poolRound = SeasonRound::factory()->for($poolSeason)->create(['name' => 'Ronde du pool']);
+        SeasonEvent::factory()->for($poolRound, 'round')->create([
+            'name' => 'Événement du pool',
+            'status' => EventStatus::Locked,
+            'opens_at' => now()->subDay(),
+            'locks_at' => now()->subHour(),
+        ]);
+
+        $otherSeason = Season::factory()->create(['name' => 'Autre saison']);
+        $otherRound = SeasonRound::factory()->for($otherSeason)->create(['name' => 'Ronde étrangère']);
+        $otherEvent = SeasonEvent::factory()->for($otherRound, 'round')->create([
+            'name' => 'Événement étranger',
+            'status' => EventStatus::Locked,
+            'opens_at' => now()->subDay(),
+            'locks_at' => now()->subHour(),
+        ]);
+
+        Livewire::actingAs($administrator)
+            ->test('admin.official-rounds', ['pool' => $pool])
+            ->assertSet('seasonId', $poolSeason->id)
+            ->assertSee('Ronde du pool')
+            ->assertDontSee('Ronde étrangère');
+
+        Livewire::actingAs($administrator)
+            ->test('admin.official-results', ['pool' => $pool])
+            ->assertSet('seasonId', $poolSeason->id)
+            ->assertSee('Événement du pool')
+            ->assertDontSee('Événement étranger');
+
+        try {
+            Livewire::actingAs($administrator)
+                ->test('admin.official-rounds', ['pool' => $pool])
+                ->call('startEdit', $otherEvent->id);
+            $this->fail('A foreign-season event was accepted by the contextual structure page.');
+        } catch (ModelNotFoundException) {
+            $this->addToAssertionCount(1);
+        }
+
+        try {
+            Livewire::actingAs($administrator)
+                ->test('admin.official-results', ['pool' => $pool])
+                ->call('startResult', $otherEvent->id);
+            $this->fail('A foreign-season event was accepted by the contextual result page.');
+        } catch (ModelNotFoundException) {
+            $this->addToAssertionCount(1);
+        }
     }
 
     private function standardEventType(string $slug): EventType

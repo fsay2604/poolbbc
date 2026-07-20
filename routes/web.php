@@ -43,6 +43,11 @@ Route::middleware(['auth'])->group(function () {
         Route::livewire('pools/{pool}/predictions', 'pools.predictions')->name('pools.predictions');
         Route::livewire('pools/{pool}/events', 'pools.events')->name('pools.events');
         Route::livewire('pools/{pool}/leaderboard', 'pools.leaderboard')->name('pools.leaderboard');
+
+        Route::middleware('can:admin')->group(function () {
+            Route::livewire('pools/{pool}/official-rounds', 'admin.official-rounds')->name('pools.official-rounds');
+            Route::livewire('pools/{pool}/official-results', 'admin.official-results')->name('pools.official-results');
+        });
     });
 
     Route::middleware(['can:admin'])->prefix('admin')->group(function () {

@@ -8,8 +8,8 @@
     <div class="flex flex-col gap-6">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-                <flux:heading size="xl" level="1">Rondes et événements · {{ $pool->name }}</flux:heading>
-                <flux:text class="mt-1">Échéances affichées dans le fuseau {{ $pool->timezone }}.</flux:text>
+                <flux:heading size="xl" level="1">Événements du pool · {{ $pool->name }}</flux:heading>
+                <flux:text class="mt-1">Rondes, prédictions et résultats propres à ce pool · fuseau {{ $pool->timezone }}.</flux:text>
             </div>
             <flux:button :href="route('pools.show', $pool)" icon="arrow-left" wire:navigate.hover>Retour au pool</flux:button>
         </div>
@@ -29,102 +29,23 @@
         </div>
 
         @if ($canManage)
-            <div class="grid gap-6 xl:grid-cols-[20rem_minmax(0,1fr)]">
-                <flux:card>
-                    <flux:heading size="lg">Nouvelle ronde</flux:heading>
-                    <form wire:submit="createRound" class="mt-4 grid gap-4">
-                        <flux:input wire:model="roundForm.name" label="Nom" placeholder="Semaine 1 ou Finale" />
-                        <flux:input wire:model="roundForm.starts_at" label="Début" type="datetime-local" />
-                        <flux:input wire:model="roundForm.ends_at" label="Fin" type="datetime-local" />
-                        <flux:button type="submit" variant="primary" class="w-full">Créer la ronde</flux:button>
-                    </form>
-                </flux:card>
-
-                <flux:card>
-                    <flux:heading size="lg">Nouvel événement</flux:heading>
-                    @if ($rounds->isEmpty())
-                        <flux:callout class="mt-4" icon="information-circle">Créez d’abord une ronde locale.</flux:callout>
-                    @else
-                        <form wire:submit="createEvent" class="mt-4 grid gap-4">
-                            <div class="grid gap-4 md:grid-cols-2">
-                                <flux:select wire:model="eventForm.round_id" label="Ronde">
-                                    <option value="">Choisir</option>
-                                    @foreach ($rounds as $round)
-                                        <option value="{{ $round->id }}">{{ $round->name }}</option>
-                                    @endforeach
-                                </flux:select>
-                                <flux:select wire:model.live="eventForm.event_type_id" label="Modèle">
-                                    <option value="">Personnalisé</option>
-                                    @foreach ($eventTypes as $type)
-                                        <option value="{{ $type->id }}">{{ $type->name }}</option>
-                                    @endforeach
-                                </flux:select>
-                            </div>
-                            <flux:input wire:model="eventForm.name" label="Nom" />
-                            <flux:textarea wire:model="eventForm.question" label="Question présentée aux membres" rows="2" />
-                            <div class="grid gap-4 md:grid-cols-2">
-                                <flux:select wire:model="eventForm.mode" label="Mode de pointage">
-                                    @if ($pool->competition_mode->value !== 'prediction_only')
-                                        <option value="roster">Équipe</option>
-                                    @endif
-                                    @if ($pool->competition_mode->value !== 'roster_only')
-                                        <option value="prediction">Prédiction</option>
-                                    @endif
-                                    @if ($pool->competition_mode->value === 'hybrid')
-                                        <option value="hybrid">Hybride</option>
-                                    @endif
-                                </flux:select>
-                                <flux:select wire:model.live="eventForm.answer_source" label="Source des choix">
-                                    <option value="houseguests">Célébrités actives</option>
-                                    <option value="boolean">Oui / non</option>
-                                    <option value="custom">Choix personnalisés</option>
-                                </flux:select>
-                            </div>
-                            @if ($eventForm['answer_source'] === 'custom')
-                                <flux:textarea wire:model="customOptionsText" label="Choix personnalisés, un par ligne" rows="4" />
-                            @endif
-                            <div class="grid gap-4 md:grid-cols-2">
-                                <flux:input wire:model="eventForm.opens_at" label="Ouverture" type="datetime-local" />
-                                <flux:input wire:model="eventForm.locks_at" label="Verrouillage" type="datetime-local" />
-                            </div>
-                            <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
-                                <flux:input wire:model="eventForm.prediction_min_selections" label="Préd. min." type="number" min="0" />
-                                <flux:input wire:model="eventForm.prediction_max_selections" label="Préd. max." type="number" min="1" />
-                                <flux:input wire:model="eventForm.result_min_selections" label="Résultat min." type="number" min="0" />
-                                <flux:input wire:model="eventForm.result_max_selections" label="Résultat max." type="number" min="1" />
-                            </div>
-                            <flux:select wire:model="eventForm.result_publication_mode" label="Visibilité du résultat">
-                                <option value="immediate">Publier immédiatement après confirmation</option>
-                                <option value="manual">Enregistrer, puis publier manuellement</option>
-                            </flux:select>
-                            <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
-                                <flux:input wire:model="eventForm.owner_points" label="Points propriétaire" type="number" />
-                                <flux:input wire:model="eventForm.prediction_points" label="Points / bonne réponse" type="number" />
-                                <flux:input wire:model="eventForm.exact_bonus" label="Bonus exact" type="number" />
-                                <flux:input wire:model="eventForm.wrong_penalty" label="Pénalité erreur" type="number" max="0" />
-                            </div>
-                            <div class="flex flex-wrap gap-6">
-                                <flux:switch wire:model="eventForm.allow_none" label="Permettre « aucune célébrité »" />
-                                @if ($eventForm['answer_source'] === 'houseguests')
-                                    <flux:switch wire:model="eventForm.include_inactive_houseguests" label="Inclure toutes les célébrités, même inactives" />
-                                @endif
-                                <flux:switch wire:model="eventForm.allow_negative" label="Permettre un total négatif" />
-                                @if (blank($eventForm['event_type_id']))
-                                    <flux:switch wire:model="eventForm.save_as_template" label="Enregistrer comme modèle réutilisable" />
-                                @endif
-                            </div>
-                            <flux:button type="submit" variant="primary">Créer l’événement</flux:button>
-                        </form>
-                    @endif
-                </flux:card>
+            <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800/50">
+                <div>
+                    <div class="font-medium">Structure locale</div>
+                    <div class="text-sm text-zinc-500">Ajoutez seulement les rondes et événements propres à {{ $pool->name }}.</div>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <flux:button wire:click="$set('showRoundModal', true)" icon="plus">Nouvelle ronde</flux:button>
+                    <flux:button wire:click="$set('showEventModal', true)" icon="plus" variant="primary" :disabled="$rounds->isEmpty()">Nouvel événement</flux:button>
+                </div>
             </div>
         @endif
 
         @if ($officialRounds->isNotEmpty())
             <div class="space-y-4">
                 <div>
-                    <flux:heading size="lg">Résultats officiels</flux:heading>
-                    <flux:text class="mt-1 text-sm">Les réponses soumises sont révélées uniquement après le verrouillage.</flux:text>
+                    <flux:heading size="lg">Réglages des événements officiels</flux:heading>
+                    <flux:text class="mt-1 text-sm">Suivez la participation et adaptez le barème de ce pool avant son gel.</flux:text>
                 </div>
                 @foreach ($officialRounds as $officialRound)
                     <flux:card wire:key="official-result-round-{{ $officialRound->id }}">
@@ -167,34 +88,10 @@
                                             </div>
                                         </div>
                                     @endif
-                                    @if (in_array($officialStatus->value, ['locked', 'result_entered', 'published'], true))
-                                        <div class="mt-3 rounded-xl bg-zinc-50 p-3 text-sm dark:bg-zinc-800/70">
-                                            <div>
-                                                <strong>Résultat:</strong>
-                                                @if ($officialEvent->latestResult === null)
-                                                    En attente de publication
-                                                @elseif ($officialEvent->latestResult->options->isEmpty())
-                                                    Aucune sélection
-                                                @else
-                                                    {{ $officialEvent->latestResult->options->pluck('label')->implode(' · ') }}
-                                                @endif
-                                            </div>
-                                            @if ($officialPoolEvent && $officialPoolEvent->relationLoaded('predictions') && $officialPoolEvent->predictions->isNotEmpty())
-                                                <div class="mt-3 space-y-1 border-t border-zinc-200 pt-3 dark:border-zinc-700">
-                                                    @foreach ($officialPoolEvent->predictions as $officialPrediction)
-                                                        <div class="flex justify-between gap-3">
-                                                            <span>{{ $officialPrediction->poolMember->user->name }}</span>
-                                                            <span class="text-end text-zinc-500">{{ $officialPrediction->options->pluck('label')->implode(' · ') }}</span>
-                                                        </div>
-                                                    @endforeach
-                                                </div>
-                                            @endif
-                                        </div>
-                                    @endif
                                     @if ($officialPoolEvent)
                                         <flux:accordion class="mt-3" transition>
                                             <flux:accordion.item>
-                                                <flux:accordion.heading>Règles et historique</flux:accordion.heading>
+                                                <flux:accordion.heading>Barème du pool</flux:accordion.heading>
                                                 <flux:accordion.content>
                                                     <div class="space-y-3 text-sm">
                                                         <div class="grid gap-2 sm:grid-cols-2">
@@ -240,23 +137,6 @@
                                                                 </div>
                                                             </form>
                                                         @endif
-                                                        @foreach ($officialEvent->results as $result)
-                                                            <div class="rounded-lg border border-zinc-200 p-3 dark:border-zinc-700" wire:key="pool-official-history-{{ $result->id }}">
-                                                                <div class="flex flex-wrap items-center justify-between gap-2">
-                                                                    <span class="font-medium">Version {{ $result->version }} · {{ $result->options->pluck('label')->implode(' · ') ?: 'Résultat vide' }}</span>
-                                                                    <flux:badge size="sm" :color="$result->status === 'published' ? 'green' : ($result->status === 'failed' ? 'red' : 'amber')">
-                                                                        {{ match ($result->status) { 'published' => 'Publié', 'failed' => 'Échec', default => 'Calcul en cours' } }}
-                                                                    </flux:badge>
-                                                                </div>
-                                                                <div class="mt-1 text-xs text-zinc-500">
-                                                                    {{ $result->creator?->name }}
-                                                                    @if ($result->published_at) · {{ $result->published_at->translatedFormat('j M Y H:i') }} @endif
-                                                                </div>
-                                                                @if ($result->correction_reason)
-                                                                    <div class="mt-2 text-zinc-600 dark:text-zinc-300">Justification : {{ $result->correction_reason }}</div>
-                                                                @endif
-                                                            </div>
-                                                        @endforeach
                                                     </div>
                                                 </flux:accordion.content>
                                             </flux:accordion.item>
@@ -484,6 +364,106 @@
         @empty
             <flux:card><div class="py-10 text-center text-sm text-zinc-500">Aucune ronde locale pour ce pool.</div></flux:card>
         @endforelse
+
+        @if ($canManage)
+            <flux:modal wire:model.self="showRoundModal" class="md:w-[32rem]">
+                <form wire:submit="createRound" class="space-y-5">
+                    <div>
+                        <flux:heading size="lg">Nouvelle ronde locale</flux:heading>
+                        <flux:text class="mt-1">Cette ronde appartiendra uniquement à {{ $pool->name }}.</flux:text>
+                    </div>
+                    <flux:input wire:model="roundForm.name" label="Nom" placeholder="Semaine 1 ou Finale" />
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <flux:input wire:model="roundForm.starts_at" label="Début" type="datetime-local" />
+                        <flux:input wire:model="roundForm.ends_at" label="Fin" type="datetime-local" />
+                    </div>
+                    <div class="flex justify-end gap-2">
+                        <flux:modal.close><flux:button type="button">Annuler</flux:button></flux:modal.close>
+                        <flux:button type="submit" variant="primary" wire:loading.attr="disabled" wire:target="createRound">Créer la ronde</flux:button>
+                    </div>
+                </form>
+            </flux:modal>
+
+            <flux:modal wire:model.self="showEventModal" class="md:w-[48rem]">
+                <form wire:submit="createEvent" class="space-y-5">
+                    <div>
+                        <flux:heading size="lg">Nouvel événement local</flux:heading>
+                        <flux:text class="mt-1">Configurez un événement propre à {{ $pool->name }}.</flux:text>
+                    </div>
+                    <div class="grid gap-4 md:grid-cols-2">
+                        <flux:select wire:model="eventForm.round_id" label="Ronde">
+                            <option value="">Choisir</option>
+                            @foreach ($rounds as $round)
+                                <option value="{{ $round->id }}">{{ $round->name }}</option>
+                            @endforeach
+                        </flux:select>
+                        <flux:select wire:model.live="eventForm.event_type_id" label="Modèle">
+                            <option value="">Personnalisé</option>
+                            @foreach ($eventTypes as $type)
+                                <option value="{{ $type->id }}">{{ $type->name }}</option>
+                            @endforeach
+                        </flux:select>
+                    </div>
+                    <flux:input wire:model="eventForm.name" label="Nom" />
+                    <flux:textarea wire:model="eventForm.question" label="Question présentée aux membres" rows="2" />
+                    <div class="grid gap-4 md:grid-cols-2">
+                        <flux:select wire:model="eventForm.mode" label="Mode de pointage">
+                            @if ($pool->competition_mode->value !== 'prediction_only')
+                                <option value="roster">Équipe</option>
+                            @endif
+                            @if ($pool->competition_mode->value !== 'roster_only')
+                                <option value="prediction">Prédiction</option>
+                            @endif
+                            @if ($pool->competition_mode->value === 'hybrid')
+                                <option value="hybrid">Hybride</option>
+                            @endif
+                        </flux:select>
+                        <flux:select wire:model.live="eventForm.answer_source" label="Source des choix">
+                            <option value="houseguests">Célébrités actives</option>
+                            <option value="boolean">Oui / non</option>
+                            <option value="custom">Choix personnalisés</option>
+                        </flux:select>
+                    </div>
+                    @if ($eventForm['answer_source'] === 'custom')
+                        <flux:textarea wire:model="customOptionsText" label="Choix personnalisés, un par ligne" rows="4" />
+                    @endif
+                    <div class="grid gap-4 md:grid-cols-2">
+                        <flux:input wire:model="eventForm.opens_at" label="Ouverture" type="datetime-local" />
+                        <flux:input wire:model="eventForm.locks_at" label="Verrouillage" type="datetime-local" />
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
+                        <flux:input wire:model="eventForm.prediction_min_selections" label="Préd. min." type="number" min="0" />
+                        <flux:input wire:model="eventForm.prediction_max_selections" label="Préd. max." type="number" min="1" />
+                        <flux:input wire:model="eventForm.result_min_selections" label="Résultat min." type="number" min="0" />
+                        <flux:input wire:model="eventForm.result_max_selections" label="Résultat max." type="number" min="1" />
+                    </div>
+                    <flux:select wire:model="eventForm.result_publication_mode" label="Visibilité du résultat">
+                        <option value="immediate">Publier immédiatement après confirmation</option>
+                        <option value="manual">Enregistrer, puis publier manuellement</option>
+                    </flux:select>
+                    <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
+                        <flux:input wire:model="eventForm.owner_points" label="Points propriétaire" type="number" />
+                        <flux:input wire:model="eventForm.prediction_points" label="Points / bonne réponse" type="number" />
+                        <flux:input wire:model="eventForm.exact_bonus" label="Bonus exact" type="number" />
+                        <flux:input wire:model="eventForm.wrong_penalty" label="Pénalité erreur" type="number" max="0" />
+                    </div>
+                    <div class="flex flex-wrap gap-6">
+                        <flux:switch wire:model="eventForm.allow_none" label="Permettre « aucune célébrité »" />
+                        @if ($eventForm['answer_source'] === 'houseguests')
+                            <flux:switch wire:model="eventForm.include_inactive_houseguests" label="Inclure toutes les célébrités, même inactives" />
+                        @endif
+                        <flux:switch wire:model="eventForm.allow_negative" label="Permettre un total négatif" />
+                        @if (blank($eventForm['event_type_id']))
+                            <flux:switch wire:model="eventForm.save_as_template" label="Enregistrer comme modèle réutilisable" />
+                        @endif
+                    </div>
+                    <div class="flex justify-end gap-2">
+                        <flux:modal.close><flux:button type="button">Annuler</flux:button></flux:modal.close>
+                        <flux:button type="submit" variant="primary" wire:loading.attr="disabled" wire:target="createEvent">Créer l’événement</flux:button>
+                    </div>
+                </form>
+            </flux:modal>
+        @endif
 
         <flux:modal wire:model.self="showCancellationModal" class="md:w-[32rem]">
             <form wire:submit="cancelEvent" class="space-y-5">

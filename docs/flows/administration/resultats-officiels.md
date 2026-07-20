@@ -7,12 +7,14 @@ Administrateur.
 ## Préconditions et autorisations
 
 - Le compte doit être authentifié et posséder le rôle administrateur.
-- L’écran consacré aux résultats est accessible par `admin.official-results` (`/admin/official-results`).
-- Seuls les événements effectivement verrouillés, en résultat saisi ou publié sont affichés. La structure se gère séparément dans `admin.official-rounds`.
+- Depuis un pool, l’écran consacré aux résultats est accessible par `pools.official-results` (`/pools/{pool}/official-results`) et sa saison est fixe.
+- L’accès global `admin.official-results` (`/admin/official-results`) demeure disponible sans entrée dans le menu latéral.
+- Seuls les événements effectivement verrouillés, en résultat saisi ou publié sont affichés. La structure se gère séparément dans `pools.official-rounds` ou, hors contexte, `admin.official-rounds`.
+- Un résultat officiel et son pointage concernent tous les pools de la saison; le contexte du pool sert à la navigation et au filtrage, pas à limiter la publication à ce seul pool.
 
 ## Parcours
 
-1. Choisir la saison, puis ouvrir la saisie du résultat d’un événement admissible.
+1. Ouvrir **Résultats officiels** depuis la navigation du pool; sa saison est fixée automatiquement. Dans l’accès global, choisir la saison.
 2. Sélectionner uniquement des options figées de l’événement.
 3. Générer l’aperçu en lecture seule pour vérifier, par pool et par membre, les points d’équipe, de prédiction et le total.
 4. Confirmer sans modifier la sélection après l’aperçu. En publication immédiate, le pointage est mis en file; en publication manuelle, un brouillon privé est enregistré.
@@ -38,6 +40,7 @@ Administrateur.
 - Une correction d’un résultat publié exige une justification. Un brouillon de correction conserve cette exigence lorsqu’il est modifié.
 - Les actions de saisie, modification, mise en file et reprise revérifient leur autorisation et utilisent des transactions et verrous.
 - Les audits distinguent l’enregistrement, la modification d’un brouillon, le début du pointage, la reprise, la publication et la correction, avec la version, les options et la justification applicables.
+- Dans le contexte d’un pool, un identifiant d’événement appartenant à une autre saison est refusé avant l’ouverture du formulaire ou toute action de résultat.
 
 ## Sources et couverture
 

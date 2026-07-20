@@ -12,7 +12,9 @@ use App\Enums\OfficialRoundTemplate;
 use App\Http\Requests\Events\CreateSeasonEventRequest;
 use App\Http\Requests\Events\UpdateSeasonEventRequest;
 use App\Http\Requests\Events\UpdateSeasonRoundRequest;
+use App\Actions\Pools\ListUserPools;
 use App\Models\EventType;
+use App\Models\Pool;
 use App\Models\Season;
 use App\Models\SeasonEvent;
 use App\Models\SeasonRound;
@@ -25,6 +27,10 @@ use Livewire\Component;
 
 new class extends Component
 {
+    public ?Pool $pool = null;
+
+    public $availablePools;
+
     public $seasons;
 
     public $eventTypes;
@@ -102,17 +108,32 @@ new class extends Component
 
     public string $deletingRoundName = '';
 
-    public function mount(StandardEventTypeCatalog $catalog): void
+    public function mount(StandardEventTypeCatalog $catalog, ?Pool $pool = null): void
     {
         Gate::authorize('admin');
-        $this->seasons = Season::query()->orderByDesc('is_active')->orderByDesc('id')->get();
-        $this->seasonId = $this->seasons->first()?->id;
+        $this->pool = $pool?->exists ? $pool->load('season') : null;
+
+        if ($this->pool !== null) {
+            Gate::authorize('view', $this->pool);
+            $this->availablePools = app(ListUserPools::class)->handle(auth()->user());
+            $this->seasons = collect([$this->pool->season]);
+            $this->seasonId = $this->pool->season_id;
+        } else {
+            $this->availablePools = collect();
+            $this->seasons = Season::query()->orderByDesc('is_active')->orderByDesc('id')->get();
+            $this->seasonId = $this->seasons->first()?->id;
+        }
+
         $this->refreshEventTypes($catalog);
         $this->refreshRounds();
     }
 
     public function updatedSeasonId(): void
     {
+        if ($this->pool !== null) {
+            $this->seasonId = $this->pool->season_id;
+        }
+
         $this->refreshRounds();
     }
 
@@ -122,7 +143,7 @@ new class extends Component
             return;
         }
 
-        $round = SeasonRound::query()->findOrFail($this->creatingRoundId);
+        $round = $this->findRound($this->creatingRoundId);
         $this->initializeEventForm(
             $this->managedEventType((int) $value, $catalog),
             $catalog,
@@ -164,7 +185,7 @@ new class extends Component
 
     public function startRoundEdit(int $roundId): void
     {
-        $round = SeasonRound::query()->findOrFail($roundId);
+        $round = $this->findRound($roundId);
         Gate::authorize('update', $round);
         $this->editingRoundId = $round->id;
         $this->roundForm = [
@@ -181,7 +202,7 @@ new class extends Component
         abort_if($this->editingRoundId === null, 422);
         $request = new UpdateSeasonRoundRequest;
         $validated = $this->validate($request->rules(), $request->messages(), $request->attributes());
-        $round = SeasonRound::query()->findOrFail($this->editingRoundId);
+        $round = $this->findRound($this->editingRoundId);
 
         $updateSeasonRound->handle($round, auth()->user(), $validated['roundForm']);
 
@@ -193,7 +214,7 @@ new class extends Component
 
     public function startCreateEvent(int $roundId, StandardEventTypeCatalog $catalog): void
     {
-        $round = SeasonRound::query()->findOrFail($roundId);
+        $round = $this->findRound($roundId);
         Gate::authorize('create', SeasonEvent::class);
         $eventType = $this->eventTypes->first();
 
@@ -212,7 +233,7 @@ new class extends Component
 
     public function startEdit(int $eventId): void
     {
-        $event = SeasonEvent::query()->findOrFail($eventId);
+        $event = $this->findEvent($eventId);
         Gate::authorize('update', $event);
 
         if ($event->effectiveStatus() !== EventStatus::Draft || $event->options_locked_at !== null) {
@@ -249,14 +270,14 @@ new class extends Component
         if ($this->creatingRoundId !== null) {
             $request = new CreateSeasonEventRequest;
             $validated = $this->validate($request->rules(), $request->messages(), $request->attributes());
-            $round = SeasonRound::query()->findOrFail($this->creatingRoundId);
+            $round = $this->findRound($this->creatingRoundId);
             $createSeasonEvent->handle($round, auth()->user(), $validated['eventForm']);
             $event = 'official-event-created';
         } else {
             abort_if($this->editingEventId === null, 422);
             $request = new UpdateSeasonEventRequest;
             $validated = $this->validate($request->rules(), $request->messages(), $request->attributes());
-            $officialEvent = SeasonEvent::query()->findOrFail($this->editingEventId);
+            $officialEvent = $this->findEvent($this->editingEventId);
             $updateSeasonEvent->handle($officialEvent, auth()->user(), $validated['eventForm']);
             $event = 'official-event-updated';
         }
@@ -270,21 +291,21 @@ new class extends Component
 
     public function openEvent(int $eventId, TransitionSeasonEvent $transition): void
     {
-        $transition->transition(SeasonEvent::query()->findOrFail($eventId), EventStatus::Open, auth()->user());
+        $transition->transition($this->findEvent($eventId), EventStatus::Open, auth()->user());
         $this->refreshRounds();
         $this->dispatch('official-event-updated');
     }
 
     public function lockEvent(int $eventId, TransitionSeasonEvent $transition): void
     {
-        $transition->transition(SeasonEvent::query()->findOrFail($eventId), EventStatus::Locked, auth()->user());
+        $transition->transition($this->findEvent($eventId), EventStatus::Locked, auth()->user());
         $this->refreshRounds();
         $this->dispatch('official-event-updated');
     }
 
     public function startCancellation(int $eventId): void
     {
-        $event = SeasonEvent::query()->findOrFail($eventId);
+        $event = $this->findEvent($eventId);
         Gate::authorize('transition', $event);
         abort_unless(in_array($event->effectiveStatus(), [EventStatus::Draft, EventStatus::Open, EventStatus::Locked], true), 422);
 
@@ -298,7 +319,7 @@ new class extends Component
         $validated = $this->validate([
             'cancellationReason' => ['required', 'string', 'min:3', 'max:1000'],
         ]);
-        $event = SeasonEvent::query()->findOrFail($this->cancellingEventId);
+        $event = $this->findEvent($this->cancellingEventId);
         $transition->transition($event, EventStatus::Cancelled, auth()->user(), $validated['cancellationReason']);
 
         $this->showCancellationModal = false;
@@ -309,7 +330,7 @@ new class extends Component
 
     public function startEventDeletion(int $eventId): void
     {
-        $event = SeasonEvent::query()->findOrFail($eventId);
+        $event = $this->findEvent($eventId);
         Gate::authorize('delete', $event);
         $this->resetValidation('eventDeletion');
         $this->deletingEventId = $event->id;
@@ -321,7 +342,7 @@ new class extends Component
     {
         abort_if($this->deletingEventId === null, 422);
         $deleteSeasonEvent->handle(
-            SeasonEvent::query()->findOrFail($this->deletingEventId),
+            $this->findEvent($this->deletingEventId),
             auth()->user(),
         );
 
@@ -333,7 +354,7 @@ new class extends Component
 
     public function startRoundDeletion(int $roundId): void
     {
-        $round = SeasonRound::query()->findOrFail($roundId);
+        $round = $this->findRound($roundId);
         Gate::authorize('delete', $round);
         $this->resetValidation('roundDeletion');
         $this->deletingRoundId = $round->id;
@@ -345,7 +366,7 @@ new class extends Component
     {
         abort_if($this->deletingRoundId === null, 422);
         $deleteSeasonRound->handle(
-            SeasonRound::query()->findOrFail($this->deletingRoundId),
+            $this->findRound($this->deletingRoundId),
             auth()->user(),
         );
 
@@ -359,7 +380,11 @@ new class extends Component
     private function validateWizard(): array
     {
         return $this->validate([
-            'seasonId' => ['required', 'integer', 'exists:seasons,id'],
+            'seasonId' => [
+                'required',
+                'integer',
+                $this->pool === null ? 'exists:seasons,id' : \Illuminate\Validation\Rule::in([$this->pool->season_id]),
+            ],
             'template' => ['required', 'in:'.collect(OfficialRoundTemplate::cases())->pluck('value')->implode(',')],
             'roundName' => ['required', 'string', 'max:255'],
             'opensAt' => ['required', 'date', 'after:now'],
@@ -418,14 +443,34 @@ new class extends Component
 
     private function refreshRounds(): void
     {
-        $this->rounds = $this->seasonId === null
+        $seasonId = $this->pool?->season_id ?? $this->seasonId;
+        $this->rounds = $seasonId === null
             ? collect()
             : SeasonRound::query()
-                ->where('season_id', $this->seasonId)
+                ->where('season_id', $seasonId)
                 ->with(['events' => fn ($query) => $query
                     ->with('eventType')
                     ->withCount('poolEvents')])
                 ->orderBy('position')
                 ->get();
+    }
+
+    private function findRound(int $roundId): SeasonRound
+    {
+        return SeasonRound::query()
+            ->whereKey($roundId)
+            ->when($this->pool !== null, fn ($query) => $query->where('season_id', $this->pool->season_id))
+            ->firstOrFail();
+    }
+
+    private function findEvent(int $eventId): SeasonEvent
+    {
+        return SeasonEvent::query()
+            ->whereKey($eventId)
+            ->when(
+                $this->pool !== null,
+                fn ($query) => $query->whereHas('round', fn ($roundQuery) => $roundQuery->where('season_id', $this->pool->season_id)),
+            )
+            ->firstOrFail();
     }
 };

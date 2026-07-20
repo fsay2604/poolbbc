@@ -1,14 +1,19 @@
 <section class="w-full">
     <div class="flex flex-col gap-6">
         <div>
-            <flux:heading size="xl" level="1">
-                Résultats officiels{{ $pool ? ' · '.$pool->name : '' }}
-            </flux:heading>
+            @if ($embedded)
+                <flux:heading size="lg" level="2">Résultats officiels de la saison</flux:heading>
+            @else
+                <flux:heading size="xl" level="1">Résultats officiels{{ $pool ? ' · '.$pool->name : '' }}</flux:heading>
+            @endif
             <flux:text class="mt-1">Saisissez, prévisualisez et publiez les réponses officielles sans modifier la structure des rondes.</flux:text>
         </div>
 
-        @if ($pool)
+        @if ($pool && ! $embedded)
             <x-pools.navigation :pool="$pool" :available-pools="$availablePools" />
+        @endif
+
+        @if ($pool)
             <flux:callout icon="information-circle" color="blue">
                 <flux:callout.heading>{{ $pool->season->name }}</flux:callout.heading>
                 <flux:callout.text>Un résultat officiel et son pointage concernent tous les pools de cette saison, pas seulement {{ $pool->name }}.</flux:callout.text>

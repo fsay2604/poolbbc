@@ -1,14 +1,16 @@
 <?php
 
-use App\Actions\Audit\RecordAuditLog;
 use App\Actions\Events\CreateEvent;
+use App\Actions\Events\CreateRound;
+use App\Actions\Events\DeleteEvent;
+use App\Actions\Events\DeleteRound;
 use App\Actions\Events\ReorderRoundEvents;
 use App\Actions\Events\SynchronizeEventLifecycle;
+use App\Actions\Events\UpdateEvent;
 use App\Actions\Events\UpdatePoolEventRules;
+use App\Actions\Events\UpdateRound;
 use App\Actions\Pools\ListUserPools;
-use App\Actions\Predictions\SubmitEventPrediction;
-use App\Actions\Scoring\PreviewEventScore;
-use App\Actions\Scoring\PublishEventResult;
+use App\Enums\AnswerSource;
 use App\Enums\EventStatus;
 use App\Http\Requests\Events\CreateEventRequest;
 use App\Http\Requests\Pools\CreateRoundRequest;
@@ -23,8 +25,8 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 new class extends Component
@@ -41,37 +43,9 @@ new class extends Component
     public array $roundForm = ['name' => '', 'starts_at' => null, 'ends_at' => null];
 
     /** @var array<string, mixed> */
-    public array $eventForm = [
-        'round_id' => '', 'event_type_id' => null, 'name' => '', 'question' => '',
-        'mode' => 'prediction', 'answer_source' => 'houseguests', 'opens_at' => null, 'locks_at' => null,
-        'prediction_min_selections' => 1, 'prediction_max_selections' => 1,
-        'result_min_selections' => 1, 'result_max_selections' => 1,
-        'result_publication_mode' => 'immediate',
-        'owner_points' => 5, 'prediction_points' => 2, 'exact_bonus' => 0,
-        'wrong_penalty' => 0, 'allow_negative' => false, 'allow_none' => false,
-        'include_inactive_houseguests' => false,
-        'save_as_template' => false,
-    ];
+    public array $eventForm = [];
 
     public string $customOptionsText = '';
-
-    /** @var array<int, list<int>> */
-    public array $predictionSelections = [];
-
-    /** @var array<int, list<int>> */
-    public array $resultSelections = [];
-
-    /** @var array<int, string> */
-    public array $correctionReasons = [];
-
-    /** @var array<int, array<int, array{name:string,points:int}>> */
-    public array $scorePreviews = [];
-
-    /** @var array<int, string> */
-    public array $resultPreviewFingerprints = [];
-
-    /** @var list<int> */
-    public array $editingDraftResultIds = [];
 
     /** @var array<int, array<string, mixed>> */
     public array $officialRuleForms = [];
@@ -91,35 +65,121 @@ new class extends Component
 
     public bool $showEventModal = false;
 
+    public bool $showRoundDeletionModal = false;
+
+    public bool $showEventDeletionModal = false;
+
+    #[Locked]
+    public ?int $editingRoundId = null;
+
+    #[Locked]
+    public ?int $deletingRoundId = null;
+
+    #[Locked]
+    public ?int $editingEventId = null;
+
+    #[Locked]
+    public ?int $deletingEventId = null;
+
+    #[Locked]
     public ?int $cancellingEventId = null;
+
+    public string $deletingRoundName = '';
+
+    public string $deletingEventName = '';
 
     public string $cancellationReason = '';
 
     public function mount(Pool $pool): void
     {
         Gate::authorize('view', $pool);
+
         $this->pool = $pool->load('season');
+        abort_unless($this->pool->isManagedBy(auth()->user()) || Gate::allows('admin'), 403);
+
         $this->availablePools = app(ListUserPools::class)->handle(auth()->user());
+        $this->resetEventForm();
         $this->refreshEventTypes();
-        $this->eventForm['locks_at'] = now()->addDay()->format('Y-m-d\TH:i');
-        $this->refreshRounds();
+        $this->refreshStructure();
     }
 
-    public function createRound(RecordAuditLog $recordAuditLog): void
+    public function startRoundCreation(): void
+    {
+        Gate::authorize('update', $this->pool);
+        $this->editingRoundId = null;
+        $this->roundForm = ['name' => '', 'starts_at' => null, 'ends_at' => null];
+        $this->resetErrorBag();
+        $this->showRoundModal = true;
+    }
+
+    public function createRound(CreateRound $createRound): void
     {
         Gate::authorize('update', $this->pool);
         $request = new CreateRoundRequest;
         $validated = $this->validate($request->rules());
-        $round = $this->pool->rounds()->create([
-            ...$validated['roundForm'],
-            'position' => ((int) $this->pool->rounds()->max('position')) + 1,
-            'status' => 'draft',
-        ]);
-        $recordAuditLog->handle($this->pool, auth()->user(), 'round.created', $round);
-        $this->roundForm = ['name' => '', 'starts_at' => null, 'ends_at' => null];
-        $this->showRoundModal = false;
-        $this->refreshRounds();
+        $createRound->handle($this->pool, auth()->user(), $validated['roundForm']);
+
+        $this->closeRoundModal();
+        $this->refreshStructure();
         $this->dispatch('round-created');
+    }
+
+    public function startRoundEdit(int $roundId): void
+    {
+        $round = $this->managedRound($roundId);
+        $this->editingRoundId = $round->id;
+        $this->roundForm = [
+            'name' => $round->name,
+            'starts_at' => $round->starts_at?->format('Y-m-d\TH:i'),
+            'ends_at' => $round->ends_at?->format('Y-m-d\TH:i'),
+        ];
+        $this->resetErrorBag();
+        $this->showRoundModal = true;
+    }
+
+    public function updateRound(UpdateRound $updateRound): void
+    {
+        abort_if($this->editingRoundId === null, 422);
+        $request = new CreateRoundRequest;
+        $validated = $this->validate($request->rules());
+        $round = $this->managedRound($this->editingRoundId);
+
+        $updateRound->handle($this->pool, $round, auth()->user(), $validated['roundForm']);
+        $this->closeRoundModal();
+        $this->refreshStructure();
+        $this->dispatch('round-updated');
+    }
+
+    public function startRoundDeletion(int $roundId): void
+    {
+        $round = $this->managedRound($roundId);
+        $this->deletingRoundId = $round->id;
+        $this->deletingRoundName = $round->name;
+        $this->resetValidation('roundDeletion');
+        $this->showRoundDeletionModal = true;
+    }
+
+    public function deleteRound(DeleteRound $deleteRound): void
+    {
+        abort_if($this->deletingRoundId === null, 422);
+        $round = $this->managedRound($this->deletingRoundId);
+        $deleteRound->handle($this->pool, $round, auth()->user());
+
+        $this->showRoundDeletionModal = false;
+        $this->deletingRoundId = null;
+        $this->refreshStructure();
+        $this->dispatch('round-deleted');
+    }
+
+    public function startEventCreation(): void
+    {
+        Gate::authorize('update', $this->pool);
+        abort_if($this->rounds->isEmpty(), 422);
+
+        $this->editingEventId = null;
+        $this->resetEventForm((int) $this->rounds->first()->id);
+        $this->resetErrorBag();
+        $this->showEventModal = true;
     }
 
     public function updatedEventFormEventTypeId(mixed $eventTypeId): void
@@ -155,38 +215,81 @@ new class extends Component
     public function createEvent(CreateEvent $createEvent): void
     {
         Gate::authorize('update', $this->pool);
-        $request = new CreateEventRequest;
-        $validated = $this->validate($request->rules());
-        $form = $validated['eventForm'];
+        $createEvent->handle($this->pool, auth()->user(), $this->validatedEventData());
 
-        if ($form['event_type_id'] !== null) {
-            $eventType = EventType::query()->findOrFail($form['event_type_id']);
-            abort_unless($eventType->pool_id === null || $eventType->pool_id === $this->pool->id, 403);
-        }
-
-        $data = Arr::except($form, ['owner_points', 'prediction_points', 'exact_bonus', 'wrong_penalty', 'allow_negative']);
-        $data['scoring_config'] = [
-            'owner' => ['points_per_match' => (int) $form['owner_points']],
-            'prediction' => [
-                'points_per_correct' => (int) $form['prediction_points'],
-                'exact_match_bonus' => (int) $form['exact_bonus'],
-                'wrong_answer_penalty' => (int) $form['wrong_penalty'],
-            ],
-            'allow_negative' => (bool) $form['allow_negative'],
-        ];
-        $data['custom_options'] = Str::of($this->customOptionsText)->explode("\n")
-            ->map(fn ($label) => trim($label))->filter()->unique()->values()->all();
-
-        $createEvent->handle($this->pool, auth()->user(), $data);
-        $this->eventForm['name'] = '';
-        $this->eventForm['question'] = '';
-        $this->eventForm['event_type_id'] = null;
-        $this->eventForm['save_as_template'] = false;
-        $this->customOptionsText = '';
-        $this->showEventModal = false;
+        $this->closeEventModal();
         $this->refreshEventTypes();
-        $this->refreshRounds();
+        $this->refreshStructure();
         $this->dispatch('event-created');
+    }
+
+    public function startEventEdit(int $eventId): void
+    {
+        $event = $this->managedEvent($eventId)->load('options.houseguest');
+        $this->editingEventId = $event->id;
+        $this->eventForm = [
+            'round_id' => $event->round_id,
+            'event_type_id' => $event->event_type_id,
+            'name' => $event->name,
+            'question' => $event->question ?? '',
+            'mode' => $event->mode->value,
+            'answer_source' => $event->answer_source->value,
+            'opens_at' => $event->opens_at?->format('Y-m-d\TH:i'),
+            'locks_at' => $event->locks_at?->format('Y-m-d\TH:i'),
+            'prediction_min_selections' => $event->prediction_min_selections,
+            'prediction_max_selections' => $event->prediction_max_selections,
+            'result_min_selections' => $event->result_min_selections,
+            'result_max_selections' => $event->result_max_selections,
+            'result_publication_mode' => $event->result_publication_mode->value,
+            'owner_points' => (int) data_get($event->scoring_config, 'owner.points_per_match', 0),
+            'prediction_points' => (int) data_get($event->scoring_config, 'prediction.points_per_correct', 0),
+            'exact_bonus' => (int) data_get($event->scoring_config, 'prediction.exact_match_bonus', 0),
+            'wrong_penalty' => (int) data_get($event->scoring_config, 'prediction.wrong_answer_penalty', 0),
+            'allow_negative' => (bool) data_get($event->scoring_config, 'allow_negative', false),
+            'allow_none' => $event->options->contains('is_none', true),
+            'include_inactive_houseguests' => $event->options->contains(
+                fn ($option): bool => $option->houseguest_id !== null && $option->houseguest?->is_active === false,
+            ),
+            'save_as_template' => false,
+        ];
+        $this->customOptionsText = $event->answer_source === AnswerSource::Custom
+            ? $event->options->pluck('label')->implode("\n")
+            : '';
+        $this->resetErrorBag();
+        $this->showEventModal = true;
+    }
+
+    public function updateEvent(UpdateEvent $updateEvent): void
+    {
+        abort_if($this->editingEventId === null, 422);
+        $event = $this->managedEvent($this->editingEventId);
+        $updateEvent->handle($this->pool, $event, auth()->user(), $this->validatedEventData());
+
+        $this->closeEventModal();
+        $this->refreshStructure();
+        $this->dispatch('event-updated');
+    }
+
+    public function startEventDeletion(int $eventId): void
+    {
+        $event = $this->managedEvent($eventId);
+        Gate::authorize('delete', $event);
+        $this->deletingEventId = $event->id;
+        $this->deletingEventName = $event->name;
+        $this->resetValidation('eventDeletion');
+        $this->showEventDeletionModal = true;
+    }
+
+    public function deleteEvent(DeleteEvent $deleteEvent): void
+    {
+        abort_if($this->deletingEventId === null, 422);
+        $event = $this->managedEvent($this->deletingEventId);
+        $deleteEvent->handle($this->pool, $event, auth()->user());
+
+        $this->showEventDeletionModal = false;
+        $this->deletingEventId = null;
+        $this->refreshStructure();
+        $this->dispatch('event-deleted');
     }
 
     public function moveEvent(int $eventId, string $direction, ReorderRoundEvents $reorderRoundEvents): void
@@ -195,11 +298,7 @@ new class extends Component
 
         $event = $this->managedEvent($eventId);
         $round = $event->round()->firstOrFail();
-        $eventIds = $round->events()
-            ->orderBy('position')
-            ->pluck('id')
-            ->map(fn (mixed $id): int => (int) $id)
-            ->all();
+        $eventIds = $round->events()->orderBy('position')->pluck('id')->map(fn (mixed $id): int => (int) $id)->all();
         $currentIndex = array_search($event->id, $eventIds, true);
         abort_if($currentIndex === false, 404);
 
@@ -211,22 +310,20 @@ new class extends Component
         [$eventIds[$currentIndex], $eventIds[$targetIndex]] = [$eventIds[$targetIndex], $eventIds[$currentIndex]];
         $reorderRoundEvents->handle($round, auth()->user(), $eventIds);
 
-        $this->refreshRounds();
+        $this->refreshStructure();
         $this->dispatch('events-reordered');
     }
 
     public function openEvent(int $eventId, SynchronizeEventLifecycle $lifecycle): void
     {
-        $event = $this->managedEvent($eventId);
-        $lifecycle->transition($event, EventStatus::Open, auth()->user());
-        $this->refreshRounds();
+        $lifecycle->transition($this->managedEvent($eventId), EventStatus::Open, auth()->user());
+        $this->refreshStructure();
     }
 
     public function lockEvent(int $eventId, SynchronizeEventLifecycle $lifecycle): void
     {
-        $event = $this->managedEvent($eventId);
-        $lifecycle->transition($event, EventStatus::Locked, auth()->user());
-        $this->refreshRounds();
+        $lifecycle->transition($this->managedEvent($eventId), EventStatus::Locked, auth()->user());
+        $this->refreshStructure();
     }
 
     public function startCancellation(int $eventId): void
@@ -241,121 +338,14 @@ new class extends Component
 
     public function cancelEvent(SynchronizeEventLifecycle $lifecycle): void
     {
-        $validated = $this->validate([
-            'cancellationReason' => ['required', 'string', 'min:3', 'max:1000'],
-        ]);
+        $validated = $this->validate(['cancellationReason' => ['required', 'string', 'min:3', 'max:1000']]);
         $event = $this->managedEvent($this->cancellingEventId);
         $lifecycle->transition($event, EventStatus::Cancelled, auth()->user(), $validated['cancellationReason']);
 
         $this->showCancellationModal = false;
         $this->cancellingEventId = null;
-        $this->refreshRounds();
+        $this->refreshStructure();
         $this->dispatch('event-cancelled');
-    }
-
-    public function submitPrediction(int $eventId, bool $submit, SubmitEventPrediction $submitEventPrediction): void
-    {
-        $event = $this->pool->events()->findOrFail($eventId);
-        Gate::authorize('predict', $event);
-        $member = $this->pool->memberFor(auth()->user());
-        abort_if($member === null, 403);
-
-        $submitEventPrediction->handle($event, $member, $this->predictionSelections[$eventId] ?? [], $submit);
-        $this->refreshRounds();
-        $this->dispatch('prediction-saved');
-    }
-
-    public function publishResult(int $eventId, PublishEventResult $publishEventResult): void
-    {
-        $event = $this->pool->events()->findOrFail($eventId);
-        Gate::authorize('recordResult', $event);
-        $selectionIds = $this->normalizedResultSelections($eventId);
-        if (($this->resultPreviewFingerprints[$eventId] ?? null) !== $this->resultSelectionFingerprint($selectionIds)) {
-            throw ValidationException::withMessages([
-                "resultSelections.{$eventId}" => __('Generate a fresh score preview before publishing this result.'),
-            ]);
-        }
-
-        $result = $publishEventResult->handle(
-            $event,
-            auth()->user(),
-            $selectionIds,
-            $this->correctionReasons[$eventId] ?? null,
-        );
-        unset($this->resultPreviewFingerprints[$eventId], $this->scorePreviews[$eventId]);
-        $this->refreshRounds();
-        $this->dispatch($result->status === 'published' ? 'result-published' : 'result-recorded');
-    }
-
-    public function publishRecordedResult(int $eventId, PublishEventResult $publishEventResult): void
-    {
-        $event = $this->pool->events()->with('draftResult')->findOrFail($eventId);
-        Gate::authorize('publishResult', $event);
-        abort_if($event->draftResult === null, 404);
-
-        $publishEventResult->publishDraft($event->draftResult, auth()->user());
-        $this->refreshRounds();
-        $this->dispatch('result-published');
-    }
-
-    public function startAmendingRecordedResult(int $eventId): void
-    {
-        $event = $this->pool->events()->with('draftResult')->findOrFail($eventId);
-        Gate::authorize('recordResult', $event);
-        abort_if($event->draftResult === null, 404);
-        Gate::authorize('amend', $event->draftResult);
-
-        if (! in_array($eventId, $this->editingDraftResultIds, true)) {
-            $this->editingDraftResultIds[] = $eventId;
-        }
-
-        unset($this->resultPreviewFingerprints[$eventId], $this->scorePreviews[$eventId]);
-        $this->resetErrorBag("resultSelections.{$eventId}");
-    }
-
-    public function amendRecordedResult(int $eventId, PublishEventResult $publishEventResult): void
-    {
-        $event = $this->pool->events()->with('draftResult')->findOrFail($eventId);
-        Gate::authorize('recordResult', $event);
-        abort_if($event->draftResult === null, 404);
-        $selectionIds = $this->normalizedResultSelections($eventId);
-
-        if (($this->resultPreviewFingerprints[$eventId] ?? null) !== $this->resultSelectionFingerprint($selectionIds)) {
-            throw ValidationException::withMessages([
-                "resultSelections.{$eventId}" => __('Generate a fresh score preview before updating this result.'),
-            ]);
-        }
-
-        $publishEventResult->amendDraft(
-            $event->draftResult,
-            auth()->user(),
-            $selectionIds,
-            $this->correctionReasons[$eventId] ?? null,
-        );
-
-        $this->editingDraftResultIds = array_values(array_diff($this->editingDraftResultIds, [$eventId]));
-        unset($this->resultPreviewFingerprints[$eventId], $this->scorePreviews[$eventId]);
-        $this->refreshRounds();
-        $this->dispatch('result-amended');
-    }
-
-    public function previewResult(int $eventId, PreviewEventScore $previewEventScore): void
-    {
-        $this->resetErrorBag("resultSelections.{$eventId}");
-        $event = $this->pool->events()->findOrFail($eventId);
-        Gate::authorize('recordResult', $event);
-        $selectionIds = $this->normalizedResultSelections($eventId);
-        $this->scorePreviews[$eventId] = $previewEventScore
-            ->handle($event, $selectionIds)
-            ->all();
-        $this->resultPreviewFingerprints[$eventId] = $this->resultSelectionFingerprint($selectionIds);
-    }
-
-    public function updatedResultSelections(mixed $value, string $eventId): void
-    {
-        if (ctype_digit($eventId)) {
-            unset($this->resultPreviewFingerprints[(int) $eventId], $this->scorePreviews[(int) $eventId]);
-        }
     }
 
     public function saveOfficialRules(int $poolEventId, UpdatePoolEventRules $updatePoolEventRules): void
@@ -375,31 +365,9 @@ new class extends Component
             "{$formKey}.allow_negative" => ['required', 'boolean'],
         ]);
 
-        $updatePoolEventRules->handle(
-            $poolEvent,
-            auth()->user(),
-            data_get($validated, $formKey),
-        );
-
-        $this->refreshRounds();
+        $updatePoolEventRules->handle($poolEvent, auth()->user(), data_get($validated, $formKey));
+        $this->refreshStructure();
         $this->dispatch('pool-event-rules-updated');
-    }
-
-    private function managedEvent(int $eventId): Event
-    {
-        $event = $this->pool->events()->findOrFail($eventId);
-        Gate::authorize('update', $event);
-
-        return $event;
-    }
-
-    private function refreshEventTypes(): void
-    {
-        $this->eventTypes = EventType::query()
-            ->where(fn ($query) => $query->whereNull('pool_id')->orWhere('pool_id', $this->pool->id))
-            ->orderByDesc('is_standard')
-            ->orderBy('name')
-            ->get();
     }
 
     #[Computed]
@@ -413,7 +381,8 @@ new class extends Component
     public function officialRounds(): Collection
     {
         $poolId = $this->pool->id;
-        $officialRounds = SeasonRound::query()
+
+        return SeasonRound::query()
             ->where('season_id', $this->pool->season_id)
             ->whereHas('events.poolEvents', fn ($query) => $query->where('pool_id', $poolId)->where('is_active', true))
             ->with([
@@ -423,44 +392,124 @@ new class extends Component
                 'events.poolEvents' => fn ($query) => $query
                     ->where('pool_id', $poolId)
                     ->where('is_active', true)
-                    ->withCount([
-                        'predictions',
-                        'pointEntries' => fn ($pointQuery) => $pointQuery->published(),
-                    ]),
+                    ->withCount(['predictions', 'pointEntries' => fn ($pointQuery) => $pointQuery->published()]),
             ])
             ->orderBy('position')
             ->get();
-
-        return $officialRounds;
     }
 
     /** @return Collection<int, Round> */
     #[Computed]
     public function rounds(): Collection
     {
-        $member = $this->pool->memberFor(auth()->user());
-        $canManage = $this->canManage;
-
         return $this->pool->rounds()
-            ->with(['events' => function ($query) use ($canManage, $member): void {
-                $query->withCount('predictions')->with([
-                    'eventType', 'options', 'latestResult.options',
-                    'results' => fn ($resultQuery) => $resultQuery
-                        ->when(! $canManage, fn ($publishedQuery) => $publishedQuery->where('status', 'published'))
-                        ->with(['options', 'createdBy']),
-                    'predictions' => fn ($predictionQuery) => $predictionQuery
-                        ->where('pool_member_id', $member?->id)
-                        ->with(['options', 'poolMember.user']),
-                ])->when($canManage, fn ($eventQuery) => $eventQuery->with('draftResult.options'))
-                    ->orderBy('position');
-            }])
+            ->with(['events' => fn ($query) => $query
+                ->with(['eventType', 'options'])
+                ->withCount(['predictions', 'results'])
+                ->orderBy('position')])
             ->orderBy('position')
             ->get();
     }
 
-    private function refreshRounds(): void
+    /** @return array<string, mixed> */
+    private function validatedEventData(): array
     {
-        unset($this->rounds);
+        $request = new CreateEventRequest;
+        $validated = $this->validate($request->rules());
+        $form = $validated['eventForm'];
+
+        if ($form['event_type_id'] !== null) {
+            EventType::query()
+                ->whereKey($form['event_type_id'])
+                ->where(fn ($query) => $query->whereNull('pool_id')->orWhere('pool_id', $this->pool->id))
+                ->firstOrFail();
+        }
+
+        $data = Arr::except($form, ['owner_points', 'prediction_points', 'exact_bonus', 'wrong_penalty', 'allow_negative']);
+        $data['scoring_config'] = [
+            'owner' => ['points_per_match' => (int) $form['owner_points']],
+            'prediction' => [
+                'points_per_correct' => (int) $form['prediction_points'],
+                'exact_match_bonus' => (int) $form['exact_bonus'],
+                'wrong_answer_penalty' => (int) $form['wrong_penalty'],
+            ],
+            'allow_negative' => (bool) $form['allow_negative'],
+        ];
+        $data['custom_options'] = Str::of($this->customOptionsText)->explode("\n")
+            ->map(fn ($label) => trim($label))->filter()->unique()->values()->all();
+
+        return $data;
+    }
+
+    private function managedRound(int $roundId): Round
+    {
+        Gate::authorize('update', $this->pool);
+
+        return $this->pool->rounds()->findOrFail($roundId);
+    }
+
+    private function managedEvent(int $eventId): Event
+    {
+        $event = $this->pool->events()->findOrFail($eventId);
+        Gate::authorize('update', $event);
+
+        return $event;
+    }
+
+    private function resetEventForm(?int $roundId = null): void
+    {
+        $this->eventForm = [
+            'round_id' => $roundId ?? '',
+            'event_type_id' => null,
+            'name' => '',
+            'question' => '',
+            'mode' => 'prediction',
+            'answer_source' => 'houseguests',
+            'opens_at' => null,
+            'locks_at' => now()->addDay()->format('Y-m-d\TH:i'),
+            'prediction_min_selections' => 1,
+            'prediction_max_selections' => 1,
+            'result_min_selections' => 1,
+            'result_max_selections' => 1,
+            'result_publication_mode' => 'immediate',
+            'owner_points' => 5,
+            'prediction_points' => 2,
+            'exact_bonus' => 0,
+            'wrong_penalty' => 0,
+            'allow_negative' => false,
+            'allow_none' => false,
+            'include_inactive_houseguests' => false,
+            'save_as_template' => false,
+        ];
+        $this->customOptionsText = '';
+    }
+
+    private function closeRoundModal(): void
+    {
+        $this->showRoundModal = false;
+        $this->editingRoundId = null;
+        $this->roundForm = ['name' => '', 'starts_at' => null, 'ends_at' => null];
+    }
+
+    private function closeEventModal(): void
+    {
+        $this->showEventModal = false;
+        $this->editingEventId = null;
+        $this->resetEventForm();
+    }
+
+    private function refreshEventTypes(): void
+    {
+        $this->eventTypes = EventType::query()
+            ->where(fn ($query) => $query->whereNull('pool_id')->orWhere('pool_id', $this->pool->id))
+            ->orderByDesc('is_standard')
+            ->orderBy('name')
+            ->get();
+    }
+
+    private function refreshStructure(): void
+    {
+        unset($this->rounds, $this->officialRounds);
 
         $rounds = $this->rounds;
         $this->activeMembers = $this->pool->activeMembers()->with('user')->get()->sortBy('user.name')->values();
@@ -470,31 +519,16 @@ new class extends Component
                 ->filter(fn (Round $round): bool => $round->events->count() > 1
                     && $round->events->every(fn (Event $event): bool => $event->effectiveStatus() === EventStatus::Draft
                         && $event->predictions_count === 0
-                        && $event->results->isEmpty()))
+                        && $event->results_count === 0))
                 ->pluck('id')
                 ->map(fn (mixed $id): int => (int) $id)
                 ->all()
             : [];
 
-        foreach ($rounds->flatMap->events as $event) {
-            $prediction = $event->predictions->first();
-            $this->predictionSelections[$event->id] = $prediction?->options->pluck('id')->all() ?? [];
-            $recordedResult = $this->canManage ? $event->draftResult : null;
-            $this->resultSelections[$event->id] = ($recordedResult ?? $event->latestResult)?->options->pluck('id')->all() ?? [];
-            $this->correctionReasons[$event->id] = $recordedResult?->correction_reason ?? ($this->correctionReasons[$event->id] ?? '');
-
-            if (in_array($event->effectiveStatus(), [EventStatus::Locked, EventStatus::ResultEntered, EventStatus::Published], true)) {
-                $event->load(['predictions' => fn ($query) => $query
-                    ->whereIn('status', ['submitted', 'locked'])
-                    ->with(['options', 'poolMember.user'])]);
-            }
-        }
-
         $this->localRespondedMemberIds = [];
         if ($this->canManage) {
-            $localEventIds = $rounds->flatMap->events->pluck('id');
             $this->localRespondedMemberIds = EventPrediction::query()
-                ->whereIn('event_id', $localEventIds)
+                ->whereIn('event_id', $rounds->flatMap->events->pluck('id'))
                 ->whereIn('status', ['submitted', 'locked'])
                 ->get(['event_id', 'pool_member_id'])
                 ->groupBy('event_id')
@@ -503,9 +537,8 @@ new class extends Component
         }
 
         $officialRounds = $this->officialRounds;
-
         foreach ($officialRounds->flatMap->events as $event) {
-            $event->poolEvents->each(function ($poolEvent): void {
+            foreach ($event->poolEvents as $poolEvent) {
                 $this->officialRuleForms[$poolEvent->id] = [
                     'mode' => $poolEvent->mode->value,
                     'visibility' => $poolEvent->visibility,
@@ -517,35 +550,18 @@ new class extends Component
                     'wrong_penalty' => (int) data_get($poolEvent->scoring_config, 'prediction.wrong_answer_penalty', 0),
                     'allow_negative' => (bool) data_get($poolEvent->scoring_config, 'allow_negative', false),
                 ];
-            });
-
+            }
         }
 
         $this->officialRespondedMemberIds = [];
         if ($this->canManage) {
-            $officialPoolEventIds = $officialRounds->flatMap->events->flatMap->poolEvents->pluck('id');
             $this->officialRespondedMemberIds = PoolEventPrediction::query()
-                ->whereIn('pool_event_id', $officialPoolEventIds)
+                ->whereIn('pool_event_id', $officialRounds->flatMap->events->flatMap->poolEvents->pluck('id'))
                 ->whereIn('status', ['submitted', 'locked'])
                 ->get(['pool_event_id', 'pool_member_id'])
                 ->groupBy('pool_event_id')
                 ->map(fn ($predictions) => $predictions->pluck('pool_member_id')->unique()->values()->all())
                 ->all();
         }
-    }
-
-    /** @return list<int> */
-    private function normalizedResultSelections(int $eventId): array
-    {
-        $selectionIds = array_values(array_unique(array_map('intval', $this->resultSelections[$eventId] ?? [])));
-        sort($selectionIds);
-
-        return $selectionIds;
-    }
-
-    /** @param list<int> $selectionIds */
-    private function resultSelectionFingerprint(array $selectionIds): string
-    {
-        return hash('sha256', implode(':', $selectionIds));
     }
 };

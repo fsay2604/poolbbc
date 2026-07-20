@@ -15,7 +15,7 @@ Utilisateur authentifié.
 
 1. Ouvrir `/dashboard`.
 2. Consulter une carte par pool accessible, avec sa saison, son état, le pointage personnel et le nombre de membres actifs.
-3. Sélectionner une carte pour ouvrir la vue d’ensemble de ce pool, ou utiliser « Accéder à mes pools » pour créer ou rejoindre un pool.
+3. Sélectionner une carte pour ouvrir la vue d’ensemble de ce pool, ou utiliser « Accéder à mes pools » pour créer ou rejoindre un pool. La vue d’ensemble dirige ensuite vers les prédictions réunies, la gestion de structure, les résultats ou le classement selon les autorisations.
 4. En l’absence de pool, suivre l’état vide vers la page de création et d’invitation.
 
 ## Règles et états terminaux
@@ -28,7 +28,7 @@ Utilisateur authentifié.
 
 - Les membres retirés ne voient plus le pool au prochain chargement.
 - Les écritures en attente, les brouillons de résultats et les résultats officiels dont la publication a échoué ne contribuent pas au total affiché.
-- Le tableau de bord présente un aperçu; les prédictions, résultats détaillés et mouvements de points se consultent dans les pages du pool.
+- Le tableau de bord présente un aperçu; les prédictions officielles et locales se consultent ensemble dans `pools.predictions`, tandis que la structure, les résultats détaillés et les mouvements de points restent dans les pages dédiées du pool.
 
 ## Sources et couverture
 
@@ -36,3 +36,4 @@ Utilisateur authentifié.
 - `app/Actions/Dashboard/BuildDashboardStats.php`
 - `resources/views/dashboard.blade.php`
 - `tests/Feature/DashboardTest.php`
+- `tests/Feature/PoolFirstNavigationTest.php`

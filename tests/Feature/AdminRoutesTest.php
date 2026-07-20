@@ -33,7 +33,7 @@ class AdminRoutesTest extends TestCase
         $this->actingAs($administrator)->get(route('admin.houseguests.index'))->assertSuccessful();
     }
 
-    public function test_official_administration_is_available_in_the_pool_context_only_to_administrators(): void
+    public function test_contextual_official_aliases_redirect_administrators_to_the_unified_pool_pages(): void
     {
         $administrator = User::factory()->admin()->create();
         $pool = Pool::factory()->create(['owner_id' => $administrator->id]);
@@ -41,17 +41,25 @@ class AdminRoutesTest extends TestCase
 
         $this->actingAs($administrator)
             ->get(route('pools.official-rounds', $pool))
-            ->assertSuccessful()
-            ->assertSee($pool->name)
-            ->assertSee($pool->season->name)
-            ->assertSee('Résultats officiels');
+            ->assertRedirect(route('pools.events', $pool));
 
         $this->actingAs($administrator)
             ->get(route('pools.official-results', $pool))
+            ->assertRedirect(route('pools.results', $pool));
+
+        $this->actingAs($administrator)
+            ->get(route('pools.events', $pool))
             ->assertSuccessful()
             ->assertSee($pool->name)
             ->assertSee($pool->season->name)
             ->assertSee('Rondes et événements');
+
+        $this->actingAs($administrator)
+            ->get(route('pools.results', $pool))
+            ->assertSuccessful()
+            ->assertSee($pool->name)
+            ->assertSee($pool->season->name)
+            ->assertSee('Résultats');
 
         $member = User::factory()->create();
         PoolMember::factory()->for($pool)->for($member)->create(['draft_position' => 2]);
@@ -84,6 +92,7 @@ class AdminRoutesTest extends TestCase
             'pools.draft',
             'pools.predictions',
             'pools.events',
+            'pools.results',
             'pools.leaderboard',
             'pools.official-rounds',
             'pools.official-results',

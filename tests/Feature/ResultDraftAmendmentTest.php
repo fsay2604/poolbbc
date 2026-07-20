@@ -58,7 +58,8 @@ class ResultDraftAmendmentTest extends TestCase
         $this->assertDatabaseCount('point_entries', 0);
         $this->assertAuditOptionIds('event.result_draft_amended', [$options[1]->id]);
         Livewire::actingAs($viewer)
-            ->test('pools.events', ['pool' => $event->pool])
+            ->test('pools.predictions', ['pool' => $event->pool])
+            ->assertSee($event->name)
             ->assertDontSee('Note interne avant publication.');
 
         $result = $publish->publishDraft($result, $owner);
@@ -105,7 +106,8 @@ class ResultDraftAmendmentTest extends TestCase
         $this->assertDatabaseCount('point_entries', 0);
         $this->assertAuditOptionIds('season_event.result_draft_amended', [$options[1]->id]);
         Livewire::actingAs($viewer)
-            ->test('pools.events', ['pool' => $poolEvent->pool])
+            ->test('pools.predictions', ['pool' => $poolEvent->pool])
+            ->assertSee($event->name)
             ->assertDontSee('Note officielle confidentielle.');
 
         $result = $publish->publishDraft($result, $administrator);

@@ -33,6 +33,7 @@ use App\Models\SeasonEvent;
 use App\Models\SeasonEventOption;
 use App\Models\SeasonRound;
 use App\Models\User;
+use App\Support\PredictionEventView;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
@@ -165,7 +166,7 @@ class EventLifecycleAndPoolModeTest extends TestCase
         $this->assertCount(0, $prediction->options);
     }
 
-    public function test_local_event_page_never_loads_official_prediction_content(): void
+    public function test_unified_prediction_page_honors_official_after_publish_visibility(): void
     {
         $season = Season::factory()->create();
         $round = SeasonRound::factory()->for($season)->create();
@@ -196,14 +197,26 @@ class EventLifecycleAndPoolModeTest extends TestCase
         ]);
         $prediction->options()->sync([$option->id]);
 
-        $lockedComponent = Livewire::actingAs($user)->test('pools.events', ['pool' => $pool]);
-        $lockedPoolEvent = $lockedComponent->get('officialRounds')->first()->events->first()->poolEvents->first();
-        $this->assertFalse($lockedPoolEvent->relationLoaded('predictions'));
+        $eventKey = "official-{$poolEvent->id}";
+        $lockedComponent = Livewire::actingAs($user)->test('pools.predictions', ['pool' => $pool]);
+        $lockedView = $lockedComponent->get('predictionEvents')
+            ->first(fn (PredictionEventView $view): bool => $view->key === $eventKey);
+
+        $this->assertInstanceOf(PredictionEventView::class, $lockedView);
+        $this->assertSame($eventKey, $lockedView->key);
+        $this->assertSame([$option->id], $lockedView->selectedOptionIds);
+        $this->assertSame([], $lockedView->revealedPredictions);
 
         SeasonEvent::query()->whereKey($event->id)->update(['status' => EventStatus::Published->value]);
-        $publishedComponent = Livewire::actingAs($user)->test('pools.events', ['pool' => $pool]);
-        $publishedPoolEvent = $publishedComponent->get('officialRounds')->first()->events->first()->poolEvents->first();
-        $this->assertFalse($publishedPoolEvent->relationLoaded('predictions'));
+        $publishedComponent = Livewire::actingAs($user)->test('pools.predictions', ['pool' => $pool]);
+        $publishedView = $publishedComponent->get('predictionEvents')
+            ->first(fn (PredictionEventView $view): bool => $view->key === $eventKey);
+
+        $this->assertInstanceOf(PredictionEventView::class, $publishedView);
+        $this->assertSame([[
+            'member_name' => $user->name,
+            'option_labels' => [$option->label],
+        ]], $publishedView->revealedPredictions);
     }
 
     public function test_official_prediction_visibility_cannot_be_bypassed_by_falsifying_manager_state(): void
@@ -244,9 +257,18 @@ class EventLifecycleAndPoolModeTest extends TestCase
         $prediction->options()->sync([$secretOption->id]);
 
         $component = Livewire::actingAs($viewer)
-            ->test('pools.events', ['pool' => $pool])
-            ->assertDontSee('PARTICIPANT-OFFICIEL-SECRET')
-            ->assertDontSee('REPONSE-OFFICIELLE-SECRETE');
+            ->test('pools.predictions', ['pool' => $pool])
+            ->assertDontSee('PARTICIPANT-OFFICIEL-SECRET');
+
+        $eventKey = "official-{$poolEvent->id}";
+        $view = $component->get('predictionEvents')
+            ->first(fn (PredictionEventView $predictionEvent): bool => $predictionEvent->key === $eventKey);
+
+        $this->assertInstanceOf(PredictionEventView::class, $view);
+        $this->assertSame([], $view->selectedOptionIds);
+        $this->assertSame([], $view->revealedPredictions);
+        $this->assertArrayHasKey($eventKey, $component->get('selections'));
+        $this->assertNull($component->get('selections')[$eventKey]);
 
         $this->expectException(PublicPropertyNotFoundException::class);
 

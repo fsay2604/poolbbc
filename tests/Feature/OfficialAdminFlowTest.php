@@ -231,7 +231,6 @@ class OfficialAdminFlowTest extends TestCase
 
         Livewire::actingAs($otherManager)
             ->test('pools.events', ['pool' => $pool])
-            ->call('saveOfficialRules', $poolEvent->id)
             ->assertForbidden();
 
         $participant = PoolMember::factory()->for($pool)->create(['draft_position' => 3]);

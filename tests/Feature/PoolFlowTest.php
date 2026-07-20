@@ -502,7 +502,7 @@ class PoolFlowTest extends TestCase
             ->assertDontSee($pool->invite_code);
     }
 
-    public function test_pool_livewire_flows_render_for_an_authorized_member(): void
+    public function test_pool_livewire_flows_render_for_an_authorized_owner(): void
     {
         $owner = User::factory()->create();
         $season = Season::factory()->create();
@@ -519,11 +519,13 @@ class PoolFlowTest extends TestCase
 
         $this->get(route('pools.show', $pool))->assertOk();
         $this->get(route('pools.draft', $pool))->assertOk();
+        $this->get(route('pools.predictions', $pool))->assertOk();
         $this->get(route('pools.events', $pool))->assertOk();
+        $this->get(route('pools.results', $pool))->assertOk();
         $this->get(route('pools.leaderboard', $pool))->assertOk();
     }
 
-    public function test_removed_member_loses_every_pool_route_on_the_next_livewire_request(): void
+    public function test_removed_member_loses_every_member_route_and_management_routes_remain_forbidden(): void
     {
         $owner = User::factory()->create();
         $memberUser = User::factory()->create();
@@ -532,7 +534,11 @@ class PoolFlowTest extends TestCase
         $membership = PoolMember::factory()->for($pool)->for($memberUser)->create(['draft_position' => 2]);
         Draft::factory()->for($pool)->create();
 
-        foreach (['pools.show', 'pools.draft', 'pools.predictions', 'pools.events', 'pools.leaderboard'] as $routeName) {
+        $this->actingAs($memberUser);
+        $this->get(route('pools.events', $pool))->assertForbidden();
+        $this->get(route('pools.results', $pool))->assertForbidden();
+
+        foreach (['pools.show', 'pools.draft', 'pools.predictions', 'pools.leaderboard'] as $routeName) {
             $membership->update([
                 'status' => PoolMemberStatus::Active,
                 'removed_at' => null,
@@ -591,7 +597,7 @@ class PoolFlowTest extends TestCase
             ->assertSet('pool.events_count', 7);
     }
 
-    public function test_pool_dashboard_local_counts_require_an_active_canonical_pool_event(): void
+    public function test_pool_dashboard_counts_local_events_without_projection_bridges(): void
     {
         $owner = User::factory()->create();
         $pool = Pool::factory()->predictionOnly()->create(['owner_id' => $owner->id]);
@@ -601,12 +607,7 @@ class PoolFlowTest extends TestCase
             $round = Round::factory()->for($pool)->create(['position' => $position + 1]);
 
             foreach (range(1, $eventCount) as $eventPosition) {
-                $event = Event::factory()->for($round)->create(['position' => $eventPosition]);
-                PoolEvent::factory()->create([
-                    'pool_id' => $pool->id,
-                    'season_event_id' => null,
-                    'local_event_id' => $event->id,
-                ]);
+                Event::factory()->for($round)->create(['position' => $eventPosition]);
             }
         }
 
@@ -622,8 +623,8 @@ class PoolFlowTest extends TestCase
 
         Livewire::actingAs($owner)
             ->test('pools.show', ['pool' => $pool])
-            ->assertSet('pool.rounds_count', 2)
-            ->assertSet('pool.events_count', 3);
+            ->assertSet('pool.rounds_count', 3)
+            ->assertSet('pool.events_count', 5);
     }
 
     public function test_invited_user_reviews_pool_rules_before_explicitly_accepting(): void

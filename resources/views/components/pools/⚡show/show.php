@@ -14,8 +14,13 @@ use App\Enums\EventMode;
 use App\Enums\EventStatus;
 use App\Enums\PoolStatus;
 use App\Enums\PredictionStatus;
+use App\Models\Event;
+use App\Models\EventPrediction;
 use App\Models\Pool;
 use App\Models\PoolEvent;
+use App\Models\PoolEventPrediction;
+use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Component;
@@ -212,34 +217,47 @@ new class extends Component
         $leaderboardRow = app(BuildPoolLeaderboard::class)
             ->handle($this->pool)
             ->first(fn (array $row): bool => $row['member']->user_id === auth()->id());
-        $predictionQuery = $this->pool->poolEvents()
-            ->where('is_active', true)
-            ->whereIn('mode', [EventMode::Prediction->value, EventMode::Hybrid->value])
-            ->whereNotNull('season_event_id');
-        $totalPredictions = (clone $predictionQuery)->count();
-        $submittedPredictions = $member === null ? 0 : $member->poolEventPredictions()
-            ->whereHas('poolEvent', fn ($query) => $query
-                ->where('pool_id', $this->pool->id)
-                ->where('is_active', true)
-                ->whereIn('mode', [EventMode::Prediction->value, EventMode::Hybrid->value]))
+        $officialPredictionQuery = $this->officialPredictionEventsQuery();
+        $localPredictionQuery = $this->localPredictionEventsQuery();
+        $totalPredictions = (clone $officialPredictionQuery)->count() + (clone $localPredictionQuery)->count();
+        $submittedOfficialPredictions = $member === null ? 0 : PoolEventPrediction::query()
+            ->whereBelongsTo($member)
+            ->whereIn('pool_event_id', (clone $officialPredictionQuery)->select('id'))
             ->whereIn('status', [PredictionStatus::Submitted->value, PredictionStatus::Locked->value])
             ->count();
-        $nextPoolEvent = $isTerminal ? null : (clone $predictionQuery)
-            ->whereHas('seasonEvent', fn ($query) => $query
-                ->where('locks_at', '>', now())
-                ->whereNotIn('status', [EventStatus::Published->value, EventStatus::Cancelled->value]))
+        $submittedLocalPredictions = $member === null ? 0 : EventPrediction::query()
+            ->whereBelongsTo($member)
+            ->whereIn('event_id', (clone $localPredictionQuery)->select('id'))
+            ->whereIn('status', [PredictionStatus::Submitted->value, PredictionStatus::Locked->value])
+            ->count();
+        $now = now();
+        $nextOfficialPoolEvent = $isTerminal ? null : (clone $officialPredictionQuery)
+            ->whereHas('seasonEvent', fn (Builder $query): Builder => $this->applyRespondableDeadlineScope($query, $now))
             ->with('seasonEvent')
             ->get()
             ->sortBy('seasonEvent.locks_at')
             ->first();
+        $nextLocalEvent = $isTerminal ? null : $this->applyRespondableDeadlineScope(clone $localPredictionQuery, $now)
+            ->orderBy('locks_at')
+            ->first();
+        $nextPrediction = collect([
+            $nextOfficialPoolEvent === null ? null : [
+                'deadline' => $nextOfficialPoolEvent->seasonEvent->locks_at,
+                'name' => $nextOfficialPoolEvent->seasonEvent->name,
+            ],
+            $nextLocalEvent === null ? null : [
+                'deadline' => $nextLocalEvent->locks_at,
+                'name' => $nextLocalEvent->name,
+            ],
+        ])->filter()->sortBy('deadline')->first();
 
         $this->summary = [
             'rank' => $leaderboardRow['rank'] ?? null,
             'total_points' => $leaderboardRow['total_points'] ?? 0,
-            'predictions_submitted' => $submittedPredictions,
+            'predictions_submitted' => $submittedOfficialPredictions + $submittedLocalPredictions,
             'predictions_total' => $totalPredictions,
-            'next_deadline' => $nextPoolEvent?->seasonEvent?->locks_at?->timezone($this->pool->timezone)->format('d/m H:i'),
-            'next_event' => $nextPoolEvent?->seasonEvent?->name,
+            'next_deadline' => data_get($nextPrediction, 'deadline')?->timezone($this->pool->timezone)->format('d/m H:i'),
+            'next_event' => data_get($nextPrediction, 'name'),
         ];
 
         $this->recentPoints = $member?->pointEntries()
@@ -250,32 +268,70 @@ new class extends Component
             ->get() ?? collect();
     }
 
+    /** @return Builder<PoolEvent> */
+    private function officialPredictionEventsQuery(): Builder
+    {
+        return PoolEvent::query()
+            ->whereBelongsTo($this->pool)
+            ->where('is_active', true)
+            ->whereNotNull('season_event_id')
+            ->whereIn('mode', [EventMode::Prediction->value, EventMode::Hybrid->value])
+            ->whereHas('seasonEvent', fn (Builder $query): Builder => $query
+                ->where('status', '!=', EventStatus::Cancelled->value))
+            ->whereHas('seasonEvent.round', fn (Builder $query): Builder => $query
+                ->where('season_id', $this->pool->season_id));
+    }
+
+    /** @return Builder<Event> */
+    private function localPredictionEventsQuery(): Builder
+    {
+        return Event::query()
+            ->whereBelongsTo($this->pool)
+            ->whereIn('mode', [EventMode::Prediction->value, EventMode::Hybrid->value])
+            ->where('status', '!=', EventStatus::Cancelled->value)
+            ->whereHas('round', fn (Builder $query): Builder => $query
+                ->where('pool_id', $this->pool->id));
+    }
+
+    private function applyRespondableDeadlineScope(Builder $query, CarbonInterface $now): Builder
+    {
+        return $query
+            ->whereNotNull('locks_at')
+            ->where('locks_at', '>', $now)
+            ->where(function (Builder $query) use ($now): void {
+                $query
+                    ->where(function (Builder $query) use ($now): void {
+                        $query
+                            ->where('status', EventStatus::Open->value)
+                            ->where(function (Builder $query) use ($now): void {
+                                $query->whereNull('opens_at')->orWhere('opens_at', '<=', $now);
+                            });
+                    })
+                    ->orWhere(function (Builder $query) use ($now): void {
+                        $query
+                            ->where('status', EventStatus::Draft->value)
+                            ->whereNotNull('opens_at')
+                            ->where('opens_at', '<=', $now);
+                    });
+            });
+    }
+
     private function loadUnifiedEventCounts(): void
     {
-        $poolEvents = $this->pool->poolEvents()
+        $officialPoolEvents = $this->pool->poolEvents()
             ->where('is_active', true)
-            ->with([
-                'seasonEvent:id,season_round_id',
-                'localEvent:id,round_id',
-            ])
-            ->get(['id', 'season_event_id', 'local_event_id']);
-        $roundCount = $poolEvents
-            ->map(function (PoolEvent $poolEvent): ?string {
-                if ($poolEvent->season_event_id !== null) {
-                    return $poolEvent->seasonEvent === null
-                        ? null
-                        : "official:{$poolEvent->seasonEvent->season_round_id}";
-                }
-
-                return $poolEvent->localEvent === null
-                    ? null
-                    : "local:{$poolEvent->localEvent->round_id}";
-            })
+            ->whereNotNull('season_event_id')
+            ->with('seasonEvent:id,season_round_id')
+            ->get(['id', 'season_event_id']);
+        $officialRoundCount = $officialPoolEvents
+            ->pluck('seasonEvent.season_round_id')
             ->filter()
             ->unique()
             ->count();
+        $localEventCount = $this->pool->events()->count();
+        $localRoundCount = $this->pool->rounds()->whereHas('events')->count();
 
-        $this->pool->setAttribute('rounds_count', $roundCount);
-        $this->pool->setAttribute('events_count', $poolEvents->count());
+        $this->pool->setAttribute('rounds_count', $officialRoundCount + $localRoundCount);
+        $this->pool->setAttribute('events_count', $officialPoolEvents->count() + $localEventCount);
     }
 };

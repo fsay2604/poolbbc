@@ -13,7 +13,13 @@
                 @if ($pool->usesDraft())
                     <flux:button :href="route('pools.draft', $pool)" icon="queue-list" wire:navigate.hover>Repêchage</flux:button>
                 @endif
-                <flux:button :href="route('pools.events', $pool)" icon="calendar-days" wire:navigate.hover>Événements du pool</flux:button>
+                @if ($pool->usesPredictions())
+                    <flux:button :href="route('pools.predictions', $pool)" icon="check-circle" wire:navigate.hover>Prédictions</flux:button>
+                @endif
+                @if ($pool->isManagedBy(auth()->user()) || Illuminate\Support\Facades\Gate::allows('admin'))
+                    <flux:button :href="route('pools.events', $pool)" icon="calendar-days" wire:navigate.hover>Rondes et événements</flux:button>
+                    <flux:button :href="route('pools.results', $pool)" icon="clipboard-document-check" wire:navigate.hover>Résultats</flux:button>
+                @endif
                 <flux:button :href="route('pools.leaderboard', $pool)" icon="trophy" variant="primary" wire:navigate.hover>Classement</flux:button>
             </div>
         </div>

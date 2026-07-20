@@ -44,10 +44,12 @@ class PoolFirstNavigationTest extends TestCase
 
         Livewire::actingAs($member->user)
             ->test('pools.predictions', ['pool' => $pool])
-            ->assertSet('rounds', fn ($rounds): bool => $rounds->first()->events->first()->poolEvents->first()->predictions->isEmpty())
-            ->set("selections.{$poolEvent->id}", $option->id)
+            ->assertSet('predictionEvents', fn ($events): bool => $events
+                ->firstWhere('key', "official-{$poolEvent->id}")
+                ->revealedPredictions === [])
+            ->set("selections.official-{$poolEvent->id}", $option->id)
             ->assertDispatched('prediction-autosaved')
-            ->call('submit', $poolEvent->id)
+            ->call('submit', "official-{$poolEvent->id}")
             ->assertHasNoErrors()
             ->assertDispatched('prediction-submitted')
             ->assertSet('submittedCount', 1);
@@ -65,15 +67,15 @@ class PoolFirstNavigationTest extends TestCase
 
         Livewire::actingAs($member->user)
             ->test('pools.predictions', ['pool' => $pool])
-            ->assertSet('rounds', fn ($rounds): bool => $rounds->first()->events->first()->poolEvents->first()->predictions->count() === 2)
+            ->assertSet('predictionEvents', fn ($events): bool => count($events
+                ->firstWhere('key', "official-{$poolEvent->id}")
+                ->revealedPredictions) === 2)
             ->assertSee('Résultat officiel')
             ->assertSee($opponent->user->name);
 
-        Livewire::actingAs($member->user)
-            ->test('pools.events', ['pool' => $pool])
-            ->assertSee('Réglages des événements officiels')
-            ->assertSee($event->name)
-            ->assertDontSee($opponent->user->name);
+        $this->actingAs($member->user)
+            ->get(route('pools.events', $pool))
+            ->assertForbidden();
     }
 
     public function test_after_publish_visibility_hides_competing_predictions_until_the_result_is_published(): void
@@ -93,7 +95,9 @@ class PoolFirstNavigationTest extends TestCase
             ->assertDontSee('REPONSE-CACHEE-JUSQU-A-PUBLICATION');
         $this->assertCount(
             0,
-            $lockedComponent->get('rounds')->first()->events->first()->poolEvents->first()->predictions,
+            $lockedComponent->get('predictionEvents')
+                ->firstWhere('key', "official-{$poolEvent->id}")
+                ->revealedPredictions,
         );
 
         $event = app(TransitionSeasonEvent::class)->transition($event, EventStatus::ResultEntered, $administrator);
@@ -103,7 +107,9 @@ class PoolFirstNavigationTest extends TestCase
             ->assertDontSee('REPONSE-CACHEE-JUSQU-A-PUBLICATION');
         $this->assertCount(
             0,
-            $resultEnteredComponent->get('rounds')->first()->events->first()->poolEvents->first()->predictions,
+            $resultEnteredComponent->get('predictionEvents')
+                ->firstWhere('key', "official-{$poolEvent->id}")
+                ->revealedPredictions,
         );
 
         app(TransitionSeasonEvent::class)->transition($event, EventStatus::Published, $administrator);
@@ -113,7 +119,9 @@ class PoolFirstNavigationTest extends TestCase
             ->assertSee('REPONSE-CACHEE-JUSQU-A-PUBLICATION');
         $this->assertCount(
             1,
-            $publishedComponent->get('rounds')->first()->events->first()->poolEvents->first()->predictions,
+            $publishedComponent->get('predictionEvents')
+                ->firstWhere('key', "official-{$poolEvent->id}")
+                ->revealedPredictions,
         );
     }
 
@@ -132,17 +140,14 @@ class PoolFirstNavigationTest extends TestCase
 
         $component = Livewire::actingAs($member->user)
             ->test('pools.predictions', ['pool' => $pool])
-            ->set("selections.{$poolEvent->id}", $option->id)
+            ->set("selections.official-{$poolEvent->id}", $option->id)
             ->assertDispatched('prediction-autosaved')
             ->assertDontSee('MEMBRE-PREDICTION-ETRANGER');
 
-        $loadedPoolEvents = $component->get('rounds')->first()->events->first()->poolEvents;
+        $loadedPredictionEvents = $component->get('predictionEvents');
 
-        $this->assertSame([$poolEvent->id], $loadedPoolEvents->pluck('id')->all());
-        $this->assertSame(
-            [$poolEvent->id],
-            $loadedPoolEvents->flatMap->predictions->pluck('pool_event_id')->unique()->values()->all(),
-        );
+        $this->assertSame(["official-{$poolEvent->id}"], $loadedPredictionEvents->pluck('key')->all());
+        $this->assertSame([], $loadedPredictionEvents->first()->revealedPredictions);
     }
 
     public function test_incomplete_revision_autosave_refreshes_progress_and_targets_the_nested_selection_loading_state(): void
@@ -176,8 +181,8 @@ class PoolFirstNavigationTest extends TestCase
             ->test('pools.predictions', ['pool' => $pool])
             ->assertSet('submittedCount', 1)
             ->assertSet('missingPredictions', [])
-            ->assertSeeHtml('wire:target="selections.'.$poolEvent->id.',submit('.$poolEvent->id.')"')
-            ->set("selections.{$poolEvent->id}", [$optionIds[0]])
+            ->assertSeeHtml('wire:target="selections.official-'.$poolEvent->id.',submit(\'official-'.$poolEvent->id.'\')"')
+            ->set("selections.official-{$poolEvent->id}", [$optionIds[0]])
             ->assertSet('submittedCount', 0)
             ->assertSet('missingPredictions', [$event->name])
             ->assertSee('0 événement soumis sur 1');
@@ -196,7 +201,8 @@ class PoolFirstNavigationTest extends TestCase
             ->assertOk()
             ->assertSee('Vue d’ensemble')
             ->assertSee('Prédictions')
-            ->assertSee('Événements du pool')
+            ->assertDontSee('Rondes et événements')
+            ->assertDontSee('Résultats')
             ->assertDontSee('Résultats officiels')
             ->assertSee('Classement');
 
@@ -297,10 +303,9 @@ class PoolFirstNavigationTest extends TestCase
             ->assertSee('Aucune sélection')
             ->assertDontSee('En attente de publication');
 
-        Livewire::actingAs($member->user)
-            ->test('pools.events', ['pool' => $pool])
-            ->assertDontSee('Aucune sélection')
-            ->assertDontSee('En attente de publication');
+        $this->actingAs($member->user)
+            ->get(route('pools.events', $pool))
+            ->assertForbidden();
     }
 
     public function test_revealed_prediction_query_budget_is_invariant_as_events_are_added(): void

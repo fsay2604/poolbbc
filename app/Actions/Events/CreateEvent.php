@@ -20,7 +20,10 @@ use Illuminate\Validation\ValidationException;
 
 class CreateEvent
 {
-    public function __construct(private RecordAuditLog $recordAuditLog) {}
+    public function __construct(
+        private RecordAuditLog $recordAuditLog,
+        private BuildEventOptions $buildEventOptions,
+    ) {}
 
     /** @param array<string, mixed> $data */
     public function handle(Pool $pool, User $creator, array $data): Event
@@ -74,7 +77,7 @@ class CreateEvent
                 ],
             ]);
 
-            $this->createOptions($event, $pool, $data);
+            $this->buildEventOptions->handle($event, $pool, $data);
             $this->recordAuditLog->handle($pool, $creator, 'event.created', $event);
 
             return $event->load('options', 'round', 'eventType');
@@ -108,53 +111,5 @@ class CreateEvent
         $this->recordAuditLog->handle($pool, $creator, 'event_template.created', $eventType);
 
         return $eventType;
-    }
-
-    /** @param array<string, mixed> $data */
-    private function createOptions(Event $event, Pool $pool, array $data): void
-    {
-        $source = $event->answer_source;
-
-        if ($source === AnswerSource::Houseguests) {
-            $pool->season->houseguests()
-                ->when(! ($data['include_inactive_houseguests'] ?? false), fn ($query) => $query->where('is_active', true))
-                ->orderBy('sort_order')
-                ->get()
-                ->each(function ($houseguest, int $index) use ($event): void {
-                    $event->options()->create([
-                        'houseguest_id' => $houseguest->id,
-                        'label' => $houseguest->name,
-                        'value' => 'houseguest:'.$houseguest->id,
-                        'position' => $index + 1,
-                    ]);
-                });
-
-            if (($data['allow_none'] ?? false) === true) {
-                $event->options()->create([
-                    'label' => __('No houseguest'),
-                    'value' => 'none',
-                    'position' => $event->options()->count() + 1,
-                    'is_none' => true,
-                ]);
-            }
-
-            return;
-        }
-
-        $labels = $source === AnswerSource::Boolean
-            ? [__('Yes'), __('No')]
-            : ($data['custom_options'] ?? []);
-
-        if ($labels === []) {
-            throw ValidationException::withMessages(['form.custom_options' => __('At least one option is required.')]);
-        }
-
-        foreach ($labels as $index => $label) {
-            $event->options()->create([
-                'label' => $label,
-                'value' => Str::slug($label).':'.($index + 1),
-                'position' => $index + 1,
-            ]);
-        }
     }
 }

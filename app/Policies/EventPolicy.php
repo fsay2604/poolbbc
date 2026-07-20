@@ -2,8 +2,12 @@
 
 namespace App\Policies;
 
+use App\Enums\EventMode;
+use App\Enums\EventStatus;
 use App\Enums\PoolStatus;
 use App\Models\Event;
+use App\Models\PointEntry;
+use App\Models\PoolEvent;
 use App\Models\User;
 
 class EventPolicy
@@ -46,7 +50,13 @@ class EventPolicy
      */
     public function delete(User $user, Event $event): bool
     {
-        return $this->update($user, $event) && ! $event->predictions()->exists();
+        return $this->update($user, $event)
+            && $event->status === EventStatus::Draft
+            && $event->effectiveStatus() === EventStatus::Draft
+            && ! $event->predictions()->exists()
+            && ! $event->results()->exists()
+            && ! PointEntry::query()->whereBelongsTo($event)->exists()
+            && ! PoolEvent::query()->whereBelongsTo($event, 'localEvent')->exists();
     }
 
     /**
@@ -67,7 +77,8 @@ class EventPolicy
 
     public function predict(User $user, Event $event): bool
     {
-        return $event->isPredictionOpen()
+        return in_array($event->mode, [EventMode::Prediction, EventMode::Hybrid], true)
+            && $event->isPredictionOpen()
             && ! in_array($event->pool->status, [PoolStatus::Completed, PoolStatus::Archived], true)
             && $event->pool->members()->whereBelongsTo($user)->where('status', 'active')->exists();
     }
